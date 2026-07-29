@@ -1,0 +1,118 @@
+@import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  --color-navy: #0f172a;
+  --color-navy-2: #16213b;
+  --color-ink: #1e293b;
+  --color-mute: #64748b;
+  --color-mist: #f1f5f9;
+  --color-cloud: #f8fafc;
+  --color-sun: #facc15;
+  --color-sun-2: #eab308;
+  --color-line: #e2e8f0;
+  --color-ok: #22c55e;
+
+  --font-display: -apple-system, "SF Pro Display", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-body: -apple-system, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-board: "SF Mono", ui-monospace, "Roboto Mono", Menlo, Consolas, monospace;
+}
+
+@theme inline {
+  --color-navy: var(--color-navy);
+  --color-navy-2: var(--color-navy-2);
+  --color-ink: var(--color-ink);
+  --color-mute: var(--color-mute);
+  --color-mist: var(--color-mist);
+  --color-cloud: var(--color-cloud);
+  --color-sun: var(--color-sun);
+  --color-sun-2: var(--color-sun-2);
+  --color-line: var(--color-line);
+  --color-ok: var(--color-ok);
+  --font-display: var(--font-display);
+  --font-body: var(--font-body);
+  --font-board: var(--font-board);
+}
+
+* {
+  scroll-behavior: smooth;
+}
+
+html.dark {
+  color-scheme: dark;
+}
+
+body {
+  background: var(--color-cloud);
+  color: var(--color-ink);
+  font-family: var(--font-body);
+}
+
+html.dark body {
+  background: #0b1220;
+  color: #e2e8f0;
+}
+
+::selection {
+  background: var(--color-sun);
+  color: var(--color-navy);
+}
+
+/* Signature: dashed route line the van travels along */
+.route-line {
+  stroke-dasharray: 2 14;
+  stroke-linecap: round;
+}
+
+@keyframes travel {
+  from { stroke-dashoffset: 0; }
+  to { stroke-dashoffset: -160; }
+}
+
+@keyframes van-move {
+  from { offset-distance: 0%; }
+  to { offset-distance: 100%; }
+}
+
+.route-line-animated {
+  animation: travel 4s linear infinite;
+}
+
+.van-on-route {
+  offset-path: var(--path);
+  animation: van-move 8s linear infinite;
+}
+
+@keyframes float-slow {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+.float-slow {
+  animation: float-slow 5s ease-in-out infinite;
+}
+
+@keyframes pulse-dot {
+  0% { box-shadow: 0 0 0 0 rgba(34,197,94,0.5); }
+  70% { box-shadow: 0 0 0 8px rgba(34,197,94,0); }
+  100% { box-shadow: 0 0 0 0 rgba(34,197,94,0); }
+}
+.pulse-dot {
+  animation: pulse-dot 2s ease-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+.tabular {
+  font-family: var(--font-board);
+  font-variant-numeric: tabular-nums;
+}
+
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
