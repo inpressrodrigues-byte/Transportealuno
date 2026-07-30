@@ -90,9 +90,16 @@ export type LiveTrackingState = {
 export type AdminUser = {
   id: string;
   name: string;
+  login: string;
   contact: string;
   passwordHash: string;
   createdAt: string;
+};
+
+export type AdminAccessRecord = {
+  id: string;
+  name: string;
+  login: string;
 };
 
 export type ParentRecord = {
@@ -226,6 +233,7 @@ export type ParentDashboardPayload = {
 };
 
 export type AdminPayload = {
+  adminAccess: AdminAccessRecord;
   settings: CompanySettings;
   theme: ThemeSettings;
   schools: SchoolRecord[];

@@ -5,6 +5,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
 import path from "path";
 import type {
   AdminPayload,
+  AdminUser,
   AppDatabase,
   CheckinRecord,
   CheckinType,
@@ -28,6 +29,8 @@ import { makeId, normalizeContact, normalizeCpf, shifts, todayIso } from "@/lib/
 const DATA_DIR = path.join(process.cwd(), "data");
 const DB_PATH = path.join(DATA_DIR, "app-db.json");
 const LIVE_MAX_AGE_MINUTES = 45;
+const DEFAULT_ADMIN_LOGIN = "InpresS";
+const DEFAULT_ADMIN_PASSWORD = "GuGalex2011@.";
 
 let memoryDb: AppDatabase | null = null;
 
@@ -273,8 +276,9 @@ function createInitialDb(): AppDatabase {
       {
         id: "admin_main",
         name: "Administrador",
-        contact: "45999999999",
-        passwordHash: hashSecret("00000000000"),
+        login: DEFAULT_ADMIN_LOGIN,
+        contact: DEFAULT_ADMIN_LOGIN,
+        passwordHash: hashSecret(DEFAULT_ADMIN_PASSWORD),
         createdAt: now,
       },
     ],
@@ -394,7 +398,7 @@ function normalizeDb(input: Partial<AppDatabase>): AppDatabase {
     neighborhoods,
     liveTracking: normalizeLive(input.liveTracking, input.settings?.driverName || seed.settings.driverName),
     vanQrCode: normalizeVanQrCode(input.vanQrCode),
-    admins: input.admins?.length ? input.admins : seed.admins,
+    admins: input.admins?.length ? input.admins.map(normalizeAdmin) : seed.admins,
     parents: input.parents?.length ? input.parents : seed.parents,
     children: input.children?.length ? input.children.map(normalizeChild) : seed.children,
     checkins: input.checkins?.length ? input.checkins.map(normalizeCheckin) : seed.checkins,
@@ -502,6 +506,25 @@ function normalizeCheckin(item: Partial<CheckinRecord>): CheckinRecord {
   };
 }
 
+function normalizeAdmin(item: Partial<AdminUser>): AdminUser {
+  const oldDefault =
+    item.id === "admin_main" &&
+    normalizeContact(item.contact || "") === "45999999999" &&
+    item.passwordHash === hashSecret("00000000000");
+  const login = oldDefault
+    ? DEFAULT_ADMIN_LOGIN
+    : String(item.login || item.contact || DEFAULT_ADMIN_LOGIN).trim();
+
+  return {
+    id: item.id || "admin_main",
+    name: item.name || "Administrador",
+    login,
+    contact: login,
+    passwordHash: oldDefault ? hashSecret(DEFAULT_ADMIN_PASSWORD) : item.passwordHash || hashSecret(DEFAULT_ADMIN_PASSWORD),
+    createdAt: item.createdAt || todayIso(),
+  };
+}
+
 function normalizeAbsenceStatus(status?: ChildAbsenceStatus): ChildAbsenceStatus {
   if (status === "not_going" || status === "not_returning") return status;
   return "going";
@@ -587,6 +610,7 @@ export function mutateDb(mutator: (db: AppDatabase) => void) {
 export function getAdminPayload(): AdminPayload {
   const db = readDb();
   return {
+    adminAccess: safeAdmin(db.admins[0]),
     settings: db.settings,
     theme: db.theme,
     schools: db.schools,
@@ -642,6 +666,51 @@ function safeParent(parent: ParentRecord) {
     active: parent.active,
     createdAt: parent.createdAt,
   };
+}
+
+function safeAdmin(admin: AdminUser | undefined) {
+  return {
+    id: admin?.id || "admin_main",
+    name: admin?.name || "Administrador",
+    login: admin?.login || admin?.contact || DEFAULT_ADMIN_LOGIN,
+  };
+}
+
+export function updateAdminAccess(input: {
+  id?: string;
+  name: string;
+  login: string;
+  password?: string;
+}) {
+  let error = "";
+  const db = mutateDb((draft) => {
+    const admin = draft.admins.find((item) => item.id === input.id) || draft.admins[0];
+
+    if (!admin) {
+      error = "Admin nao encontrado.";
+      return;
+    }
+
+    const login = input.login.trim();
+    const password = input.password?.trim() || "";
+
+    if (login.length < 3) {
+      error = "Informe um usuario com pelo menos 3 caracteres.";
+      return;
+    }
+
+    if (password && password.length < 8) {
+      error = "A nova senha precisa ter pelo menos 8 caracteres.";
+      return;
+    }
+
+    admin.name = input.name.trim() || admin.name || "Administrador";
+    admin.login = login;
+    admin.contact = login;
+    if (password) admin.passwordHash = hashSecret(password);
+  });
+
+  return { db, error, adminAccess: safeAdmin(db.admins[0]) };
 }
 
 export function createReceipt(

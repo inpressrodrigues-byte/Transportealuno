@@ -17,7 +17,6 @@ import {
   MapPinned,
   Navigation,
   Palette,
-  Phone,
   QrCode,
   ReceiptText,
   Save,
@@ -128,6 +127,7 @@ export default function AdminPage() {
   const [origin] = useState(() => (typeof window === "undefined" ? "" : window.location.origin));
   const [loginForm, setLoginForm] = useState({ contact: "", password: "" });
   const [loginError, setLoginError] = useState("");
+  const [adminAccessForm, setAdminAccessForm] = useState({ id: "", name: "", login: "", password: "" });
 
   const [settingsForm, setSettingsForm] = useState<CompanySettings>(emptyCompany);
   const [themeForm, setThemeForm] = useState<ThemeSettings>(emptyTheme);
@@ -148,6 +148,12 @@ export default function AdminPage() {
     setData(payload);
     setSettingsForm(payload.settings);
     setThemeForm(payload.theme);
+    setAdminAccessForm({
+      id: payload.adminAccess.id,
+      name: payload.adminAccess.name,
+      login: payload.adminAccess.login,
+      password: "",
+    });
   };
 
   useEffect(() => {
@@ -260,6 +266,36 @@ export default function AdminPage() {
       await load();
       setMessage("Informacoes salvas.");
     }
+    setSaving("");
+  };
+
+  const saveAdminAccess = async () => {
+    setSaving("admin-access");
+    setMessage("");
+    const response = await fetch("/api/admin/access", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(adminAccessForm),
+    });
+    const payload = (await response.json().catch(() => null)) as {
+      adminAccess?: AdminPayload["adminAccess"];
+      error?: string;
+    } | null;
+
+    if (response.ok && payload?.adminAccess) {
+      const updatedSession = session
+        ? { ...session, name: payload.adminAccess.name, contact: payload.adminAccess.login }
+        : session;
+      if (updatedSession) {
+        setSession(updatedSession);
+        localStorage.setItem("rota-segura-session", JSON.stringify(updatedSession));
+      }
+      await load();
+      setMessage("Acesso administrativo atualizado.");
+    } else {
+      setMessage(payload?.error || "Nao foi possivel atualizar o acesso.");
+    }
+
     setSaving("");
   };
 
@@ -586,31 +622,58 @@ export default function AdminPage() {
           )}
 
           {active === "company" && (
-            <Panel title="Empresa, contato e Pix" subtitle="Esses dados aparecem para os pais e nos recibos.">
-              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-                <Field label="Nome da marca" value={settingsForm.brandName} onChange={(v) => setSettingsForm({ ...settingsForm, brandName: v })} />
-                <Field label="Razao social" value={settingsForm.businessName} onChange={(v) => setSettingsForm({ ...settingsForm, businessName: v })} />
-                <Field label="CNPJ/Documento" value={settingsForm.document} onChange={(v) => setSettingsForm({ ...settingsForm, document: v })} />
-                <Field label="Motorista principal" value={settingsForm.driverName} onChange={(v) => setSettingsForm({ ...settingsForm, driverName: v })} />
-                <Field label="Telefone" value={settingsForm.phone} onChange={(v) => setSettingsForm({ ...settingsForm, phone: v })} />
-                <Field label="WhatsApp com DDI" value={settingsForm.whatsapp} onChange={(v) => setSettingsForm({ ...settingsForm, whatsapp: v })} />
-                <Field label="Chave Pix" value={settingsForm.pixKey} onChange={(v) => setSettingsForm({ ...settingsForm, pixKey: v })} />
-                <Field label="Titular do Pix" value={settingsForm.pixHolder} onChange={(v) => setSettingsForm({ ...settingsForm, pixHolder: v })} />
-                <Field label="Banco do Pix" value={settingsForm.pixBank} onChange={(v) => setSettingsForm({ ...settingsForm, pixBank: v })} />
-                <label className="lg:col-span-2">
-                  <span className="text-xs font-semibold uppercase tracking-wide text-mute dark:text-white/50">Texto do recibo</span>
-                  <textarea
-                    value={settingsForm.receiptText}
-                    onChange={(e) => setSettingsForm({ ...settingsForm, receiptText: e.target.value })}
-                    rows={4}
-                    className="mt-2 w-full rounded-xl border border-line bg-white px-4 py-3 text-sm text-navy outline-none focus:border-sun dark:border-white/10 dark:bg-white/5 dark:text-white"
+            <div className="space-y-5">
+              <Panel title="Empresa, contato e Pix" subtitle="Esses dados aparecem para os pais e nos recibos.">
+                <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                  <Field label="Nome da marca" value={settingsForm.brandName} onChange={(v) => setSettingsForm({ ...settingsForm, brandName: v })} />
+                  <Field label="Razao social" value={settingsForm.businessName} onChange={(v) => setSettingsForm({ ...settingsForm, businessName: v })} />
+                  <Field label="CNPJ/Documento" value={settingsForm.document} onChange={(v) => setSettingsForm({ ...settingsForm, document: v })} />
+                  <Field label="Motorista principal" value={settingsForm.driverName} onChange={(v) => setSettingsForm({ ...settingsForm, driverName: v })} />
+                  <Field label="Telefone" value={settingsForm.phone} onChange={(v) => setSettingsForm({ ...settingsForm, phone: v })} />
+                  <Field label="WhatsApp com DDI" value={settingsForm.whatsapp} onChange={(v) => setSettingsForm({ ...settingsForm, whatsapp: v })} />
+                  <Field label="Chave Pix" value={settingsForm.pixKey} onChange={(v) => setSettingsForm({ ...settingsForm, pixKey: v })} />
+                  <Field label="Titular do Pix" value={settingsForm.pixHolder} onChange={(v) => setSettingsForm({ ...settingsForm, pixHolder: v })} />
+                  <Field label="Banco do Pix" value={settingsForm.pixBank} onChange={(v) => setSettingsForm({ ...settingsForm, pixBank: v })} />
+                  <label className="lg:col-span-2">
+                    <span className="text-xs font-semibold uppercase tracking-wide text-mute dark:text-white/50">Texto do recibo</span>
+                    <textarea
+                      value={settingsForm.receiptText}
+                      onChange={(e) => setSettingsForm({ ...settingsForm, receiptText: e.target.value })}
+                      rows={4}
+                      className="mt-2 w-full rounded-xl border border-line bg-white px-4 py-3 text-sm text-navy outline-none focus:border-sun dark:border-white/10 dark:bg-white/5 dark:text-white"
+                    />
+                  </label>
+                </div>
+                <Button onClick={saveSettings} className="mt-6" disabled={saving === "settings"}>
+                  <Save size={16} /> Salvar empresa e Pix
+                </Button>
+              </Panel>
+
+              <Panel title="Acesso administrativo" subtitle="Altere o usuario do /admin e defina uma nova senha quando precisar.">
+                <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+                  <Field
+                    label="Nome exibido"
+                    value={adminAccessForm.name}
+                    onChange={(v) => setAdminAccessForm({ ...adminAccessForm, name: v })}
                   />
-                </label>
-              </div>
-              <Button onClick={saveSettings} className="mt-6" disabled={saving === "settings"}>
-                <Save size={16} /> Salvar empresa e Pix
-              </Button>
-            </Panel>
+                  <Field
+                    label="Usuario do admin"
+                    value={adminAccessForm.login}
+                    onChange={(v) => setAdminAccessForm({ ...adminAccessForm, login: v })}
+                  />
+                  <Field
+                    label="Nova senha"
+                    type="password"
+                    placeholder="Deixe em branco para manter"
+                    value={adminAccessForm.password}
+                    onChange={(v) => setAdminAccessForm({ ...adminAccessForm, password: v })}
+                  />
+                </div>
+                <Button onClick={saveAdminAccess} className="mt-6" disabled={saving === "admin-access"}>
+                  <ShieldCheck size={16} /> Salvar acesso admin
+                </Button>
+              </Panel>
+            </div>
           )}
 
           {active === "schools" && (
@@ -1146,20 +1209,19 @@ function AdminLogin({
         </p>
         <h1 className="mt-3 text-3xl font-semibold">Entrada administrativa</h1>
         <p className="mt-2 text-sm leading-relaxed text-white/55">
-          Acesso separado da area dos responsaveis. Use o contato e a senha do administrador.
+          Acesso separado da area dos responsaveis. Use o usuario e a senha do administrador.
         </p>
 
         <form onSubmit={onSubmit} className="mt-7 space-y-5">
           <label>
-            <span className="text-xs font-semibold uppercase tracking-wide text-white/55">Contato</span>
+            <span className="text-xs font-semibold uppercase tracking-wide text-white/55">Usuario do admin</span>
             <div className="mt-2 flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-3 focus-within:border-sun/50">
-              <Phone size={16} className="text-white/40" />
+              <IdCard size={16} className="text-white/40" />
               <input
                 required
                 value={form.contact}
                 onChange={(e) => onChange({ ...form, contact: e.target.value })}
-                placeholder="(45) 99999-9999"
-                inputMode="tel"
+                placeholder="InpresS"
                 className="w-full bg-transparent text-sm text-white placeholder:text-white/30 outline-none"
               />
             </div>
