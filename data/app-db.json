@@ -1,0 +1,1614 @@
+{
+  "settings": {
+    "brandName": "Oziel Turismo",
+    "businessName": "Oziel Turismo",
+    "document": "00.000.000/0001-00",
+    "driverName": "Oziel Galtaroza Rodrigues",
+    "phone": "45999340446",
+    "whatsapp": "45999340446",
+    "pixKey": "75919591900",
+    "pixHolder": "Oziel Galtaroza Rodrigues",
+    "pixBank": "Sicoob",
+    "receiptText": "Recibo gerado automaticamente apos o envio do comprovante. A confirmacao definitiva depende da conciliacao bancaria."
+  },
+  "theme": {
+    "navy": "#0f172a",
+    "navy2": "#16213b",
+    "ink": "#1e293b",
+    "mute": "#64748b",
+    "mist": "#f1f5f9",
+    "cloud": "#f8fafc",
+    "sun": "#facc15",
+    "sun2": "#eab308",
+    "ok": "#22c55e"
+  },
+  "schools": [
+    {
+      "id": "school_horizonte",
+      "name": "Colegio Horizonte",
+      "city": "Toledo, PR",
+      "category": "particular",
+      "address": "",
+      "neighborhood": "Toledo",
+      "shift": "Manha",
+      "served": true,
+      "servedShifts": [
+        "manha"
+      ],
+      "active": true,
+      "createdAt": "2026-07-30T00:53:45.467Z"
+    },
+    {
+      "id": "school_nova_aurora",
+      "name": "Escola Nova Aurora",
+      "city": "Toledo, PR",
+      "category": "particular",
+      "address": "",
+      "neighborhood": "Toledo",
+      "shift": "Tarde",
+      "served": true,
+      "servedShifts": [
+        "tarde"
+      ],
+      "active": true,
+      "createdAt": "2026-07-30T00:53:45.467Z"
+    },
+    {
+      "id": "school_raizes",
+      "name": "Instituto Raizes",
+      "city": "Toledo, PR",
+      "category": "particular",
+      "address": "",
+      "neighborhood": "Toledo",
+      "shift": "Manha",
+      "served": true,
+      "servedShifts": [
+        "manha"
+      ],
+      "active": true,
+      "createdAt": "2026-07-30T00:53:45.467Z"
+    },
+    {
+      "id": "school_ms6tko1p_q86tbq",
+      "name": "Teste",
+      "city": "Toledo, PR",
+      "category": "particular",
+      "address": "",
+      "neighborhood": "Toledo",
+      "shift": "Manha",
+      "served": true,
+      "servedShifts": [
+        "manha"
+      ],
+      "active": true,
+      "createdAt": "2026-07-30T01:13:05.725Z"
+    },
+    {
+      "id": "cmei_arlindo_campos",
+      "name": "CMEI Arlindo de Campos",
+      "city": "Toledo, PR",
+      "category": "cmei",
+      "address": "",
+      "neighborhood": "Boa Esperanca",
+      "shift": "Nao atendida",
+      "served": false,
+      "servedShifts": [],
+      "active": true,
+      "createdAt": "2026-07-30T01:42:32.314Z"
+    },
+    {
+      "id": "cmei_cantinho_alegria",
+      "name": "CMEI Cantinho da Alegria",
+      "city": "Toledo, PR",
+      "category": "cmei",
+      "address": "",
+      "neighborhood": "Jardim Maracana",
+      "shift": "Manha, Tarde",
+      "served": true,
+      "servedShifts": [
+        "manha",
+        "tarde"
+      ],
+      "active": true,
+      "createdAt": "2026-07-30T01:42:32.314Z"
+    },
+    {
+      "id": "cmei_crescer_aprender",
+      "name": "CMEI Crescer e Aprender",
+      "city": "Toledo, PR",
+      "category": "cmei",
+      "address": "",
+      "neighborhood": "Jardim Bela Vista",
+      "shift": "Nao atendida",
+      "served": false,
+      "servedShifts": [],
+      "active": true,
+      "createdAt": "2026-07-30T01:42:32.314Z"
+    },
+    {
+      "id": "cmei_cantinho_feliz",
+      "name": "CMEI Cantinho Feliz",
+      "city": "Toledo, PR",
+      "category": "cmei",
+      "address": "",
+      "neighborhood": "BNH Parana",
+      "shift": "Manha, Tarde",
+      "served": true,
+      "servedShifts": [
+        "manha",
+        "tarde"
+      ],
+      "active": true,
+      "createdAt": "2026-07-30T01:42:32.314Z"
+    },
+    {
+      "id": "cmei_dalva_weinert",
+      "name": "CMEI Dalva Weinert Nogueira",
+      "city": "Toledo, PR",
+      "category": "cmei",
+      "address": "",
+      "neighborhood": "Jardim Gisela",
+      "shift": "Manha",
+      "served": true,
+      "servedShifts": [
+        "manha"
+      ],
+      "active": true,
+      "createdAt": "2026-07-30T01:42:32.314Z"
+    },
+    {
+      "id": "cmei_diva_fontana",
+      "name": "CMEI Diva Bordin Fontana",
+      "city": "Toledo, PR",
+      "category": "cmei",
+      "address": "",
+      "neighborhood": "Jardim Panorama",
+      "shift": "Nao atendida",
+      "served": false,
+      "servedShifts": [],
+      "active": true,
+      "createdAt": "2026-07-30T01:42:32.314Z"
+    },
+    {
+      "id": "cmei_hilda_marchi",
+      "name": "CMEI Hilda Angela de Marchi",
+      "city": "Toledo, PR",
+      "category": "cmei",
+      "address": "",
+      "neighborhood": "Jardim Bressan",
+      "shift": "Nao atendida",
+      "served": false,
+      "servedShifts": [],
+      "active": true,
+      "createdAt": "2026-07-30T01:42:32.314Z"
+    },
+    {
+      "id": "cmei_jenny_donaduzzi",
+      "name": "CMEI Jenny Donaduzzi",
+      "city": "Toledo, PR",
+      "category": "cmei",
+      "address": "",
+      "neighborhood": "Tocantins",
+      "shift": "Nao atendida",
+      "served": false,
+      "servedShifts": [],
+      "active": true,
+      "createdAt": "2026-07-30T01:42:32.314Z"
+    },
+    {
+      "id": "cmei_karine",
+      "name": "CMEI Karine Maruan Krenczynski",
+      "city": "Toledo, PR",
+      "category": "cmei",
+      "address": "",
+      "neighborhood": "Jardim Concordia",
+      "shift": "Nao atendida",
+      "served": false,
+      "servedShifts": [],
+      "active": true,
+      "createdAt": "2026-07-30T01:42:32.314Z"
+    },
+    {
+      "id": "cmei_katiuscia",
+      "name": "CMEI Katiuscia Gayardo",
+      "city": "Toledo, PR",
+      "category": "cmei",
+      "address": "",
+      "neighborhood": "Jardim Europa",
+      "shift": "Nao atendida",
+      "served": false,
+      "servedShifts": [],
+      "active": true,
+      "createdAt": "2026-07-30T01:42:32.314Z"
+    },
+    {
+      "id": "cmei_nona_gema",
+      "name": "CMEI Nona Gema",
+      "city": "Toledo, PR",
+      "category": "cmei",
+      "address": "",
+      "neighborhood": "Sao Francisco",
+      "shift": "Nao atendida",
+      "served": false,
+      "servedShifts": [],
+      "active": true,
+      "createdAt": "2026-07-30T01:42:32.314Z"
+    },
+    {
+      "id": "cmei_nono_giacomazzi",
+      "name": "CMEI Nono Giacomazzi",
+      "city": "Toledo, PR",
+      "category": "cmei",
+      "address": "",
+      "neighborhood": "Vila Paulista",
+      "shift": "Nao atendida",
+      "served": false,
+      "servedShifts": [],
+      "active": true,
+      "createdAt": "2026-07-30T01:42:32.314Z"
+    },
+    {
+      "id": "cmei_bertilla",
+      "name": "CMEI Professora Bertila Stoffel Giacomini",
+      "city": "Toledo, PR",
+      "category": "cmei",
+      "address": "",
+      "neighborhood": "Novo Sarandi",
+      "shift": "Nao atendida",
+      "served": false,
+      "servedShifts": [],
+      "active": true,
+      "createdAt": "2026-07-30T01:42:32.314Z"
+    },
+    {
+      "id": "cmei_pingo_gente",
+      "name": "CMEI Pingo de Gente",
+      "city": "Toledo, PR",
+      "category": "cmei",
+      "address": "",
+      "neighborhood": "Jardim Modelo",
+      "shift": "Nao atendida",
+      "served": false,
+      "servedShifts": [],
+      "active": true,
+      "createdAt": "2026-07-30T01:42:32.314Z"
+    },
+    {
+      "id": "cmei_everaldo_carvalho",
+      "name": "CMEI Professor Everaldo Cesar Adorno de Carvalho",
+      "city": "Toledo, PR",
+      "category": "cmei",
+      "address": "",
+      "neighborhood": "Loteamento Schneider",
+      "shift": "Nao atendida",
+      "served": false,
+      "servedShifts": [],
+      "active": true,
+      "createdAt": "2026-07-30T01:42:32.314Z"
+    },
+    {
+      "id": "cmei_ana_zorzo",
+      "name": "CMEI Professora Ana Maria Zorzo Luckmann",
+      "city": "Toledo, PR",
+      "category": "cmei",
+      "address": "",
+      "neighborhood": "Vila Pioneiro",
+      "shift": "Nao atendida",
+      "served": false,
+      "servedShifts": [],
+      "active": true,
+      "createdAt": "2026-07-30T01:42:32.314Z"
+    },
+    {
+      "id": "cmei_angela_wessel",
+      "name": "CMEI Professora Angela Maria Neolete Wessel",
+      "city": "Toledo, PR",
+      "category": "cmei",
+      "address": "",
+      "neighborhood": "Jardim Pancera",
+      "shift": "Nao atendida",
+      "served": false,
+      "servedShifts": [],
+      "active": true,
+      "createdAt": "2026-07-30T01:42:32.314Z"
+    },
+    {
+      "id": "cmei_cleusi_berger",
+      "name": "CMEI Professora Cleusi Aparecida Berger",
+      "city": "Toledo, PR",
+      "category": "cmei",
+      "address": "",
+      "neighborhood": "Jardim Santa Maria",
+      "shift": "Nao atendida",
+      "served": false,
+      "servedShifts": [],
+      "active": true,
+      "createdAt": "2026-07-30T01:42:32.314Z"
+    },
+    {
+      "id": "cmei_constantina",
+      "name": "CMEI Professora Constantina Henkel",
+      "city": "Toledo, PR",
+      "category": "cmei",
+      "address": "",
+      "neighborhood": "Jardim Fachini",
+      "shift": "Nao atendida",
+      "served": false,
+      "servedShifts": [],
+      "active": true,
+      "createdAt": "2026-07-30T01:42:32.314Z"
+    },
+    {
+      "id": "cmei_elizia",
+      "name": "CMEI Professora Elizia Ribeiro Carraro",
+      "city": "Toledo, PR",
+      "category": "cmei",
+      "address": "",
+      "neighborhood": "Boa Esperanca",
+      "shift": "Nao atendida",
+      "served": false,
+      "servedShifts": [],
+      "active": true,
+      "createdAt": "2026-07-30T01:42:32.314Z"
+    },
+    {
+      "id": "cmei_fani_bilibio",
+      "name": "CMEI Professora Fani Matilde Bilibio",
+      "city": "Toledo, PR",
+      "category": "cmei",
+      "address": "",
+      "neighborhood": "Vila Nova",
+      "shift": "Nao atendida",
+      "served": false,
+      "servedShifts": [],
+      "active": true,
+      "createdAt": "2026-07-30T01:42:32.314Z"
+    },
+    {
+      "id": "cmei_iraci_batista",
+      "name": "CMEI Professora Iraci de Souza Batista",
+      "city": "Toledo, PR",
+      "category": "cmei",
+      "address": "",
+      "neighborhood": "Vila Pioneiro",
+      "shift": "Nao atendida",
+      "served": false,
+      "servedShifts": [],
+      "active": true,
+      "createdAt": "2026-07-30T01:42:32.314Z"
+    },
+    {
+      "id": "cmei_otilia_stedile",
+      "name": "CMEI Professora Otilia Stedile",
+      "city": "Toledo, PR",
+      "category": "cmei",
+      "address": "",
+      "neighborhood": "Vila Pedrini II",
+      "shift": "Nao atendida",
+      "served": false,
+      "servedShifts": [],
+      "active": true,
+      "createdAt": "2026-07-30T01:42:32.314Z"
+    },
+    {
+      "id": "cmei_rosangela",
+      "name": "CMEI Professora Rosangela Andreoli dos Santos",
+      "city": "Toledo, PR",
+      "category": "cmei",
+      "address": "",
+      "neighborhood": "Vila Paulista",
+      "shift": "Nao atendida",
+      "served": false,
+      "servedShifts": [],
+      "active": true,
+      "createdAt": "2026-07-30T01:42:32.314Z"
+    },
+    {
+      "id": "cmei_sueli_gruber",
+      "name": "CMEI Professora Sueli Doroti Varaschin Gruber",
+      "city": "Toledo, PR",
+      "category": "cmei",
+      "address": "",
+      "neighborhood": "Jardim Panorama II",
+      "shift": "Nao atendida",
+      "served": false,
+      "servedShifts": [],
+      "active": true,
+      "createdAt": "2026-07-30T01:42:32.314Z"
+    },
+    {
+      "id": "cmei_rita_francescon",
+      "name": "CMEI Rita Luciane Francescon",
+      "city": "Toledo, PR",
+      "category": "cmei",
+      "address": "",
+      "neighborhood": "Santa Clara IV",
+      "shift": "Nao atendida",
+      "served": false,
+      "servedShifts": [],
+      "active": true,
+      "createdAt": "2026-07-30T01:42:32.314Z"
+    },
+    {
+      "id": "cmei_rosane_fontes",
+      "name": "CMEI Rosane Peripoli Fontes",
+      "city": "Toledo, PR",
+      "category": "cmei",
+      "address": "",
+      "neighborhood": "Jardim Orquideas",
+      "shift": "Nao atendida",
+      "served": false,
+      "servedShifts": [],
+      "active": true,
+      "createdAt": "2026-07-30T01:42:32.314Z"
+    },
+    {
+      "id": "cmei_vo_tharcila",
+      "name": "CMEI Vo Tharcila",
+      "city": "Toledo, PR",
+      "category": "cmei",
+      "address": "",
+      "neighborhood": "Jardim Coopagro",
+      "shift": "Manha, Tarde",
+      "served": true,
+      "servedShifts": [
+        "manha",
+        "tarde"
+      ],
+      "active": true,
+      "createdAt": "2026-07-30T01:42:32.314Z"
+    },
+    {
+      "id": "mun_alberto_santos",
+      "name": "Escola Municipal Alberto Santos Dumont",
+      "city": "Toledo, PR",
+      "category": "municipal",
+      "address": "",
+      "neighborhood": "Jardim Porto Alegre",
+      "shift": "Manha, Tarde",
+      "served": true,
+      "servedShifts": [
+        "manha",
+        "tarde"
+      ],
+      "active": true,
+      "createdAt": "2026-07-30T01:42:32.314Z"
+    },
+    {
+      "id": "mun_amelio_dal_bosco",
+      "name": "Escola Municipal Amelio Dal Bosco",
+      "city": "Toledo, PR",
+      "category": "municipal",
+      "address": "",
+      "neighborhood": "Toledo",
+      "shift": "Nao atendida",
+      "served": false,
+      "servedShifts": [],
+      "active": true,
+      "createdAt": "2026-07-30T01:42:32.314Z"
+    },
+    {
+      "id": "mun_andre_zenere",
+      "name": "Escola Municipal Andre Zenere",
+      "city": "Toledo, PR",
+      "category": "municipal",
+      "address": "",
+      "neighborhood": "Toledo",
+      "shift": "Nao atendida",
+      "served": false,
+      "servedShifts": [],
+      "active": true,
+      "createdAt": "2026-07-30T01:42:32.314Z"
+    },
+    {
+      "id": "mun_anita_garibaldi",
+      "name": "Escola Municipal Anita Garibaldi",
+      "city": "Toledo, PR",
+      "category": "municipal",
+      "address": "",
+      "neighborhood": "Centro",
+      "shift": "Manha, Tarde",
+      "served": true,
+      "servedShifts": [
+        "manha",
+        "tarde"
+      ],
+      "active": true,
+      "createdAt": "2026-07-30T01:42:32.314Z"
+    },
+    {
+      "id": "mun_antonio_scain",
+      "name": "Escola Municipal Antonio Scain",
+      "city": "Toledo, PR",
+      "category": "municipal",
+      "address": "",
+      "neighborhood": "Jardim Filadelfia",
+      "shift": "Manha",
+      "served": true,
+      "servedShifts": [
+        "manha"
+      ],
+      "active": true,
+      "createdAt": "2026-07-30T01:42:32.314Z"
+    },
+    {
+      "id": "mun_ari_gossler",
+      "name": "Escola Municipal Prof. Ari Arcassio Gossler",
+      "city": "Toledo, PR",
+      "category": "municipal",
+      "address": "",
+      "neighborhood": "Toledo",
+      "shift": "Nao atendida",
+      "served": false,
+      "servedShifts": [],
+      "active": true,
+      "createdAt": "2026-07-30T01:42:32.314Z"
+    },
+    {
+      "id": "mun_arsenio_heiss",
+      "name": "Escola Municipal Arsenio Heiss",
+      "city": "Toledo, PR",
+      "category": "municipal",
+      "address": "",
+      "neighborhood": "Toledo",
+      "shift": "Nao atendida",
+      "served": false,
+      "servedShifts": [],
+      "active": true,
+      "createdAt": "2026-07-30T01:42:32.314Z"
+    },
+    {
+      "id": "mun_carlos_joao_treis",
+      "name": "Escola Municipal Carlos Joao Treis",
+      "city": "Toledo, PR",
+      "category": "municipal",
+      "address": "",
+      "neighborhood": "Centro",
+      "shift": "Nao atendida",
+      "served": false,
+      "servedShifts": [],
+      "active": true,
+      "createdAt": "2026-07-30T01:42:32.314Z"
+    },
+    {
+      "id": "mun_olivo_beal",
+      "name": "Escola Municipal Olivo Beal",
+      "city": "Toledo, PR",
+      "category": "municipal",
+      "address": "",
+      "neighborhood": "Cesar Park",
+      "shift": "Nao atendida",
+      "served": false,
+      "servedShifts": [],
+      "active": true,
+      "createdAt": "2026-07-30T01:42:32.314Z"
+    },
+    {
+      "id": "mun_osvaldo_cruz",
+      "name": "Escola Municipal Osvaldo Cruz",
+      "city": "Toledo, PR",
+      "category": "municipal",
+      "address": "",
+      "neighborhood": "Vila Nova",
+      "shift": "Nao atendida",
+      "served": false,
+      "servedShifts": [],
+      "active": true,
+      "createdAt": "2026-07-30T01:42:32.314Z"
+    },
+    {
+      "id": "mun_sao_francisco",
+      "name": "Escola Municipal Sao Francisco de Assis",
+      "city": "Toledo, PR",
+      "category": "municipal",
+      "address": "",
+      "neighborhood": "Sao Francisco",
+      "shift": "Nao atendida",
+      "served": false,
+      "servedShifts": [],
+      "active": true,
+      "createdAt": "2026-07-30T01:42:32.314Z"
+    },
+    {
+      "id": "mun_tancredo_neves",
+      "name": "Escola Municipal Tancredo de Almeida Neves",
+      "city": "Toledo, PR",
+      "category": "municipal",
+      "address": "",
+      "neighborhood": "Boa Esperanca",
+      "shift": "Nao atendida",
+      "served": false,
+      "servedShifts": [],
+      "active": true,
+      "createdAt": "2026-07-30T01:42:32.314Z"
+    },
+    {
+      "id": "mun_walmir_grande",
+      "name": "Escola Municipal Walmir Grande",
+      "city": "Toledo, PR",
+      "category": "municipal",
+      "address": "",
+      "neighborhood": "Jardim Panorama II",
+      "shift": "Nao atendida",
+      "served": false,
+      "servedShifts": [],
+      "active": true,
+      "createdAt": "2026-07-30T01:42:32.314Z"
+    },
+    {
+      "id": "est_antonio_jose_reis",
+      "name": "Colegio Estadual Antonio Jose Reis",
+      "city": "Toledo, PR",
+      "category": "estadual",
+      "address": "",
+      "neighborhood": "Toledo",
+      "shift": "Nao atendida",
+      "served": false,
+      "servedShifts": [],
+      "active": true,
+      "createdAt": "2026-07-30T01:42:32.314Z"
+    },
+    {
+      "id": "est_attilio_fontana",
+      "name": "Colegio Estadual Senador Attilio Fontana",
+      "city": "Toledo, PR",
+      "category": "estadual",
+      "address": "",
+      "neighborhood": "Toledo",
+      "shift": "Nao atendida",
+      "served": false,
+      "servedShifts": [],
+      "active": true,
+      "createdAt": "2026-07-30T01:42:32.314Z"
+    },
+    {
+      "id": "est_augustinho_donin",
+      "name": "Colegio Estadual Augustinho Donin",
+      "city": "Toledo, PR",
+      "category": "estadual",
+      "address": "",
+      "neighborhood": "Toledo",
+      "shift": "Nao atendida",
+      "served": false,
+      "servedShifts": [],
+      "active": true,
+      "createdAt": "2026-07-30T01:42:32.314Z"
+    },
+    {
+      "id": "est_ayrton_senna",
+      "name": "Colegio Estadual Ayrton Senna da Silva",
+      "city": "Toledo, PR",
+      "category": "estadual",
+      "address": "",
+      "neighborhood": "Toledo",
+      "shift": "Nao atendida",
+      "served": false,
+      "servedShifts": [],
+      "active": true,
+      "createdAt": "2026-07-30T01:42:32.314Z"
+    },
+    {
+      "id": "est_boa_vista",
+      "name": "Escola Estadual do Campo Boa Vista",
+      "city": "Toledo, PR",
+      "category": "estadual",
+      "address": "",
+      "neighborhood": "Boa Vista",
+      "shift": "Nao atendida",
+      "served": false,
+      "servedShifts": [],
+      "active": true,
+      "createdAt": "2026-07-30T01:42:32.314Z"
+    },
+    {
+      "id": "est_bom_principio",
+      "name": "Escola Estadual do Campo Bom Principio",
+      "city": "Toledo, PR",
+      "category": "estadual",
+      "address": "",
+      "neighborhood": "Bom Principio",
+      "shift": "Nao atendida",
+      "served": false,
+      "servedShifts": [],
+      "active": true,
+      "createdAt": "2026-07-30T01:42:32.314Z"
+    },
+    {
+      "id": "est_castelo_branco",
+      "name": "Colegio Estadual Presidente Castelo Branco",
+      "city": "Toledo, PR",
+      "category": "estadual",
+      "address": "",
+      "neighborhood": "Centro",
+      "shift": "Manha, Tarde",
+      "served": true,
+      "servedShifts": [
+        "manha",
+        "tarde"
+      ],
+      "active": true,
+      "createdAt": "2026-07-30T01:42:32.314Z"
+    },
+    {
+      "id": "est_ceebja_toledo",
+      "name": "CEEBJA de Toledo",
+      "city": "Toledo, PR",
+      "category": "estadual",
+      "address": "",
+      "neighborhood": "Centro",
+      "shift": "Noite",
+      "served": true,
+      "servedShifts": [
+        "noite"
+      ],
+      "active": true,
+      "createdAt": "2026-07-30T01:42:32.314Z"
+    },
+    {
+      "id": "est_dario_vellozo",
+      "name": "Colegio Estadual Dario Vellozo",
+      "city": "Toledo, PR",
+      "category": "estadual",
+      "address": "",
+      "neighborhood": "Vila Industrial",
+      "shift": "Manha, Tarde",
+      "served": true,
+      "servedShifts": [
+        "manha",
+        "tarde"
+      ],
+      "active": true,
+      "createdAt": "2026-07-30T01:42:32.314Z"
+    },
+    {
+      "id": "est_dez_maio",
+      "name": "Escola Estadual do Campo de Dez de Maio",
+      "city": "Toledo, PR",
+      "category": "estadual",
+      "address": "",
+      "neighborhood": "Dez de Maio",
+      "shift": "Nao atendida",
+      "served": false,
+      "servedShifts": [],
+      "active": true,
+      "createdAt": "2026-07-30T01:42:32.314Z"
+    },
+    {
+      "id": "est_edwino_scherer",
+      "name": "Escola Estadual do Campo Edwino Scherer",
+      "city": "Toledo, PR",
+      "category": "estadual",
+      "address": "",
+      "neighborhood": "Interior",
+      "shift": "Nao atendida",
+      "served": false,
+      "servedShifts": [],
+      "active": true,
+      "createdAt": "2026-07-30T01:42:32.314Z"
+    },
+    {
+      "id": "est_esperanca_covatti",
+      "name": "Colegio Estadual Esperanca Favaretto Covatti",
+      "city": "Toledo, PR",
+      "category": "estadual",
+      "address": "",
+      "neighborhood": "Jardim Panorama",
+      "shift": "Nao atendida",
+      "served": false,
+      "servedShifts": [],
+      "active": true,
+      "createdAt": "2026-07-30T01:42:32.314Z"
+    },
+    {
+      "id": "est_francisco_galdino",
+      "name": "Colegio Estadual Vereador Francisco Galdino de Lima",
+      "city": "Toledo, PR",
+      "category": "estadual",
+      "address": "",
+      "neighborhood": "Toledo",
+      "shift": "Nao atendida",
+      "served": false,
+      "servedShifts": [],
+      "active": true,
+      "createdAt": "2026-07-30T01:42:32.314Z"
+    },
+    {
+      "id": "est_jardim_europa",
+      "name": "Colegio Estadual Jardim Europa",
+      "city": "Toledo, PR",
+      "category": "estadual",
+      "address": "",
+      "neighborhood": "Jardim Europa",
+      "shift": "Nao atendida",
+      "served": false,
+      "servedShifts": [],
+      "active": true,
+      "createdAt": "2026-07-30T01:42:32.314Z"
+    },
+    {
+      "id": "est_jardim_gisela",
+      "name": "Colegio Estadual Jardim Gisela",
+      "city": "Toledo, PR",
+      "category": "estadual",
+      "address": "",
+      "neighborhood": "Jardim Gisela",
+      "shift": "Manha",
+      "served": true,
+      "servedShifts": [
+        "manha"
+      ],
+      "active": true,
+      "createdAt": "2026-07-30T01:42:32.314Z"
+    },
+    {
+      "id": "est_jardim_maracana",
+      "name": "Colegio Estadual Jardim Maracana",
+      "city": "Toledo, PR",
+      "category": "estadual",
+      "address": "",
+      "neighborhood": "Jardim Maracana",
+      "shift": "Nao atendida",
+      "served": false,
+      "servedShifts": [],
+      "active": true,
+      "createdAt": "2026-07-30T01:42:32.314Z"
+    },
+    {
+      "id": "est_jardim_porto_alegre",
+      "name": "Colegio Estadual Jardim Porto Alegre",
+      "city": "Toledo, PR",
+      "category": "estadual",
+      "address": "",
+      "neighborhood": "Jardim Porto Alegre",
+      "shift": "Manha, Tarde",
+      "served": true,
+      "servedShifts": [
+        "manha",
+        "tarde"
+      ],
+      "active": true,
+      "createdAt": "2026-07-30T01:42:32.314Z"
+    },
+    {
+      "id": "est_joao_arnaldo_ritt",
+      "name": "Colegio Estadual Joao Arnaldo Ritt",
+      "city": "Toledo, PR",
+      "category": "estadual",
+      "address": "",
+      "neighborhood": "Vila Nova",
+      "shift": "Nao atendida",
+      "served": false,
+      "servedShifts": [],
+      "active": true,
+      "createdAt": "2026-07-30T01:42:32.314Z"
+    },
+    {
+      "id": "est_joao_candido",
+      "name": "Escola Estadual Doutor Joao Candido Ferreira",
+      "city": "Toledo, PR",
+      "category": "estadual",
+      "address": "",
+      "neighborhood": "Toledo",
+      "shift": "Nao atendida",
+      "served": false,
+      "servedShifts": [],
+      "active": true,
+      "createdAt": "2026-07-30T01:42:32.314Z"
+    },
+    {
+      "id": "est_luiz_morais_rego",
+      "name": "Colegio Estadual Luiz Augusto Morais Rego",
+      "city": "Toledo, PR",
+      "category": "estadual",
+      "address": "",
+      "neighborhood": "Toledo",
+      "shift": "Nao atendida",
+      "served": false,
+      "servedShifts": [],
+      "active": true,
+      "createdAt": "2026-07-30T01:42:32.314Z"
+    },
+    {
+      "id": "est_nova_concordia",
+      "name": "Escola Estadual do Campo de Nova Concordia",
+      "city": "Toledo, PR",
+      "category": "estadual",
+      "address": "",
+      "neighborhood": "Nova Concordia",
+      "shift": "Nao atendida",
+      "served": false,
+      "servedShifts": [],
+      "active": true,
+      "createdAt": "2026-07-30T01:42:32.314Z"
+    },
+    {
+      "id": "est_novo_horizonte",
+      "name": "Colegio Estadual Novo Horizonte",
+      "city": "Toledo, PR",
+      "category": "estadual",
+      "address": "",
+      "neighborhood": "Toledo",
+      "shift": "Nao atendida",
+      "served": false,
+      "servedShifts": [],
+      "active": true,
+      "createdAt": "2026-07-30T01:42:32.314Z"
+    },
+    {
+      "id": "est_novo_sarandi",
+      "name": "Colegio Estadual do Campo Novo Sarandi",
+      "city": "Toledo, PR",
+      "category": "estadual",
+      "address": "",
+      "neighborhood": "Novo Sarandi",
+      "shift": "Nao atendida",
+      "served": false,
+      "servedShifts": [],
+      "active": true,
+      "createdAt": "2026-07-30T01:42:32.314Z"
+    },
+    {
+      "id": "est_novo_sobradinho",
+      "name": "Escola Estadual do Campo Novo Sobradinho",
+      "city": "Toledo, PR",
+      "category": "estadual",
+      "address": "",
+      "neighborhood": "Novo Sobradinho",
+      "shift": "Nao atendida",
+      "served": false,
+      "servedShifts": [],
+      "active": true,
+      "createdAt": "2026-07-30T01:42:32.314Z"
+    },
+    {
+      "id": "est_ouro_preto",
+      "name": "Escola Estadual do Campo de Ouro Preto",
+      "city": "Toledo, PR",
+      "category": "estadual",
+      "address": "",
+      "neighborhood": "Ouro Preto",
+      "shift": "Nao atendida",
+      "served": false,
+      "servedShifts": [],
+      "active": true,
+      "createdAt": "2026-07-30T01:42:32.314Z"
+    },
+    {
+      "id": "est_sao_luiz",
+      "name": "Escola Estadual do Campo Sao Luiz Doeste",
+      "city": "Toledo, PR",
+      "category": "estadual",
+      "address": "",
+      "neighborhood": "Sao Luiz do Oeste",
+      "shift": "Nao atendida",
+      "served": false,
+      "servedShifts": [],
+      "active": true,
+      "createdAt": "2026-07-30T01:42:32.314Z"
+    },
+    {
+      "id": "est_agricola",
+      "name": "Colegio Agricola Estadual de Toledo",
+      "city": "Toledo, PR",
+      "category": "estadual",
+      "address": "",
+      "neighborhood": "Toledo",
+      "shift": "Nao atendida",
+      "served": false,
+      "servedShifts": [],
+      "active": true,
+      "createdAt": "2026-07-30T01:42:32.314Z"
+    },
+    {
+      "id": "est_vila_ipiranga",
+      "name": "Escola Estadual do Campo de Vila Ipiranga",
+      "city": "Toledo, PR",
+      "category": "estadual",
+      "address": "",
+      "neighborhood": "Vila Ipiranga",
+      "shift": "Nao atendida",
+      "served": false,
+      "servedShifts": [],
+      "active": true,
+      "createdAt": "2026-07-30T01:42:32.315Z"
+    },
+    {
+      "id": "part_adventista",
+      "name": "Colegio Adventista Toledo",
+      "city": "Toledo, PR",
+      "category": "particular",
+      "address": "",
+      "neighborhood": "Toledo",
+      "shift": "Nao atendida",
+      "served": false,
+      "servedShifts": [],
+      "active": true,
+      "createdAt": "2026-07-30T01:42:32.315Z"
+    },
+    {
+      "id": "part_alfa_premium",
+      "name": "Colegio Alfa Premium",
+      "city": "Toledo, PR",
+      "category": "particular",
+      "address": "",
+      "neighborhood": "Centro",
+      "shift": "Manha, Tarde",
+      "served": true,
+      "servedShifts": [
+        "manha",
+        "tarde"
+      ],
+      "active": true,
+      "createdAt": "2026-07-30T01:42:32.315Z"
+    },
+    {
+      "id": "part_bem_me_quer",
+      "name": "Escola Bem-Me-Quer",
+      "city": "Toledo, PR",
+      "category": "particular",
+      "address": "",
+      "neighborhood": "Toledo",
+      "shift": "Nao atendida",
+      "served": false,
+      "servedShifts": [],
+      "active": true,
+      "createdAt": "2026-07-30T01:42:32.315Z"
+    },
+    {
+      "id": "part_betesda",
+      "name": "Escola Betesda",
+      "city": "Toledo, PR",
+      "category": "particular",
+      "address": "",
+      "neighborhood": "Toledo",
+      "shift": "Nao atendida",
+      "served": false,
+      "servedShifts": [],
+      "active": true,
+      "createdAt": "2026-07-30T01:42:32.315Z"
+    },
+    {
+      "id": "part_harbor",
+      "name": "Harbor Bilingual School",
+      "city": "Toledo, PR",
+      "category": "particular",
+      "address": "",
+      "neighborhood": "Toledo",
+      "shift": "Nao atendida",
+      "served": false,
+      "servedShifts": [],
+      "active": true,
+      "createdAt": "2026-07-30T01:42:32.315Z"
+    },
+    {
+      "id": "part_incomar",
+      "name": "Colegio Incomar",
+      "city": "Toledo, PR",
+      "category": "particular",
+      "address": "",
+      "neighborhood": "Centro",
+      "shift": "Manha, Tarde",
+      "served": true,
+      "servedShifts": [
+        "manha",
+        "tarde"
+      ],
+      "active": true,
+      "createdAt": "2026-07-30T01:42:32.315Z"
+    },
+    {
+      "id": "part_la_salle",
+      "name": "Colegio La Salle Toledo",
+      "city": "Toledo, PR",
+      "category": "particular",
+      "address": "",
+      "neighborhood": "Jardim La Salle",
+      "shift": "Manha, Tarde",
+      "served": true,
+      "servedShifts": [
+        "manha",
+        "tarde"
+      ],
+      "active": true,
+      "createdAt": "2026-07-30T01:42:32.315Z"
+    },
+    {
+      "id": "part_sesi",
+      "name": "Colegio Sesi Toledo",
+      "city": "Toledo, PR",
+      "category": "particular",
+      "address": "",
+      "neighborhood": "Vila Industrial",
+      "shift": "Manha",
+      "served": true,
+      "servedShifts": [
+        "manha"
+      ],
+      "active": true,
+      "createdAt": "2026-07-30T01:42:32.315Z"
+    },
+    {
+      "id": "part_vila_militar",
+      "name": "Colegio Vila Militar de Toledo",
+      "city": "Toledo, PR",
+      "category": "particular",
+      "address": "",
+      "neighborhood": "Toledo",
+      "shift": "Nao atendida",
+      "served": false,
+      "servedShifts": [],
+      "active": true,
+      "createdAt": "2026-07-30T01:42:32.315Z"
+    },
+    {
+      "id": "fac_utfpr",
+      "name": "UTFPR Campus Toledo",
+      "city": "Toledo, PR",
+      "category": "faculdade",
+      "address": "",
+      "neighborhood": "Jardim La Salle",
+      "shift": "Noite",
+      "served": true,
+      "servedShifts": [
+        "noite"
+      ],
+      "active": true,
+      "createdAt": "2026-07-30T01:42:32.315Z"
+    },
+    {
+      "id": "fac_unioeste",
+      "name": "Unioeste Campus Toledo",
+      "city": "Toledo, PR",
+      "category": "faculdade",
+      "address": "",
+      "neighborhood": "Jardim La Salle",
+      "shift": "Noite",
+      "served": true,
+      "servedShifts": [
+        "noite"
+      ],
+      "active": true,
+      "createdAt": "2026-07-30T01:42:32.315Z"
+    },
+    {
+      "id": "fac_biopark",
+      "name": "Biopark Educacao",
+      "city": "Toledo, PR",
+      "category": "faculdade",
+      "address": "",
+      "neighborhood": "Biopark",
+      "shift": "Nao atendida",
+      "served": false,
+      "servedShifts": [],
+      "active": true,
+      "createdAt": "2026-07-30T01:42:32.315Z"
+    },
+    {
+      "id": "fac_unipar",
+      "name": "Unipar Toledo",
+      "city": "Toledo, PR",
+      "category": "faculdade",
+      "address": "",
+      "neighborhood": "Toledo",
+      "shift": "Nao atendida",
+      "served": false,
+      "servedShifts": [],
+      "active": true,
+      "createdAt": "2026-07-30T01:42:32.315Z"
+    },
+    {
+      "id": "fac_pucpr",
+      "name": "PUCPR Campus Toledo",
+      "city": "Toledo, PR",
+      "category": "faculdade",
+      "address": "",
+      "neighborhood": "Toledo",
+      "shift": "Nao atendida",
+      "served": false,
+      "servedShifts": [],
+      "active": true,
+      "createdAt": "2026-07-30T01:42:32.315Z"
+    }
+  ],
+  "neighborhoods": [
+    {
+      "id": "bairro_centro",
+      "name": "Centro",
+      "area": "Central",
+      "served": true,
+      "color": "#facc15",
+      "position": {
+        "x": 50,
+        "y": 48
+      },
+      "notes": "Atendimento ativo",
+      "createdAt": "2026-07-30T01:42:32.315Z"
+    },
+    {
+      "id": "bairro_lasalle",
+      "name": "Jardim La Salle",
+      "area": "Central",
+      "served": true,
+      "color": "#38bdf8",
+      "position": {
+        "x": 43,
+        "y": 38
+      },
+      "notes": "Atendimento ativo",
+      "createdAt": "2026-07-30T01:42:32.315Z"
+    },
+    {
+      "id": "bairro_vila_industrial",
+      "name": "Vila Industrial",
+      "area": "Central",
+      "served": true,
+      "color": "#4ade80",
+      "position": {
+        "x": 40,
+        "y": 58
+      },
+      "notes": "Atendimento ativo",
+      "createdAt": "2026-07-30T01:42:32.315Z"
+    },
+    {
+      "id": "bairro_porto_alegre",
+      "name": "Jardim Porto Alegre",
+      "area": "Leste",
+      "served": true,
+      "color": "#f472b6",
+      "position": {
+        "x": 69,
+        "y": 45
+      },
+      "notes": "Atendimento ativo",
+      "createdAt": "2026-07-30T01:42:32.315Z"
+    },
+    {
+      "id": "bairro_jardim_gisela",
+      "name": "Jardim Gisela",
+      "area": "Leste",
+      "served": true,
+      "color": "#fb923c",
+      "position": {
+        "x": 65,
+        "y": 58
+      },
+      "notes": "Atendimento ativo",
+      "createdAt": "2026-07-30T01:42:32.315Z"
+    },
+    {
+      "id": "bairro_coopagro",
+      "name": "Jardim Coopagro",
+      "area": "Oeste",
+      "served": true,
+      "color": "#2dd4bf",
+      "position": {
+        "x": 28,
+        "y": 47
+      },
+      "notes": "Atendimento ativo",
+      "createdAt": "2026-07-30T01:42:32.315Z"
+    },
+    {
+      "id": "bairro_panorama",
+      "name": "Jardim Panorama",
+      "area": "Sul",
+      "served": true,
+      "color": "#a78bfa",
+      "position": {
+        "x": 50,
+        "y": 71
+      },
+      "notes": "Atendimento ativo",
+      "createdAt": "2026-07-30T01:42:32.315Z"
+    },
+    {
+      "id": "bairro_vila_pioneiro",
+      "name": "Vila Pioneiro",
+      "area": "Central",
+      "served": true,
+      "color": "#22c55e",
+      "position": {
+        "x": 54,
+        "y": 60
+      },
+      "notes": "Atendimento ativo",
+      "createdAt": "2026-07-30T01:42:32.316Z"
+    },
+    {
+      "id": "bairro_jardim_maracana",
+      "name": "Jardim Maracana",
+      "area": "Norte",
+      "served": true,
+      "color": "#f59e0b",
+      "position": {
+        "x": 55,
+        "y": 29
+      },
+      "notes": "Atendimento ativo",
+      "createdAt": "2026-07-30T01:42:32.316Z"
+    },
+    {
+      "id": "bairro_jardim_europa",
+      "name": "Jardim Europa",
+      "area": "Norte",
+      "served": false,
+      "color": "#94a3b8",
+      "position": {
+        "x": 61,
+        "y": 35
+      },
+      "notes": "Ainda nao atendido",
+      "createdAt": "2026-07-30T01:42:32.316Z"
+    },
+    {
+      "id": "bairro_boa_esperanca",
+      "name": "Boa Esperanca",
+      "area": "Norte",
+      "served": false,
+      "color": "#94a3b8",
+      "position": {
+        "x": 47,
+        "y": 27
+      },
+      "notes": "Ainda nao atendido",
+      "createdAt": "2026-07-30T01:42:32.316Z"
+    },
+    {
+      "id": "bairro_sao_francisco",
+      "name": "Sao Francisco",
+      "area": "Oeste",
+      "served": false,
+      "color": "#94a3b8",
+      "position": {
+        "x": 20,
+        "y": 34
+      },
+      "notes": "Ainda nao atendido",
+      "createdAt": "2026-07-30T01:42:32.316Z"
+    },
+    {
+      "id": "bairro_vila_nova",
+      "name": "Vila Nova",
+      "area": "Interior",
+      "served": false,
+      "color": "#94a3b8",
+      "position": {
+        "x": 17,
+        "y": 16
+      },
+      "notes": "Ainda nao atendido",
+      "createdAt": "2026-07-30T01:42:32.316Z"
+    },
+    {
+      "id": "bairro_novo_sarandi",
+      "name": "Novo Sarandi",
+      "area": "Interior",
+      "served": false,
+      "color": "#94a3b8",
+      "position": {
+        "x": 77,
+        "y": 18
+      },
+      "notes": "Ainda nao atendido",
+      "createdAt": "2026-07-30T01:42:32.316Z"
+    },
+    {
+      "id": "bairro_vila_paulista",
+      "name": "Vila Paulista",
+      "area": "Sul",
+      "served": false,
+      "color": "#94a3b8",
+      "position": {
+        "x": 39,
+        "y": 73
+      },
+      "notes": "Ainda nao atendido",
+      "createdAt": "2026-07-30T01:42:32.316Z"
+    },
+    {
+      "id": "bairro_jardim_pancera",
+      "name": "Jardim Pancera",
+      "area": "Sul",
+      "served": false,
+      "color": "#94a3b8",
+      "position": {
+        "x": 62,
+        "y": 73
+      },
+      "notes": "Ainda nao atendido",
+      "createdAt": "2026-07-30T01:42:32.316Z"
+    },
+    {
+      "id": "bairro_jardim_bressan",
+      "name": "Jardim Bressan",
+      "area": "Sul",
+      "served": false,
+      "color": "#94a3b8",
+      "position": {
+        "x": 68,
+        "y": 68
+      },
+      "notes": "Ainda nao atendido",
+      "createdAt": "2026-07-30T01:42:32.316Z"
+    },
+    {
+      "id": "bairro_tocantins",
+      "name": "Tocantins",
+      "area": "Norte",
+      "served": false,
+      "color": "#94a3b8",
+      "position": {
+        "x": 37,
+        "y": 24
+      },
+      "notes": "Ainda nao atendido",
+      "createdAt": "2026-07-30T01:42:32.316Z"
+    },
+    {
+      "id": "bairro_santa_maria",
+      "name": "Jardim Santa Maria",
+      "area": "Leste",
+      "served": false,
+      "color": "#94a3b8",
+      "position": {
+        "x": 76,
+        "y": 55
+      },
+      "notes": "Ainda nao atendido",
+      "createdAt": "2026-07-30T01:42:32.316Z"
+    },
+    {
+      "id": "bairro_modelo",
+      "name": "Jardim Modelo",
+      "area": "Oeste",
+      "served": false,
+      "color": "#94a3b8",
+      "position": {
+        "x": 25,
+        "y": 61
+      },
+      "notes": "Ainda nao atendido",
+      "createdAt": "2026-07-30T01:42:32.316Z"
+    },
+    {
+      "id": "bairro_cesar_park",
+      "name": "Cesar Park",
+      "area": "Leste",
+      "served": false,
+      "color": "#94a3b8",
+      "position": {
+        "x": 75,
+        "y": 39
+      },
+      "notes": "Ainda nao atendido",
+      "createdAt": "2026-07-30T01:42:32.316Z"
+    },
+    {
+      "id": "bairro_pinheirinho",
+      "name": "Jardim Pinheirinho",
+      "area": "Sul",
+      "served": false,
+      "color": "#94a3b8",
+      "position": {
+        "x": 47,
+        "y": 84
+      },
+      "notes": "Ainda nao atendido",
+      "createdAt": "2026-07-30T01:42:32.316Z"
+    },
+    {
+      "id": "bairro_jardim_mata",
+      "name": "Jardim da Mata",
+      "area": "Norte",
+      "served": false,
+      "color": "#94a3b8",
+      "position": {
+        "x": 68,
+        "y": 23
+      },
+      "notes": "Ainda nao atendido",
+      "createdAt": "2026-07-30T01:42:32.316Z"
+    },
+    {
+      "id": "bairro_biopark",
+      "name": "Biopark",
+      "area": "Interior",
+      "served": false,
+      "color": "#94a3b8",
+      "position": {
+        "x": 84,
+        "y": 74
+      },
+      "notes": "Ainda nao atendido",
+      "createdAt": "2026-07-30T01:42:32.316Z"
+    }
+  ],
+  "liveTracking": {
+    "active": false,
+    "driverName": "Oziel Galtaroza Rodrigues",
+    "startedAt": "2026-07-30T01:42:33.562Z",
+    "lastSeenAt": "2026-07-30T01:42:33.562Z",
+    "currentNeighborhood": "Centro",
+    "nextStop": "Primeiro embarque",
+    "estimatedMinutes": 0,
+    "source": "manual"
+  },
+  "admins": [
+    {
+      "id": "admin_main",
+      "name": "Administrador",
+      "contact": "45999999999",
+      "passwordHash": "0176ea9f5240cc0dbd0779f0acd0eb8ef51e65910100eaa9caa3100976f23ea8",
+      "createdAt": "2026-07-30T00:53:45.467Z"
+    }
+  ],
+  "parents": [
+    {
+      "id": "parent_demo",
+      "name": "Marcia Andrade",
+      "contact": "45988880001",
+      "email": "marcia@example.com",
+      "cpfHash": "1720e5e1d37bc7647158a92e1d96724bb97a378d9a55def8961a22089cf16474",
+      "cpfLast4": "8910",
+      "active": true,
+      "createdAt": "2026-07-30T00:53:45.467Z"
+    }
+  ],
+  "children": [
+    {
+      "id": "child_sophia",
+      "parentId": "parent_demo",
+      "name": "Sophia Andrade",
+      "birthDate": "2016-08-12",
+      "schoolId": "school_horizonte",
+      "grade": "4o ano",
+      "responsiblePhone": "45988880001",
+      "address": {
+        "cep": "85900-000",
+        "street": "Rua das Palmeiras",
+        "number": "240",
+        "complement": "",
+        "neighborhood": "Jardim Porto Alegre",
+        "city": "Toledo",
+        "state": "PR"
+      },
+      "notes": "Ponto combinado na frente da residencia.",
+      "active": true,
+      "createdAt": "2026-07-30T00:53:45.467Z"
+    }
+  ],
+  "payments": [
+    {
+      "id": "pay_aug_2026",
+      "parentId": "parent_demo",
+      "childId": "child_sophia",
+      "month": "Agosto/2026",
+      "dueDate": "2026-08-05",
+      "amount": 220,
+      "status": "rejected",
+      "createdAt": "2026-07-30T00:53:45.467Z"
+    },
+    {
+      "id": "pay_jul_2026",
+      "parentId": "parent_demo",
+      "childId": "child_sophia",
+      "month": "Julho/2026",
+      "dueDate": "2026-07-05",
+      "amount": 220,
+      "status": "approved",
+      "receipt": {
+        "number": "RS-202607-0001",
+        "generatedAt": "2026-07-05T12:00:00.000Z",
+        "companyName": "Rota Segura Transporte Escolar",
+        "pixKey": "pix@rotasegura.com.br",
+        "payerName": "Marcia Andrade",
+        "childName": "Sophia Andrade",
+        "amount": 220,
+        "month": "Julho/2026",
+        "note": "Pagamento conciliado."
+      },
+      "createdAt": "2026-07-30T00:53:45.467Z"
+    }
+  ]
+}

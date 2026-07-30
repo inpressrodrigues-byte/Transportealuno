@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { ThemeRuntime } from "@/components/system/ThemeRuntime";
 
 export const metadata: Metadata = {
   title: "Rota Segura — Transporte Escolar",
@@ -13,7 +14,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="pt-BR" className="h-full antialiased">
+    <html lang="pt-BR" className="h-full antialiased" data-scroll-behavior="smooth">
       <head>
         <script
           dangerouslySetInnerHTML={{
@@ -30,6 +31,7 @@ export default function RootLayout({
         />
       </head>
       <body className="min-h-full flex flex-col bg-cloud text-ink font-body">
+        <ThemeRuntime />
         {children}
       </body>
     </html>

@@ -40,10 +40,10 @@ export const escolas = [
 ];
 
 export const rotas = [
-  { nome: "Rota Norte", horario: "06h20", bairros: "Jardim Porto Alegre, Vila Nova", tempo: "35 min", alunos: 14 },
-  { nome: "Rota Sul", horario: "06h40", bairros: "Jardim Coopagro, Panorama", tempo: "28 min", alunos: 11 },
-  { nome: "Rota Centro", horario: "07h00", bairros: "Centro, Vila Industrial", tempo: "20 min", alunos: 9 },
-  { nome: "Rota Oeste", horario: "07h15", bairros: "Jardim La Salle, São Francisco", tempo: "32 min", alunos: 12 },
+  { nome: "Jardim Porto Alegre", horario: "06h20", bairros: "Atendimento ativo", tempo: "35 min", alunos: 14 },
+  { nome: "Jardim Coopagro", horario: "06h40", bairros: "Atendimento ativo", tempo: "28 min", alunos: 11 },
+  { nome: "Centro", horario: "07h00", bairros: "Atendimento ativo", tempo: "20 min", alunos: 9 },
+  { nome: "Jardim La Salle", horario: "07h15", bairros: "Atendimento ativo", tempo: "32 min", alunos: 12 },
 ];
 
 export const seguranca = [
@@ -90,7 +90,7 @@ export const galeria = [
   { titulo: "Revisão mensal", categoria: "Manutenção" },
   { titulo: "Chegada na escola", categoria: "Rotina" },
   { titulo: "Bancos e cintos", categoria: "Interior" },
-  { titulo: "Estrada da Rota Norte", categoria: "Paisagem" },
+  { titulo: "Caminho pelos bairros", categoria: "Paisagem" },
   { titulo: "Checklist de saída", categoria: "Manutenção" },
   { titulo: "Van em movimento", categoria: "Exterior" },
 ];
@@ -130,6 +130,6 @@ export const dashboardAluno = {
   status: "Em rota",
   proximoPagamento: "05/08/2026 — R$ 220,00",
   ultimoPagamento: "05/07/2026 — Pago",
-  proximaViagem: "Hoje, 06h20 — Rota Norte",
+  proximaViagem: "Hoje, 06h20 - bairro atendido",
   embarque: "06h27 — Rua das Palmeiras, 240",
 };

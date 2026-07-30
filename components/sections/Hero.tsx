@@ -5,10 +5,14 @@ import { MessageCircle, ArrowRight, ShieldCheck, Users, Clock, BadgeCheck } from
 import { Button } from "@/components/ui/Button";
 import { HeroRouteMap } from "@/components/ui/RouteMotif";
 import { stats } from "@/lib/data";
+import { usePublicSite } from "@/lib/use-public-site";
 
 const statIcons = [Users, Clock, ShieldCheck, BadgeCheck];
 
 export function Hero() {
+  const site = usePublicSite();
+  const whatsapp = site?.settings.whatsapp || "5545999999999";
+
   return (
     <section
       id="inicio"
@@ -41,7 +45,7 @@ export function Hero() {
                 Solicitar orçamento <ArrowRight size={16} />
               </Button>
             </a>
-            <a href="https://wa.me/5545999999999" target="_blank" rel="noreferrer">
+            <a href={`https://wa.me/${whatsapp}`} target="_blank" rel="noreferrer">
               <Button variant="outline" size="lg">
                 <MessageCircle size={16} /> Falar no WhatsApp
               </Button>

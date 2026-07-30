@@ -6,20 +6,25 @@ import { Menu, X, MessageCircle, Bus } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { cn } from "@/lib/utils";
+import { usePublicSite } from "@/lib/use-public-site";
+import { normalizeDigits } from "@/lib/app-utils";
 
 const links = [
-  { href: "#inicio", label: "Início" },
+  { href: "#inicio", label: "Inicio" },
   { href: "#sobre", label: "Sobre" },
-  { href: "#rotas", label: "Rotas" },
+  { href: "#rotas", label: "Bairros" },
   { href: "#escolas", label: "Escolas" },
   { href: "#galeria", label: "Galeria" },
-  { href: "#seguranca", label: "Segurança" },
+  { href: "#seguranca", label: "Seguranca" },
   { href: "#contato", label: "Contato" },
 ];
 
 export function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
+  const site = usePublicSite();
+  const brand = site?.settings.brandName || "Rota Segura";
+  const whatsapp = whatsappNumber(site?.settings.whatsapp || "5545999999999");
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 24);
@@ -48,7 +53,7 @@ export function Navbar() {
             <Bus size={16} strokeWidth={2.5} />
           </span>
           <span className="text-sm font-bold tracking-tight text-white">
-            Rota Segura
+            {brand}
           </span>
         </Link>
 
@@ -68,10 +73,10 @@ export function Navbar() {
           <ThemeToggle />
           <Link href="/login">
             <Button variant="outline" size="sm">
-              Área do Cliente
+              Area do Cliente
             </Button>
           </Link>
-          <a href="https://wa.me/5545999999999" target="_blank" rel="noreferrer">
+          <a href={`https://wa.me/${whatsapp}`} target="_blank" rel="noreferrer">
             <Button variant="whatsapp" size="sm">
               <MessageCircle size={15} /> WhatsApp
             </Button>
@@ -104,10 +109,10 @@ export function Navbar() {
               </a>
             ))}
             <Link href="/login" onClick={() => setOpen(false)} className="rounded-xl px-4 py-3 text-sm font-medium text-white/80 hover:bg-white/10 hover:text-white">
-              Área do Cliente
+              Area do Cliente
             </Link>
             <a
-              href="https://wa.me/5545999999999"
+              href={`https://wa.me/${whatsapp}`}
               target="_blank"
               rel="noreferrer"
               className="mt-2"
@@ -121,4 +126,11 @@ export function Navbar() {
       )}
     </header>
   );
+}
+
+function whatsappNumber(value: string) {
+  const digits = normalizeDigits(value);
+  if (digits.startsWith("55")) return digits;
+  if (digits.length >= 10) return `55${digits}`;
+  return "5545999999999";
 }

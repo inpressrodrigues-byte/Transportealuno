@@ -1,10 +1,7 @@
-# Rota Segura — Transporte Escolar (Front-end)
+# Rota Segura - Transporte Escolar
 
-Front-end completo em Next.js/TypeScript/Tailwind para um site institucional
-de transporte escolar, com Área do Cliente e dashboard fictícios (sem
-backend). Todas as imagens são placeholders estilizados — basta substituir
-pelos arquivos reais em `public/images` e trocar os componentes `MediaFrame`
-por `<Image />` do Next.js quando as fotos estiverem prontas.
+Site e sistema de gestao para transporte escolar, feito em Next.js,
+TypeScript e Tailwind.
 
 ## Como rodar
 
@@ -13,60 +10,59 @@ npm install
 npm run dev
 ```
 
-Acesse `http://localhost:3000`. A Área do Cliente fica em `/login`
-(qualquer CPF/senha entra, pois não há backend) e o dashboard fictício em
-`/dashboard`.
+Acesse `http://localhost:3000`.
+
+## Acessos de teste
+
+Admin:
+
+- contato: `(45) 99999-9999`
+- senha: `000.000.000-00`
+- rota: `/admin`
+
+Responsavel:
+
+- contato: `(45) 98888-0001`
+- senha/CPF: `123.456.789-10`
+- rota: `/dashboard`
+
+Motorista:
+
+- rota: `/driver`
+- usar pelo celular com permissao de GPS liberada no navegador
+
+## Funcionalidades atuais
+
+- Landing page institucional.
+- Login com perfil de admin e responsavel.
+- Area admin para editar dados da empresa, Pix, escolas, responsaveis,
+  mensalidades e cores do sistema.
+- Catalogo inicial com escolas de Toledo separadas por CMEI, Municipal,
+  Estadual, Particular e Faculdade.
+- Admin de escolas com selecao de turnos atendidos: manha, tarde e noite.
+- Admin de bairros atendidos, com mapa colorido para bairros ativos e escala
+  de cinza para bairros ainda nao atendidos.
+- Atendimento em formato de celular na pagina inicial, validando turno, escola
+  e bairro antes de abrir a conversa no WhatsApp.
+- Area dos pais para cadastrar filhos, informar endereco, buscar dados por CEP,
+  salvar coordenadas do aparelho quando permitido, ver Pix, anexar comprovante
+  abrir recibo e acompanhar o AO VIVO do motorista.
+- Tela do motorista em `/driver` para iniciar, atualizar e encerrar o AO VIVO
+  usando GPS do celular quando permitido.
+- Recibo liberado somente depois do comprovante anexado.
+- APIs internas em `/api/*`.
+- Persistencia local em `data/app-db.json`.
+
+## Observacao de producao
+
+O backend atual usa arquivo local para acelerar o desenvolvimento do mid-end e
+do fluxo funcional. Para publicar de forma definitiva no Vercel, troque essa
+persistencia por um banco real e armazenamento de arquivos, como Supabase,
+Vercel Postgres/Blob ou outro servico equivalente.
+
+## Validacao
 
 ```bash
-npm run build   # build de produção
-npm run lint    # checagem de lint
+npm run lint
+npm run build
 ```
-
-## Estrutura
-
-```
-app/
-├── page.tsx           → monta a landing page (todas as seções)
-├── layout.tsx          → layout raiz, metadata, fontes do sistema
-├── globals.css         → tokens de cor/tipografia, animações da rota
-├── login/page.tsx      → tela de login (somente visual)
-└── dashboard/page.tsx  → área do cliente (somente visual)
-
-components/
-├── sections/           → Navbar, Hero, Sobre, Van, Escolas, Rotas,
-│                          Segurança, Depoimentos, Galeria, Faq, Contato,
-│                          Footer, WhatsappFloat
-└── ui/                  → Button, Card, SectionHeading, MediaFrame,
-                            RouteMotif (elemento de assinatura), ThemeToggle,
-                            SocialIcons
-
-lib/
-├── data.ts              → todo o conteúdo mockado (escolas, rotas,
-│                           depoimentos, FAQ etc.) — fácil de editar
-└── utils.ts             → helper de classes (cn)
-```
-
-## Identidade visual
-
-- Cores: navy `#0F172A`, amarelo `#FACC15`, branco e cinza-claro, conforme
-  briefing.
-- Tipografia: pilha de fontes do sistema (sem chamada externa a Google
-  Fonts, para funcionar em qualquer ambiente sem dependência de rede) e uma
-  fonte monoespaçada para números (mensalidades, horários), lembrando um
-  painel de embarque.
-- Elemento de assinatura: uma rota tracejada animada com uma van percorrendo
-  o caminho, usada no Hero, nas Rotas e no dashboard — reforça a promessa de
-  pontualidade e rastreamento.
-- Modo escuro incluído (alternância no header, com persistência).
-
-## Próximos passos (fora do escopo deste front-end)
-
-- Autenticação real (Supabase, NextAuth ou similar) no lugar do login
-  fictício em `/login`.
-- Integração com Google Maps API nas seções "Rotas", "Contato" e no
-  dashboard (hoje são ilustrações esquemáticas).
-- Persistência de mensalidades/avisos em banco de dados.
-- Substituir os `MediaFrame` por fotos reais.
-
-O código já está componentizado para que essas integrações não exijam
-refatoração estrutural.

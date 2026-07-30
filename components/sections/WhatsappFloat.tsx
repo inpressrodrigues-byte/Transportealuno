@@ -1,11 +1,15 @@
 "use client";
 
 import { MessageCircle } from "lucide-react";
+import { usePublicSite } from "@/lib/use-public-site";
 
 export function WhatsappFloat() {
+  const site = usePublicSite();
+  const whatsapp = site?.settings.whatsapp || "5545999999999";
+
   return (
     <a
-      href="https://wa.me/5545999999999"
+      href={`https://wa.me/${whatsapp}`}
       target="_blank"
       rel="noreferrer"
       aria-label="Falar no WhatsApp"

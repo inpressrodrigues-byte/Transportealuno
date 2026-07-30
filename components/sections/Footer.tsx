@@ -1,22 +1,26 @@
+"use client";
+
 import Link from "next/link";
 import { Bus, MessageCircle } from "lucide-react";
 import { InstagramGlyph, FacebookGlyph } from "@/components/ui/SocialIcons";
+import { usePublicSite } from "@/lib/use-public-site";
+import { normalizeDigits } from "@/lib/app-utils";
 
 const cols = [
   {
-    title: "Navegação",
+    title: "Navegacao",
     links: [
-      { label: "Início", href: "#inicio" },
+      { label: "Inicio", href: "#inicio" },
       { label: "Sobre", href: "#sobre" },
       { label: "Nossa Van", href: "#van" },
-      { label: "Rotas", href: "#rotas" },
+      { label: "Bairros", href: "#rotas" },
     ],
   },
   {
     title: "Institucional",
     links: [
       { label: "Escolas atendidas", href: "#escolas" },
-      { label: "Segurança", href: "#seguranca" },
+      { label: "Seguranca", href: "#seguranca" },
       { label: "Galeria", href: "#galeria" },
       { label: "Contato", href: "#contato" },
     ],
@@ -24,8 +28,15 @@ const cols = [
 ];
 
 export function Footer() {
+  const site = usePublicSite();
+  const settings = site?.settings;
+  const brand = settings?.brandName || "Rota Segura";
+  const businessName = settings?.businessName || "Rota Segura Transporte Escolar";
+  const document = settings?.document || "00.000.000/0001-00";
+  const whatsapp = whatsappNumber(settings?.whatsapp || "5545999999999");
+
   return (
-    <footer className="bg-navy-2 border-t border-white/10 py-14">
+    <footer className="border-t border-white/10 bg-navy-2 py-14">
       <div className="mx-auto max-w-6xl px-4">
         <div className="grid grid-cols-1 gap-10 sm:grid-cols-2 lg:grid-cols-4">
           <div>
@@ -33,20 +44,20 @@ export function Footer() {
               <span className="flex h-8 w-8 items-center justify-center rounded-full bg-sun text-navy">
                 <Bus size={16} strokeWidth={2.5} />
               </span>
-              <span className="text-sm font-bold text-white">Rota Segura</span>
+              <span className="text-sm font-bold text-white">{brand}</span>
             </div>
             <p className="mt-4 text-sm leading-relaxed text-white/50">
-              Transporte escolar em Toledo, PR. Rua das Palmeiras, 240 — Jardim
-              Porto Alegre.
+              Transporte escolar em Toledo, PR. Atendimento com seguranca,
+              comunicacao e pontualidade.
             </p>
             <div className="mt-4 flex gap-3">
-              <a href="https://instagram.com" target="_blank" rel="noreferrer" className="flex h-9 w-9 items-center justify-center rounded-full bg-white/5 text-white/60 hover:text-sun">
+              <a href="https://instagram.com" target="_blank" rel="noreferrer" className="flex h-9 w-9 items-center justify-center rounded-full bg-white/5 text-white/60 hover:text-sun" aria-label="Instagram">
                 <InstagramGlyph size={15} />
               </a>
-              <a href="https://facebook.com" target="_blank" rel="noreferrer" className="flex h-9 w-9 items-center justify-center rounded-full bg-white/5 text-white/60 hover:text-sun">
+              <a href="https://facebook.com" target="_blank" rel="noreferrer" className="flex h-9 w-9 items-center justify-center rounded-full bg-white/5 text-white/60 hover:text-sun" aria-label="Facebook">
                 <FacebookGlyph size={15} />
               </a>
-              <a href="https://wa.me/5545999999999" target="_blank" rel="noreferrer" className="flex h-9 w-9 items-center justify-center rounded-full bg-white/5 text-white/60 hover:text-sun">
+              <a href={`https://wa.me/${whatsapp}`} target="_blank" rel="noreferrer" className="flex h-9 w-9 items-center justify-center rounded-full bg-white/5 text-white/60 hover:text-sun" aria-label="WhatsApp">
                 <MessageCircle size={15} />
               </a>
             </div>
@@ -68,9 +79,9 @@ export function Footer() {
           ))}
 
           <div>
-            <h4 className="text-sm font-semibold text-white">Área do Cliente</h4>
+            <h4 className="text-sm font-semibold text-white">Area do Cliente</h4>
             <p className="mt-4 text-sm text-white/50">
-              Mensalidades, rastreamento e avisos em um só lugar.
+              Mensalidades, filhos cadastrados e recibos em um so lugar.
             </p>
             <Link
               href="/login"
@@ -82,10 +93,17 @@ export function Footer() {
         </div>
 
         <div className="mt-12 flex flex-col gap-2 border-t border-white/10 pt-6 text-xs text-white/40 sm:flex-row sm:items-center sm:justify-between">
-          <span>© {new Date().getFullYear()} Rota Segura Transporte Escolar. Todos os direitos reservados.</span>
-          <span>CNPJ 00.000.000/0001-00</span>
+          <span>&copy; {new Date().getFullYear()} {businessName}. Todos os direitos reservados.</span>
+          <span>CNPJ {document}</span>
         </div>
       </div>
     </footer>
   );
+}
+
+function whatsappNumber(value: string) {
+  const digits = normalizeDigits(value);
+  if (digits.startsWith("55")) return digits;
+  if (digits.length >= 10) return `55${digits}`;
+  return "5545999999999";
 }
