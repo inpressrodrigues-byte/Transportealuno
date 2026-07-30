@@ -1277,6 +1277,7 @@ export default function AdminPage() {
               <Panel title="QR Code da van" subtitle="Imprima ou deixe este QR fixado dentro da van.">
                 <div className="rounded-2xl border border-line bg-white p-4 text-center dark:border-white/10 dark:bg-white/[0.04]">
                   {qrImageUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
                     <img
                       src={qrImageUrl}
                       alt="QR Code da van para check-in"
@@ -1537,29 +1538,22 @@ function NeighborhoodMap({ neighborhoods }: { neighborhoods: NeighborhoodRecord[
       <div className="absolute inset-x-14 top-1/2 h-px bg-slate-300 dark:bg-white/10" />
       <div className="absolute left-1/2 top-10 h-[280px] w-px bg-slate-300 dark:bg-white/10" />
       {neighborhoods.map((neighborhood) => (
-        <button
+        <span
           key={neighborhood.id}
-          type="button"
           title={neighborhood.notes || neighborhood.name}
           className={cn(
-            "absolute max-w-[132px] -translate-x-1/2 -translate-y-1/2 rounded-full border px-3 py-1.5 text-xs font-bold shadow-sm transition",
+            "absolute h-5 w-5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white shadow-md transition",
             neighborhood.served
-              ? "border-white/70 text-navy"
-              : "border-slate-300 bg-slate-100 text-slate-500 grayscale dark:border-white/10 dark:bg-slate-800 dark:text-white/40"
+              ? "bg-sun"
+              : "bg-slate-300 grayscale dark:border-white/20 dark:bg-slate-700"
           )}
           style={{
             left: `${neighborhood.position.x}%`,
             top: `${neighborhood.position.y}%`,
             backgroundColor: neighborhood.served ? neighborhood.color : undefined,
           }}
-        >
-          {neighborhood.name}
-        </button>
+        />
       ))}
-      <div className="absolute bottom-4 left-4 flex flex-wrap gap-2 rounded-2xl bg-white/80 p-3 text-xs font-semibold text-slate-600 shadow-sm backdrop-blur dark:bg-slate-950/70 dark:text-white/60">
-        <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-full bg-sun" /> Atende</span>
-        <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-full bg-slate-300" /> Nao atende</span>
-      </div>
     </div>
   );
 }

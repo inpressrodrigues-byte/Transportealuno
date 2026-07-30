@@ -2,12 +2,11 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Menu, X, MessageCircle, Bus } from "lucide-react";
+import { Menu, X, Bus } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { cn } from "@/lib/utils";
 import { usePublicSite } from "@/lib/use-public-site";
-import { normalizeDigits } from "@/lib/app-utils";
 
 const links = [
   { href: "#inicio", label: "Inicio" },
@@ -24,7 +23,6 @@ export function Navbar() {
   const [open, setOpen] = useState(false);
   const site = usePublicSite();
   const brand = site?.settings.brandName || "Rota Segura";
-  const whatsapp = whatsappNumber(site?.settings.whatsapp || "5545999999999");
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 24);
@@ -76,11 +74,6 @@ export function Navbar() {
               Area do Cliente
             </Button>
           </Link>
-          <a href={`https://wa.me/${whatsapp}`} target="_blank" rel="noreferrer">
-            <Button variant="whatsapp" size="sm">
-              <MessageCircle size={15} /> WhatsApp
-            </Button>
-          </a>
         </div>
 
         <div className="flex items-center gap-1 lg:hidden">
@@ -111,26 +104,9 @@ export function Navbar() {
             <Link href="/login" onClick={() => setOpen(false)} className="rounded-xl px-4 py-3 text-sm font-medium text-white/80 hover:bg-white/10 hover:text-white">
               Area do Cliente
             </Link>
-            <a
-              href={`https://wa.me/${whatsapp}`}
-              target="_blank"
-              rel="noreferrer"
-              className="mt-2"
-            >
-              <Button variant="whatsapp" className="w-full">
-                <MessageCircle size={15} /> Falar no WhatsApp
-              </Button>
-            </a>
           </nav>
         </div>
       )}
     </header>
   );
-}
-
-function whatsappNumber(value: string) {
-  const digits = normalizeDigits(value);
-  if (digits.startsWith("55")) return digits;
-  if (digits.length >= 10) return `55${digits}`;
-  return "5545999999999";
 }

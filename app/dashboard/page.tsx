@@ -891,16 +891,24 @@ function ThemePreference() {
   const [mode, setMode] = useState<ThemeMode>("light");
 
   useEffect(() => {
-    const stored = normalizeThemeMode(localStorage.getItem("theme-mode") || localStorage.getItem("theme"));
-    setMode(stored);
-    applyThemeMode(stored);
+    let mounted = true;
+    const frame = window.requestAnimationFrame(() => {
+      if (!mounted) return;
+      const stored = normalizeThemeMode(localStorage.getItem("theme-mode") || localStorage.getItem("theme"));
+      setMode(stored);
+      applyThemeMode(stored);
+    });
 
     const timer = window.setInterval(() => {
       const current = normalizeThemeMode(localStorage.getItem("theme-mode") || localStorage.getItem("theme"));
       if (current === "auto") applyThemeMode("auto");
     }, 60000);
 
-    return () => window.clearInterval(timer);
+    return () => {
+      mounted = false;
+      window.cancelAnimationFrame(frame);
+      window.clearInterval(timer);
+    };
   }, []);
 
   const options = [

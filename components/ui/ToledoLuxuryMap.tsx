@@ -17,6 +17,8 @@ export type LeafletMapInstance = {
 
 export type LeafletMarker = {
   remove: () => void;
+  addTo: (map: LeafletMapInstance) => LeafletMarker;
+  bindTooltip: (content: string, options: Record<string, unknown>) => LeafletMarker;
 };
 
 export type LeafletBounds = {
@@ -33,11 +35,7 @@ export type LeafletNamespace = {
   marker: (
     coordinates: [number, number],
     options: Record<string, unknown>
-  ) => {
-    addTo: (map: LeafletMapInstance) => {
-      bindTooltip: (content: string, options: Record<string, unknown>) => LeafletMarker;
-    };
-  };
+  ) => LeafletMarker;
   divIcon: (options: Record<string, unknown>) => unknown;
   latLngBounds: (coordinates: [number, number][]) => LeafletBounds;
 };
@@ -58,7 +56,6 @@ export function ToledoLuxuryMap({ neighborhoods }: { neighborhoods: Neighborhood
   const [ready, setReady] = useState(false);
 
   const points = useMemo(() => neighborhoods.map(toMapPoint), [neighborhoods]);
-  const servedCount = points.filter((point) => point.served).length;
 
   useEffect(() => {
     let cancelled = false;
@@ -79,7 +76,7 @@ export function ToledoLuxuryMap({ neighborhoods }: { neighborhoods: Neighborhood
         attributionControl: false,
       });
 
-      L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
+      L.tileLayer("https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png", {
         maxZoom: 19,
         attribution: "&copy; OpenStreetMap &copy; CARTO",
       }).addTo(map);
@@ -120,20 +117,11 @@ export function ToledoLuxuryMap({ neighborhoods }: { neighborhoods: Neighborhood
           icon: L.divIcon({
             className: cn("toledo-lux-marker", point.served ? "is-served" : "is-muted"),
             html: markerHtml(point),
-            iconSize: [170, 38],
-            iconAnchor: [18, 18],
+            iconSize: [24, 24],
+            iconAnchor: [12, 12],
           }),
           keyboard: false,
-        })
-          .addTo(map)
-          .bindTooltip(
-            `${point.name} - ${point.served ? "atendimento ativo" : "ainda nao atendido"}`,
-            {
-              className: "toledo-lux-tooltip",
-              direction: "top",
-              offset: [0, -12],
-            }
-          );
+        }).addTo(map);
 
         markersRef.current.push(marker);
       });
@@ -154,36 +142,17 @@ export function ToledoLuxuryMap({ neighborhoods }: { neighborhoods: Neighborhood
   }, [points]);
 
   return (
-    <div className="relative overflow-hidden rounded-[28px] border border-[#c6a15b]/35 bg-[#0e0d0a] p-2 shadow-[0_28px_80px_rgba(0,0,0,0.42)]">
-      <div className="pointer-events-none absolute inset-2 z-[405] rounded-[22px] border border-white/10" />
-      <div className="pointer-events-none absolute inset-x-8 top-8 z-[406] flex flex-wrap items-center justify-between gap-3">
-        <div className="rounded-full border border-[#d6b36a]/35 bg-black/55 px-4 py-2 text-xs font-semibold text-[#f6ead0] shadow-xl backdrop-blur-md">
-          Toledo, Parana
-        </div>
-        <div className="rounded-full border border-white/10 bg-black/45 px-4 py-2 text-xs font-semibold text-white/70 backdrop-blur-md">
-          {servedCount} bairros atendidos
-        </div>
-      </div>
-
+    <div className="relative overflow-hidden rounded-[24px] border border-[#c6a15b]/35 bg-[#f4f0e7] p-2 shadow-[0_28px_80px_rgba(0,0,0,0.34)]">
       <div
         ref={mapContainerRef}
-        className="luxury-real-map h-[520px] min-h-[420px] w-full overflow-hidden rounded-[22px]"
+        className="luxury-real-map h-[520px] min-h-[420px] w-full overflow-hidden rounded-[18px]"
       />
 
       {!ready && (
-        <div className="absolute inset-2 flex items-center justify-center rounded-[22px] bg-[#0e0d0a] text-sm font-semibold text-[#d6b36a]">
+        <div className="absolute inset-2 flex items-center justify-center rounded-[18px] bg-[#f4f0e7] text-sm font-semibold text-[#8a6b2f]">
           Carregando mapa real de Toledo
         </div>
       )}
-
-      <div className="pointer-events-none absolute inset-x-8 bottom-8 z-[406] flex flex-wrap gap-2">
-        <span className="rounded-full border border-[#d6b36a]/35 bg-black/55 px-4 py-2 text-xs font-semibold text-[#f6ead0] backdrop-blur-md">
-          Dourado: atendemos
-        </span>
-        <span className="rounded-full border border-white/10 bg-black/45 px-4 py-2 text-xs font-semibold text-white/60 backdrop-blur-md">
-          Cinza: em avaliacao
-        </span>
-      </div>
     </div>
   );
 }
@@ -204,10 +173,7 @@ function toMapPoint(neighborhood: NeighborhoodRecord): MapPoint {
 function markerHtml(point: MapPoint) {
   const color = point.served ? "#d6b36a" : "#9ca3af";
 
-  return [
-    `<span class="marker-dot" style="--marker-color:${escapeHtml(color)}"></span>`,
-    `<span class="marker-label">${escapeHtml(point.name)}</span>`,
-  ].join("");
+  return `<span class="marker-dot" style="--marker-color:${escapeHtml(color)}" aria-label="${escapeHtml(point.name)}"></span>`;
 }
 
 function clamp(value: number, min: number, max: number) {

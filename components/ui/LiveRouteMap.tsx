@@ -25,6 +25,8 @@ export function LiveRouteMap({
     if (hasGps) return [live.latitude as number, live.longitude as number];
     return TOLEDO_CENTER;
   }, [hasGps, live.latitude, live.longitude]);
+  const initialCenterRef = useRef(center);
+  const initialHasGpsRef = useRef(hasGps);
 
   useEffect(() => {
     let cancelled = false;
@@ -36,8 +38,8 @@ export function LiveRouteMap({
       if (cancelled || !mapContainerRef.current) return;
 
       const map = L.map(mapContainerRef.current, {
-        center,
-        zoom: hasGps ? 15 : 12,
+        center: initialCenterRef.current,
+        zoom: initialHasGpsRef.current ? 15 : 12,
         minZoom: 11,
         maxZoom: 18,
         zoomControl: false,

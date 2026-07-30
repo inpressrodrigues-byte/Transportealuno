@@ -1,10 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { Bus, MessageCircle } from "lucide-react";
+import { Bus } from "lucide-react";
 import { InstagramGlyph, FacebookGlyph } from "@/components/ui/SocialIcons";
 import { usePublicSite } from "@/lib/use-public-site";
-import { normalizeDigits } from "@/lib/app-utils";
 
 const cols = [
   {
@@ -33,7 +32,6 @@ export function Footer() {
   const brand = settings?.brandName || "Rota Segura";
   const businessName = settings?.businessName || "Rota Segura Transporte Escolar";
   const document = settings?.document || "00.000.000/0001-00";
-  const whatsapp = whatsappNumber(settings?.whatsapp || "5545999999999");
 
   return (
     <footer className="border-t border-white/10 bg-navy-2 py-14">
@@ -56,9 +54,6 @@ export function Footer() {
               </a>
               <a href="https://facebook.com" target="_blank" rel="noreferrer" className="flex h-9 w-9 items-center justify-center rounded-full bg-white/5 text-white/60 hover:text-sun" aria-label="Facebook">
                 <FacebookGlyph size={15} />
-              </a>
-              <a href={`https://wa.me/${whatsapp}`} target="_blank" rel="noreferrer" className="flex h-9 w-9 items-center justify-center rounded-full bg-white/5 text-white/60 hover:text-sun" aria-label="WhatsApp">
-                <MessageCircle size={15} />
               </a>
             </div>
           </div>
@@ -99,11 +94,4 @@ export function Footer() {
       </div>
     </footer>
   );
-}
-
-function whatsappNumber(value: string) {
-  const digits = normalizeDigits(value);
-  if (digits.startsWith("55")) return digits;
-  if (digits.length >= 10) return `55${digits}`;
-  return "5545999999999";
 }
