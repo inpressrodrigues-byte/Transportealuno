@@ -16,6 +16,7 @@
   --font-display: -apple-system, "SF Pro Display", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   --font-body: -apple-system, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   --font-board: "SF Mono", ui-monospace, "Roboto Mono", Menlo, Consolas, monospace;
+  --font-luxury: Georgia, "Times New Roman", Times, serif;
 }
 
 @theme inline {
@@ -116,3 +117,111 @@ html.dark body {
 
 .no-scrollbar::-webkit-scrollbar { display: none; }
 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+.luxury-real-map {
+  background: #0e0d0a;
+}
+
+.luxury-real-map .leaflet-tile {
+  filter: saturate(0.18) contrast(1.04) brightness(0.82);
+}
+
+.luxury-real-map .leaflet-control-zoom {
+  overflow: hidden;
+  border: 1px solid rgba(214, 179, 106, 0.32);
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.54);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.32);
+  backdrop-filter: blur(16px);
+}
+
+.luxury-real-map .leaflet-control-zoom a {
+  width: 34px;
+  height: 34px;
+  border: 0;
+  background: transparent;
+  color: #f6ead0;
+  line-height: 34px;
+}
+
+.luxury-real-map .leaflet-control-zoom a:hover {
+  background: rgba(214, 179, 106, 0.18);
+  color: #ffffff;
+}
+
+.luxury-real-map .leaflet-control-attribution {
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.42);
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 10px;
+  backdrop-filter: blur(12px);
+}
+
+.luxury-real-map .leaflet-control-attribution a {
+  color: rgba(246, 234, 208, 0.78);
+}
+
+.toledo-lux-marker {
+  display: flex !important;
+  align-items: center;
+  gap: 8px;
+  width: max-content !important;
+  max-width: 176px;
+  height: auto !important;
+  border-radius: 999px;
+  border: 1px solid rgba(246, 234, 208, 0.28);
+  background: rgba(0, 0, 0, 0.62);
+  padding: 6px 10px 6px 7px;
+  color: #f7eedb;
+  box-shadow: 0 16px 38px rgba(0, 0, 0, 0.42);
+  backdrop-filter: blur(14px);
+}
+
+.toledo-lux-marker.is-muted {
+  border-color: rgba(255, 255, 255, 0.12);
+  background: rgba(15, 15, 15, 0.42);
+  color: rgba(255, 255, 255, 0.5);
+  filter: grayscale(1);
+}
+
+.toledo-lux-marker .marker-dot {
+  width: 15px;
+  height: 15px;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  border: 2px solid rgba(255, 255, 255, 0.85);
+  background: var(--marker-color, #d6b36a);
+  box-shadow:
+    0 0 0 5px rgba(214, 179, 106, 0.16),
+    0 0 22px rgba(214, 179, 106, 0.38);
+}
+
+.toledo-lux-marker.is-muted .marker-dot {
+  border-color: rgba(255, 255, 255, 0.3);
+  box-shadow: none;
+}
+
+.toledo-lux-marker .marker-label {
+  display: block;
+  max-width: 132px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.toledo-lux-tooltip {
+  border: 1px solid rgba(214, 179, 106, 0.34);
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.78);
+  color: #f6ead0;
+  box-shadow: 0 14px 38px rgba(0, 0, 0, 0.35);
+  font-size: 11px;
+  font-weight: 700;
+  backdrop-filter: blur(12px);
+}
+
+.toledo-lux-tooltip::before {
+  display: none;
+}
