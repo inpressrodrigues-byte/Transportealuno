@@ -6,6 +6,9 @@ import path from "path";
 import type {
   AdminPayload,
   AppDatabase,
+  CheckinRecord,
+  CheckinType,
+  ChildAbsenceStatus,
   ChildRecord,
   CompanySettings,
   LiveTrackingState,
@@ -18,6 +21,7 @@ import type {
   SchoolRecord,
   Shift,
   ThemeSettings,
+  VanQrCodeRecord,
 } from "@/lib/app-types";
 import { makeId, normalizeContact, normalizeCpf, shifts, todayIso } from "@/lib/app-utils";
 
@@ -72,6 +76,16 @@ function defaultLiveTracking(): LiveTrackingState {
     nextStop: "Primeiro embarque",
     estimatedMinutes: 0,
     source: "manual",
+  };
+}
+
+function defaultVanQrCode(): VanQrCodeRecord {
+  return {
+    id: "van_qr_main",
+    token: makeId("vanqr"),
+    label: "Van principal",
+    active: true,
+    generatedAt: todayIso(),
   };
 }
 
@@ -251,8 +265,10 @@ function createInitialDb(): AppDatabase {
     settings: defaultSettings(),
     theme: defaultTheme(),
     schools: seedSchools(),
+    removedSchoolIds: [],
     neighborhoods: seedNeighborhoods(),
     liveTracking: defaultLiveTracking(),
+    vanQrCode: defaultVanQrCode(),
     admins: [
       {
         id: "admin_main",
@@ -279,6 +295,8 @@ function createInitialDb(): AppDatabase {
         id: childId,
         parentId,
         name: "Sophia Andrade",
+        cpfHash: hashSecret("52919401012"),
+        cpfLast4: "1012",
         birthDate: "2016-08-12",
         schoolId: "est_jardim_porto_alegre",
         grade: "4o ano",
@@ -293,10 +311,14 @@ function createInitialDb(): AppDatabase {
           state: "PR",
         },
         notes: "Ponto combinado na frente da residencia.",
+        absenceStatus: "going",
+        absenceDate: now.slice(0, 10),
+        absenceUpdatedAt: now,
         active: true,
         createdAt: now,
       },
     ],
+    checkins: [],
     payments: [
       {
         id: "pay_aug_2026",
@@ -356,6 +378,7 @@ function ensureDb() {
 
 function normalizeDb(input: Partial<AppDatabase>): AppDatabase {
   const seed = createInitialDb();
+  const removedSchoolIds = Array.isArray(input.removedSchoolIds) ? input.removedSchoolIds : [];
   const schools = input.schools?.length
     ? mergeById(input.schools.map(normalizeSchool), seed.schools)
     : seed.schools;
@@ -366,12 +389,15 @@ function normalizeDb(input: Partial<AppDatabase>): AppDatabase {
   return {
     settings: { ...seed.settings, ...input.settings },
     theme: { ...seed.theme, ...input.theme },
-    schools,
+    schools: schools.filter((schoolItem) => !removedSchoolIds.includes(schoolItem.id)),
+    removedSchoolIds,
     neighborhoods,
     liveTracking: normalizeLive(input.liveTracking, input.settings?.driverName || seed.settings.driverName),
+    vanQrCode: normalizeVanQrCode(input.vanQrCode),
     admins: input.admins?.length ? input.admins : seed.admins,
     parents: input.parents?.length ? input.parents : seed.parents,
-    children: input.children?.length ? input.children : seed.children,
+    children: input.children?.length ? input.children.map(normalizeChild) : seed.children,
+    checkins: input.checkins?.length ? input.checkins.map(normalizeCheckin) : seed.checkins,
     payments: input.payments?.length ? input.payments : seed.payments,
   };
 }
@@ -414,6 +440,71 @@ function normalizeNeighborhood(item: Partial<NeighborhoodRecord>): NeighborhoodR
     notes: item.notes || "",
     createdAt: item.createdAt || todayIso(),
   };
+}
+
+function normalizeChild(item: Partial<ChildRecord>): ChildRecord {
+  const now = todayIso();
+  const status = normalizeAbsenceStatus(item.absenceStatus);
+
+  return {
+    id: item.id || makeId("child"),
+    parentId: item.parentId || "",
+    name: item.name || "Aluno",
+    cpfHash: item.cpfHash || "",
+    cpfLast4: item.cpfLast4 || "",
+    birthDate: item.birthDate || "",
+    schoolId: item.schoolId || "",
+    grade: item.grade || "",
+    responsiblePhone: item.responsiblePhone || "",
+    address: {
+      cep: item.address?.cep || "",
+      street: item.address?.street || "",
+      number: item.address?.number || "",
+      complement: item.address?.complement || "",
+      neighborhood: item.address?.neighborhood || "",
+      city: item.address?.city || "",
+      state: item.address?.state || "",
+      latitude: item.address?.latitude,
+      longitude: item.address?.longitude,
+    },
+    notes: item.notes || "",
+    absenceStatus: status,
+    absenceDate: item.absenceDate || now.slice(0, 10),
+    absenceUpdatedAt: item.absenceUpdatedAt || now,
+    active: item.active ?? true,
+    createdAt: item.createdAt || now,
+  };
+}
+
+function normalizeVanQrCode(item?: Partial<VanQrCodeRecord>): VanQrCodeRecord {
+  const seed = defaultVanQrCode();
+
+  return {
+    id: item?.id || seed.id,
+    token: item?.token || seed.token,
+    label: item?.label || seed.label,
+    active: item?.active ?? true,
+    generatedAt: item?.generatedAt || seed.generatedAt,
+  };
+}
+
+function normalizeCheckin(item: Partial<CheckinRecord>): CheckinRecord {
+  return {
+    id: item.id || makeId("checkin"),
+    parentId: item.parentId || "",
+    childId: item.childId || "",
+    type: item.type === "returning" ? "returning" : "boarding",
+    scannedAt: item.scannedAt || todayIso(),
+    latitude: item.latitude,
+    longitude: item.longitude,
+    accuracy: item.accuracy,
+    token: item.token || "",
+  };
+}
+
+function normalizeAbsenceStatus(status?: ChildAbsenceStatus): ChildAbsenceStatus {
+  if (status === "not_going" || status === "not_returning") return status;
+  return "going";
 }
 
 function normalizeLive(item: Partial<LiveTrackingState> | undefined, driverName: string): LiveTrackingState {
@@ -501,8 +592,10 @@ export function getAdminPayload(): AdminPayload {
     schools: db.schools,
     neighborhoods: db.neighborhoods,
     liveTracking: db.liveTracking,
+    vanQrCode: db.vanQrCode,
     parents: db.parents.map(safeParent),
     children: db.children,
+    checkins: db.checkins,
     payments: db.payments,
   };
 }
@@ -530,6 +623,7 @@ export function getParentDashboard(parentId: string): ParentDashboardPayload | n
     liveTracking: visibleLive(db.liveTracking),
     parent: safeParent(parent),
     children: db.children.filter((child) => child.parentId === parent.id),
+    checkins: db.checkins.filter((checkin) => checkin.parentId === parent.id),
     payments: db.payments.filter((payment) => payment.parentId === parent.id),
   };
 }
@@ -605,6 +699,103 @@ export function upsertSchool(input: Partial<SchoolRecord> & { name: string }) {
       createdAt: now,
     });
   });
+}
+
+export function deleteSchool(id: string) {
+  return mutateDb((db) => {
+    db.removedSchoolIds = Array.from(new Set([...(db.removedSchoolIds || []), id]));
+    db.schools = db.schools.filter((schoolItem) => schoolItem.id !== id);
+  });
+}
+
+export function updateChildAbsence(parentId: string, childId: string, status: ChildAbsenceStatus) {
+  let error = "";
+  const db = mutateDb((draft) => {
+    const child = draft.children.find(
+      (item) => item.id === childId && item.parentId === parentId && item.active
+    );
+
+    if (!child) {
+      error = "Aluno nao encontrado.";
+      return;
+    }
+
+    child.absenceStatus = normalizeAbsenceStatus(status);
+    child.absenceDate = todayIso().slice(0, 10);
+    child.absenceUpdatedAt = todayIso();
+  });
+
+  return { db, error };
+}
+
+export function regenerateVanQrCode() {
+  return mutateDb((db) => {
+    db.vanQrCode = {
+      ...defaultVanQrCode(),
+      label: db.vanQrCode?.label || "Van principal",
+      generatedAt: todayIso(),
+    };
+  });
+}
+
+export function createCheckin(input: {
+  token: string;
+  parentId: string;
+  childId: string;
+  type?: CheckinType;
+  latitude?: number;
+  longitude?: number;
+  accuracy?: number;
+}) {
+  let error = "";
+  let checkin: CheckinRecord | null = null;
+
+  const db = mutateDb((draft) => {
+    if (!draft.vanQrCode.active || draft.vanQrCode.token !== input.token) {
+      error = "QR Code invalido ou expirado.";
+      return;
+    }
+
+    const parent = draft.parents.find((item) => item.id === input.parentId && item.active);
+    const child = draft.children.find(
+      (item) => item.id === input.childId && item.parentId === input.parentId && item.active
+    );
+
+    if (!parent || !child) {
+      error = "Responsavel ou aluno nao encontrado.";
+      return;
+    }
+
+    checkin = {
+      id: makeId("checkin"),
+      parentId: parent.id,
+      childId: child.id,
+      type: input.type === "returning" ? "returning" : "boarding",
+      scannedAt: todayIso(),
+      latitude: input.latitude,
+      longitude: input.longitude,
+      accuracy: input.accuracy,
+      token: input.token,
+    };
+
+    draft.checkins = [checkin, ...draft.checkins].slice(0, 600);
+  });
+
+  return { db, checkin, error };
+}
+
+export function getDriverRoutePayload() {
+  const db = readDb();
+
+  return {
+    settings: db.settings,
+    liveTracking: visibleLive(db.liveTracking),
+    schools: db.schools.filter((schoolItem) => schoolItem.active),
+    parents: db.parents.map(safeParent),
+    children: db.children.filter((child) => child.active),
+    checkins: db.checkins.slice(0, 80),
+    vanQrCode: db.vanQrCode,
+  };
 }
 
 export function upsertNeighborhood(input: Partial<NeighborhoodRecord> & { name: string }) {

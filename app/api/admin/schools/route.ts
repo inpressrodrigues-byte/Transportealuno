@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { upsertSchool } from "@/lib/server/app-db";
+import { deleteSchool, upsertSchool } from "@/lib/server/app-db";
 import { schoolCategories, shifts } from "@/lib/app-utils";
 import type { SchoolCategory, Shift } from "@/lib/app-types";
 
@@ -24,5 +24,17 @@ export async function POST(request: Request) {
     active: body.active ?? true,
   });
 
+  return NextResponse.json({ schools: db.schools });
+}
+
+export async function DELETE(request: Request) {
+  const body = await request.json().catch(() => null);
+  const id = String(body?.id || "");
+
+  if (!id) {
+    return NextResponse.json({ error: "Informe a escola para excluir." }, { status: 400 });
+  }
+
+  const db = deleteSchool(id);
   return NextResponse.json({ schools: db.schools });
 }

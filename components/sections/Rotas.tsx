@@ -101,7 +101,7 @@ export function Rotas() {
                 </span>
                 <div>
                   <h3 className="font-semibold text-navy dark:text-white">Ainda nao atendidos</h3>
-                  <p className="text-sm text-mute dark:text-white/60">Podem ser ativados pelo admin.</p>
+                  <p className="text-sm text-mute dark:text-white/60">Podem ser ativados pelo painel interno.</p>
                 </div>
               </div>
               <div className="mt-5 flex flex-wrap gap-2">

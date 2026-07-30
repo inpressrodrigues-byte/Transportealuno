@@ -8,6 +8,10 @@ export type PaymentStatus =
 
 export type Shift = "manha" | "tarde" | "noite";
 
+export type ChildAbsenceStatus = "going" | "not_going" | "not_returning";
+
+export type CheckinType = "boarding" | "returning";
+
 export type SchoolCategory =
   | "cmei"
   | "municipal"
@@ -120,14 +124,39 @@ export type ChildRecord = {
   id: string;
   parentId: string;
   name: string;
+  cpfHash: string;
+  cpfLast4: string;
   birthDate: string;
   schoolId: string;
   grade: string;
   responsiblePhone: string;
   address: AddressRecord;
   notes: string;
+  absenceStatus: ChildAbsenceStatus;
+  absenceDate: string;
+  absenceUpdatedAt: string;
   active: boolean;
   createdAt: string;
+};
+
+export type VanQrCodeRecord = {
+  id: string;
+  token: string;
+  label: string;
+  active: boolean;
+  generatedAt: string;
+};
+
+export type CheckinRecord = {
+  id: string;
+  parentId: string;
+  childId: string;
+  type: CheckinType;
+  scannedAt: string;
+  latitude?: number;
+  longitude?: number;
+  accuracy?: number;
+  token: string;
 };
 
 export type PaymentProof = {
@@ -166,11 +195,14 @@ export type AppDatabase = {
   settings: CompanySettings;
   theme: ThemeSettings;
   schools: SchoolRecord[];
+  removedSchoolIds: string[];
   neighborhoods: NeighborhoodRecord[];
   liveTracking: LiveTrackingState;
+  vanQrCode: VanQrCodeRecord;
   admins: AdminUser[];
   parents: ParentRecord[];
   children: ChildRecord[];
+  checkins: CheckinRecord[];
   payments: PaymentRecord[];
 };
 
@@ -189,6 +221,7 @@ export type ParentDashboardPayload = {
   liveTracking: LiveTrackingState;
   parent: SafeParentRecord;
   children: ChildRecord[];
+  checkins: CheckinRecord[];
   payments: PaymentRecord[];
 };
 
@@ -198,7 +231,9 @@ export type AdminPayload = {
   schools: SchoolRecord[];
   neighborhoods: NeighborhoodRecord[];
   liveTracking: LiveTrackingState;
+  vanQrCode: VanQrCodeRecord;
   parents: SafeParentRecord[];
   children: ChildRecord[];
+  checkins: CheckinRecord[];
   payments: PaymentRecord[];
 };

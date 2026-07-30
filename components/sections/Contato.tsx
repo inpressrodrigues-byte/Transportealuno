@@ -97,7 +97,7 @@ export function Contato() {
               <p className="text-sm font-semibold uppercase tracking-[0.18em] text-sun">Atendimento</p>
               <h3 className="mt-3 text-3xl font-semibold text-white">Escolha turno, escola e bairro</h3>
               <p className="mt-3 text-sm leading-6 text-white/60">
-                O sistema confere o que esta cadastrado no admin e prepara a conversa com as informacoes principais.
+                O sistema confere o que esta cadastrado no painel interno e prepara a conversa com as informacoes principais.
               </p>
             </div>
 

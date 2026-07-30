@@ -6,18 +6,25 @@ import Link from "next/link";
 import {
   Banknote,
   Bus,
+  CalendarClock,
   CheckCircle2,
   GraduationCap,
   Home,
+  IdCard,
   Loader2,
+  Lock,
   LogOut,
   MapPinned,
   Navigation,
   Palette,
+  Phone,
+  QrCode,
   ReceiptText,
   Save,
   School,
   Settings,
+  ShieldCheck,
+  Trash2,
   UserRoundPlus,
   UsersRound,
   Wallet,
@@ -27,6 +34,7 @@ import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/utils";
 import type {
   AdminPayload,
+  ChildAbsenceStatus,
   CompanySettings,
   NeighborhoodRecord,
   PaymentStatus,
@@ -46,7 +54,7 @@ import {
   shiftsLabel,
 } from "@/lib/app-utils";
 
-type AdminTab = "overview" | "company" | "schools" | "neighborhoods" | "parents" | "payments" | "live" | "theme";
+type AdminTab = "overview" | "company" | "schools" | "neighborhoods" | "parents" | "payments" | "live" | "checkin" | "theme";
 
 const tabs = [
   { id: "overview" as AdminTab, label: "Visao geral", icon: Home },
@@ -56,6 +64,7 @@ const tabs = [
   { id: "parents" as AdminTab, label: "Responsaveis", icon: UsersRound },
   { id: "payments" as AdminTab, label: "Pagamentos", icon: Wallet },
   { id: "live" as AdminTab, label: "Ao vivo", icon: Navigation },
+  { id: "checkin" as AdminTab, label: "QR e check-in", icon: QrCode },
   { id: "theme" as AdminTab, label: "Cores", icon: Palette },
 ];
 
@@ -116,6 +125,9 @@ export default function AdminPage() {
   const [saving, setSaving] = useState("");
   const [message, setMessage] = useState("");
   const [schoolFilter, setSchoolFilter] = useState<SchoolCategory | "todas">("todas");
+  const [origin] = useState(() => (typeof window === "undefined" ? "" : window.location.origin));
+  const [loginForm, setLoginForm] = useState({ contact: "", password: "" });
+  const [loginError, setLoginError] = useState("");
 
   const [settingsForm, setSettingsForm] = useState<CompanySettings>(emptyCompany);
   const [themeForm, setThemeForm] = useState<ThemeSettings>(emptyTheme);
@@ -139,13 +151,22 @@ export default function AdminPage() {
   };
 
   useEffect(() => {
+    const wasDark = document.documentElement.classList.contains("dark");
+    document.documentElement.classList.add("dark");
+
+    return () => {
+      if (!wasDark) document.documentElement.classList.remove("dark");
+    };
+  }, []);
+
+  useEffect(() => {
     let alive = true;
 
     const boot = async () => {
       const raw = localStorage.getItem("rota-segura-session");
       const parsed = raw ? (JSON.parse(raw) as SessionUser) : null;
       if (!parsed || parsed.role !== "admin") {
-        router.replace("/login");
+        if (alive) setLoading(false);
         return;
       }
 
@@ -155,13 +176,48 @@ export default function AdminPage() {
     };
 
     boot().catch(() => {
-      if (alive) router.replace("/login");
+      if (alive) setLoading(false);
     });
 
     return () => {
       alive = false;
     };
-  }, [router]);
+  }, []);
+
+  const loginAdmin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving("admin-login");
+    setLoginError("");
+
+    try {
+      const response = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(loginForm),
+      });
+      const payload = (await response.json()) as { user?: SessionUser; error?: string };
+
+      if (!response.ok || !payload.user) {
+        setLoginError(payload.error || "Nao foi possivel entrar.");
+        return;
+      }
+
+      if (payload.user.role !== "admin") {
+        setLoginError("Este acesso nao pertence ao painel administrativo.");
+        return;
+      }
+
+      localStorage.setItem("rota-segura-session", JSON.stringify(payload.user));
+      window.dispatchEvent(new Event("rota-segura-session"));
+      setSession(payload.user);
+      await load();
+      setMessage("Admin conectado.");
+    } catch {
+      setLoginError("Falha ao conectar com o sistema.");
+    } finally {
+      setSaving("");
+    }
+  };
 
   const selectedParentChildren = useMemo(() => {
     if (!data) return [];
@@ -178,9 +234,17 @@ export default function AdminPage() {
   const servedNeighborhoods = data?.neighborhoods.filter((neighborhood) => neighborhood.served) ?? [];
   const pendingPayments = data?.payments.filter((payment) => payment.status === "pending_proof").length ?? 0;
   const receivedProofs = data?.payments.filter((payment) => payment.proof).length ?? 0;
+  const todayNotices = data?.children.filter((child) => child.absenceStatus !== "going") ?? [];
+  const recentCheckins = data?.checkins.slice(0, 12) ?? [];
+  const checkinUrl = data?.vanQrCode?.token ? `${origin || ""}/checkin?token=${data.vanQrCode.token}` : "";
+  const qrImageUrl = checkinUrl
+    ? `https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=${encodeURIComponent(checkinUrl)}`
+    : "";
 
   const logout = () => {
     localStorage.removeItem("rota-segura-session");
+    setSession(null);
+    setData(null);
     router.push("/");
   };
 
@@ -213,6 +277,30 @@ export default function AdminPage() {
       setSchoolForm(emptySchoolForm);
       setMessage(payload.id ? "Escola atualizada." : "Escola adicionada.");
     }
+    setSaving("");
+  };
+
+  const removeSchool = async (id: string, name: string) => {
+    const confirmed = window.confirm(`Excluir a escola "${name}" do catalogo?`);
+    if (!confirmed) return;
+
+    setSaving(`school-delete-${id}`);
+    setMessage("");
+    const response = await fetch("/api/admin/schools", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id }),
+    });
+
+    if (response.ok) {
+      await load();
+      if (schoolForm.id === id) setSchoolForm(emptySchoolForm);
+      setMessage("Escola excluida.");
+    } else {
+      const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+      setMessage(payload?.error || "Nao foi possivel excluir a escola.");
+    }
+
     setSaving("");
   };
 
@@ -340,15 +428,40 @@ export default function AdminPage() {
     setSaving("");
   };
 
+  const regenerateQr = async () => {
+    setSaving("qr");
+    setMessage("");
+    const response = await fetch("/api/admin/qr", { method: "POST" });
+    if (response.ok) {
+      await load();
+      setMessage("Novo QR Code da van gerado.");
+    } else {
+      setMessage("Nao foi possivel gerar um novo QR.");
+    }
+    setSaving("");
+  };
+
   const schoolName = (id: string) => data?.schools.find((schoolItem) => schoolItem.id === id)?.name || "Sem escola";
   const parentName = (id: string) => data?.parents.find((parent) => parent.id === id)?.name || "Responsavel";
   const childName = (id: string) => data?.children.find((child) => child.id === id)?.name || "Aluno";
 
-  if (loading || !session || !data) {
+  if (loading) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-mist text-navy">
+      <main className="flex min-h-screen items-center justify-center bg-[#0b1220] text-white">
         <Loader2 className="animate-spin text-sun-2" size={28} />
       </main>
+    );
+  }
+
+  if (!session || !data) {
+    return (
+      <AdminLogin
+        form={loginForm}
+        error={loginError}
+        saving={saving === "admin-login"}
+        onChange={setLoginForm}
+        onSubmit={loginAdmin}
+      />
     );
   }
 
@@ -621,6 +734,15 @@ export default function AdminPage() {
                         >
                           {schoolItem.served ? "Pausar" : "Atender"}
                         </Button>
+                        <Button
+                          type="button"
+                          variant="outlineDark"
+                          size="sm"
+                          onClick={() => removeSchool(schoolItem.id, schoolItem.name)}
+                          disabled={saving === `school-delete-${schoolItem.id}`}
+                        >
+                          <Trash2 size={14} /> Excluir
+                        </Button>
                       </div>
                     </div>
                   ))}
@@ -761,8 +883,14 @@ export default function AdminPage() {
                           <div className="mt-4 grid grid-cols-1 gap-2 md:grid-cols-2">
                             {children.map((child) => (
                               <div key={child.id} className="rounded-xl bg-mist px-4 py-3 text-sm dark:bg-white/5">
-                                <div className="font-semibold text-navy dark:text-white">{child.name}</div>
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <div className="font-semibold text-navy dark:text-white">{child.name}</div>
+                                  <AbsenceBadge status={child.absenceStatus} />
+                                </div>
                                 <div className="text-mute dark:text-white/55">{schoolName(child.schoolId)}</div>
+                                <div className="mt-1 text-xs text-mute dark:text-white/45">
+                                  CPF final {child.cpfLast4 || "nao informado"} - nascimento {child.birthDate || "nao informado"}
+                                </div>
                               </div>
                             ))}
                           </div>
@@ -875,6 +1003,81 @@ export default function AdminPage() {
             </Panel>
           )}
 
+          {active === "checkin" && (
+            <div className="grid grid-cols-1 gap-5 xl:grid-cols-[360px_1fr]">
+              <Panel title="QR Code da van" subtitle="Imprima ou deixe este QR fixado dentro da van.">
+                <div className="rounded-2xl border border-line bg-white p-4 text-center dark:border-white/10 dark:bg-white/[0.04]">
+                  {qrImageUrl ? (
+                    <img
+                      src={qrImageUrl}
+                      alt="QR Code da van para check-in"
+                      className="mx-auto h-64 w-64 rounded-xl bg-white p-3"
+                    />
+                  ) : (
+                    <div className="flex h-64 items-center justify-center rounded-xl bg-mist text-sm text-mute dark:bg-white/5 dark:text-white/50">
+                      Gerando QR
+                    </div>
+                  )}
+                  <div className="mt-4 break-all rounded-xl bg-mist px-3 py-2 text-xs text-mute dark:bg-white/5 dark:text-white/55">
+                    {checkinUrl || "Link indisponivel"}
+                  </div>
+                </div>
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <Button type="button" onClick={regenerateQr} disabled={saving === "qr"}>
+                    <QrCode size={16} /> Gerar novo QR
+                  </Button>
+                  {checkinUrl && (
+                    <Button
+                      type="button"
+                      variant="outlineDark"
+                      onClick={() => navigator.clipboard?.writeText(checkinUrl)}
+                    >
+                      Copiar link
+                    </Button>
+                  )}
+                </div>
+                <p className="mt-4 text-sm leading-relaxed text-mute dark:text-white/55">
+                  Ao trocar o QR, o codigo antigo deixa de registrar check-ins.
+                </p>
+              </Panel>
+
+              <div className="space-y-5">
+                <Panel title="Avisos dos pais" subtitle="Status que o motorista tambem ve na rota.">
+                  <div className="space-y-3">
+                    {todayNotices.length === 0 && <EmptyState text="Nenhum aviso de ausencia no momento." />}
+                    {todayNotices.map((child) => (
+                      <div key={child.id} className="rounded-2xl border border-line p-4 dark:border-white/10">
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                          <div>
+                            <div className="font-semibold text-navy dark:text-white">{child.name}</div>
+                            <div className="text-sm text-mute dark:text-white/55">
+                              {parentName(child.parentId)} - {schoolName(child.schoolId)}
+                            </div>
+                          </div>
+                          <AbsenceBadge status={child.absenceStatus} />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </Panel>
+
+                <Panel title="Check-ins recentes" subtitle="Horario e localizacao enviados ao escanear o QR da van.">
+                  <div className="space-y-3">
+                    {recentCheckins.length === 0 && <EmptyState text="Nenhum check-in registrado ainda." />}
+                    {recentCheckins.map((checkin) => (
+                      <CheckinRow
+                        key={checkin.id}
+                        checkin={checkin}
+                        childName={childName(checkin.childId)}
+                        parentName={parentName(checkin.parentId)}
+                      />
+                    ))}
+                  </div>
+                </Panel>
+              </div>
+            </div>
+          )}
+
           {active === "theme" && (
             <Panel title="Cores do sistema" subtitle="Muda a paleta usada no site, admin e area dos pais.">
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -907,6 +1110,96 @@ export default function AdminPage() {
         </section>
       </main>
     </div>
+  );
+}
+
+function AdminLogin({
+  form,
+  error,
+  saving,
+  onChange,
+  onSubmit,
+}: {
+  form: { contact: string; password: string };
+  error: string;
+  saving: boolean;
+  onChange: (form: { contact: string; password: string }) => void;
+  onSubmit: (e: React.FormEvent) => void;
+}) {
+  return (
+    <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#0b1220] px-4 py-10 text-white">
+      <div
+        aria-hidden
+        className="absolute inset-0 bg-[radial-gradient(60%_40%_at_50%_0%,rgba(250,204,21,0.12),transparent)]"
+      />
+
+      <section className="relative z-10 w-full max-w-md rounded-3xl border border-white/10 bg-white/[0.05] p-6 shadow-2xl shadow-black/30 backdrop-blur-md sm:p-8">
+        <Link href="/" className="inline-flex items-center gap-2 text-sm font-medium text-white/55 hover:text-white">
+          Voltar ao site
+        </Link>
+
+        <span className="mt-7 flex h-12 w-12 items-center justify-center rounded-full bg-sun text-navy">
+          <ShieldCheck size={22} />
+        </span>
+        <p className="mt-5 text-sm font-semibold uppercase tracking-[0.22em] text-sun">
+          Painel restrito
+        </p>
+        <h1 className="mt-3 text-3xl font-semibold">Entrada administrativa</h1>
+        <p className="mt-2 text-sm leading-relaxed text-white/55">
+          Acesso separado da area dos responsaveis. Use o contato e a senha do administrador.
+        </p>
+
+        <form onSubmit={onSubmit} className="mt-7 space-y-5">
+          <label>
+            <span className="text-xs font-semibold uppercase tracking-wide text-white/55">Contato</span>
+            <div className="mt-2 flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-3 focus-within:border-sun/50">
+              <Phone size={16} className="text-white/40" />
+              <input
+                required
+                value={form.contact}
+                onChange={(e) => onChange({ ...form, contact: e.target.value })}
+                placeholder="(45) 99999-9999"
+                inputMode="tel"
+                className="w-full bg-transparent text-sm text-white placeholder:text-white/30 outline-none"
+              />
+            </div>
+          </label>
+
+          <label>
+            <span className="text-xs font-semibold uppercase tracking-wide text-white/55">Senha</span>
+            <div className="mt-2 flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-3 focus-within:border-sun/50">
+              <Lock size={16} className="text-white/40" />
+              <input
+                required
+                type="password"
+                value={form.password}
+                onChange={(e) => onChange({ ...form, password: e.target.value })}
+                placeholder="Senha administrativa"
+                className="w-full bg-transparent text-sm text-white placeholder:text-white/30 outline-none"
+              />
+            </div>
+          </label>
+
+          {error && (
+            <div className="rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-sm text-red-100">
+              {error}
+            </div>
+          )}
+
+          <Button type="submit" variant="primary" size="lg" className="w-full" disabled={saving}>
+            {saving ? (
+              <>
+                <Loader2 size={16} className="animate-spin" /> Entrando
+              </>
+            ) : (
+              <>
+                <IdCard size={16} /> Entrar no admin
+              </>
+            )}
+          </Button>
+        </form>
+      </section>
+    </main>
   );
 }
 
@@ -1092,6 +1385,80 @@ function ProfileLine({ label, value }: { label: string; value: string }) {
     <div className="rounded-2xl border border-line p-4 dark:border-white/10">
       <div className="text-xs uppercase tracking-wide text-mute dark:text-white/50">{label}</div>
       <div className="mt-1 font-semibold text-navy dark:text-white">{value}</div>
+    </div>
+  );
+}
+
+function EmptyState({ text }: { text: string }) {
+  return (
+    <div className="rounded-2xl border border-dashed border-line p-8 text-center text-sm text-mute dark:border-white/10 dark:text-white/55">
+      {text}
+    </div>
+  );
+}
+
+function AbsenceBadge({ status }: { status: ChildAbsenceStatus }) {
+  return (
+    <span
+      className={cn(
+        "inline-flex w-fit items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold",
+        status === "going" && "bg-ok/10 text-ok",
+        status === "not_going" && "bg-red-500/10 text-red-600 dark:text-red-300",
+        status === "not_returning" && "bg-sun/15 text-sun-2"
+      )}
+    >
+      <CalendarClock size={13} />
+      {absenceLabel(status)}
+    </span>
+  );
+}
+
+function absenceLabel(status: ChildAbsenceStatus) {
+  const labels: Record<ChildAbsenceStatus, string> = {
+    going: "Vai hoje",
+    not_going: "Nao vou hoje",
+    not_returning: "Nao volto",
+  };
+
+  return labels[status];
+}
+
+function CheckinRow({
+  checkin,
+  childName,
+  parentName,
+}: {
+  checkin: AdminPayload["checkins"][number];
+  childName: string;
+  parentName: string;
+}) {
+  const hasLocation = typeof checkin.latitude === "number" && typeof checkin.longitude === "number";
+
+  return (
+    <div className="rounded-2xl border border-line p-4 dark:border-white/10">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <div className="font-semibold text-navy dark:text-white">{childName}</div>
+          <div className="text-sm text-mute dark:text-white/55">
+            {parentName} - {new Date(checkin.scannedAt).toLocaleString("pt-BR")}
+          </div>
+        </div>
+        <span className="rounded-full bg-ok/10 px-3 py-1 text-xs font-semibold text-ok">
+          {checkin.type === "returning" ? "Volta" : "Embarque"}
+        </span>
+      </div>
+      {hasLocation ? (
+        <a
+          href={`https://www.google.com/maps?q=${checkin.latitude},${checkin.longitude}`}
+          target="_blank"
+          rel="noreferrer"
+          className="mt-3 inline-flex text-sm font-semibold text-sun-2 hover:underline"
+        >
+          Abrir localizacao
+        </a>
+      ) : (
+        <p className="mt-3 text-sm text-mute dark:text-white/45">Registrado sem permissao de GPS.</p>
+      )}
     </div>
   );
 }

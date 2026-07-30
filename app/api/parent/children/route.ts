@@ -1,16 +1,18 @@
 import { NextResponse } from "next/server";
-import { mutateDb } from "@/lib/server/app-db";
-import { makeId, normalizeContact, todayIso } from "@/lib/app-utils";
+import { hashSecret, mutateDb } from "@/lib/server/app-db";
+import { makeId, normalizeContact, normalizeCpf, todayIso } from "@/lib/app-utils";
 
 export async function POST(request: Request) {
   const body = await request.json().catch(() => null);
   const parentId = String(body?.parentId || "");
   const name = String(body?.name || "").trim();
+  const cpf = normalizeCpf(String(body?.cpf || ""));
+  const birthDate = String(body?.birthDate || "");
   const schoolId = String(body?.schoolId || "");
 
-  if (!parentId || !name || !schoolId) {
+  if (!parentId || !name || !cpf || !birthDate || !schoolId) {
     return NextResponse.json(
-      { error: "Informe responsavel, nome do aluno e escola." },
+      { error: "Informe responsavel, nome, CPF, nascimento e escola do aluno." },
       { status: 400 }
     );
   }
@@ -24,7 +26,9 @@ export async function POST(request: Request) {
       id: makeId("child"),
       parentId,
       name,
-      birthDate: String(body?.birthDate || ""),
+      cpfHash: hashSecret(cpf),
+      cpfLast4: cpf.slice(-4),
+      birthDate,
       schoolId,
       grade: String(body?.grade || ""),
       responsiblePhone: normalizeContact(String(body?.responsiblePhone || parent.contact)),
@@ -40,6 +44,9 @@ export async function POST(request: Request) {
         longitude: body?.address?.longitude,
       },
       notes: String(body?.notes || ""),
+      absenceStatus: "going",
+      absenceDate: todayIso().slice(0, 10),
+      absenceUpdatedAt: todayIso(),
       active: true,
       createdAt: todayIso(),
     });

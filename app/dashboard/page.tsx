@@ -6,6 +6,7 @@ import Link from "next/link";
 import {
   Banknote,
   Bus,
+  CalendarClock,
   CheckCircle2,
   Clock,
   FileUp,
@@ -17,8 +18,10 @@ import {
   Navigation,
   Plus,
   Printer,
+  QrCode,
   ReceiptText,
   School,
+  ShieldCheck,
   UserRound,
   Wallet,
   X,
@@ -27,6 +30,7 @@ import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/utils";
 import type {
   AddressRecord,
+  ChildAbsenceStatus,
   ChildRecord,
   LiveTrackingState,
   ParentDashboardPayload,
@@ -36,13 +40,14 @@ import type {
 } from "@/lib/app-types";
 import { formatCurrency, formatPhone, normalizeDigits, paymentStatusLabel } from "@/lib/app-utils";
 
-type ParentTab = "inicio" | "ao-vivo" | "alunos" | "pagamentos" | "perfil";
+type ParentTab = "inicio" | "ao-vivo" | "alunos" | "pagamentos" | "checkin" | "perfil";
 
 const tabs = [
   { id: "inicio" as ParentTab, label: "Inicio", icon: Home },
   { id: "ao-vivo" as ParentTab, label: "Ao vivo", icon: Navigation },
   { id: "alunos" as ParentTab, label: "Filhos", icon: UserRound },
   { id: "pagamentos" as ParentTab, label: "Pagamentos", icon: Wallet },
+  { id: "checkin" as ParentTab, label: "Check-in", icon: QrCode },
   { id: "perfil" as ParentTab, label: "Perfil", icon: MapPin },
 ];
 
@@ -58,6 +63,7 @@ const emptyAddress: AddressRecord = {
 
 const emptyChild = {
   name: "",
+  cpf: "",
   birthDate: "",
   schoolId: "",
   grade: "",
@@ -119,6 +125,9 @@ export default function DashboardPage() {
   const nextPayment = useMemo(() => {
     return data?.payments.find((payment) => payment.status !== "approved") || data?.payments[0];
   }, [data]);
+
+  const activeNotices = data?.children.filter((child) => child.absenceStatus !== "going") ?? [];
+  const recentCheckins = data?.checkins.slice(0, 8) ?? [];
 
   const logout = () => {
     localStorage.removeItem("rota-segura-session");
@@ -218,6 +227,28 @@ export default function DashboardPage() {
       address: emptyAddress,
     });
     setMessage("Aluno cadastrado.");
+    setSaving("");
+  };
+
+  const updateChildStatus = async (childId: string, status: ChildAbsenceStatus) => {
+    if (!session) return;
+
+    setSaving(`status-${childId}`);
+    setMessage("");
+    const response = await fetch(`/api/parent/children/${childId}/status`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ parentId: session.id, status }),
+    });
+    const payload = (await response.json()) as { error?: string };
+
+    if (response.ok) {
+      await load(session.id);
+      setMessage("Aviso do aluno atualizado.");
+    } else {
+      setMessage(payload.error || "Nao foi possivel atualizar o aviso.");
+    }
+
     setSaving("");
   };
 
@@ -337,7 +368,7 @@ export default function DashboardPage() {
             Ola, familia {data.parent.name.split(" ")[0]}
           </h1>
           <p className="mt-2 text-sm text-mute dark:text-white/60">
-            Cadastre os filhos, acompanhe mensalidades, envie comprovantes e baixe recibos.
+            Cadastre os filhos, acompanhe a rota, envie comprovantes e avise quando nao precisar da van.
           </p>
 
           {message && (
@@ -354,6 +385,8 @@ export default function DashboardPage() {
                   <InfoCard icon={School} label="Filhos cadastrados" value={data.children.length.toString()} />
                   <InfoCard icon={Wallet} label="Proxima mensalidade" value={nextPayment ? formatCurrency(nextPayment.amount) : "Sem mensalidade"} />
                   <InfoCard icon={Clock} label="Status" value={nextPayment ? paymentStatusLabel(nextPayment.status) : "Tudo certo"} />
+                  <InfoCard icon={ShieldCheck} label="Check-ins" value={recentCheckins.length.toString()} />
+                  <InfoCard icon={CalendarClock} label="Avisos ativos" value={activeNotices.length.toString()} />
                 </div>
 
                 <Panel title="Pix da empresa" subtitle="Use estes dados para pagar a mensalidade.">
@@ -376,7 +409,13 @@ export default function DashboardPage() {
                       <EmptyState text="Nenhum filho cadastrado ainda." />
                     )}
                     {data.children.map((child) => (
-                      <ChildCard key={child.id} child={child} schoolName={schoolName(child.schoolId)} />
+                      <ChildCard
+                        key={child.id}
+                        child={child}
+                        schoolName={schoolName(child.schoolId)}
+                        saving={saving === `status-${child.id}`}
+                        onStatus={updateChildStatus}
+                      />
                     ))}
                   </div>
                 </Panel>
@@ -385,7 +424,8 @@ export default function DashboardPage() {
                   <form onSubmit={createChild} className="space-y-4">
                     <Field label="Nome do filho" value={childForm.name} onChange={(v) => setChildForm({ ...childForm, name: v })} required />
                     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                      <Field label="Nascimento" value={childForm.birthDate} onChange={(v) => setChildForm({ ...childForm, birthDate: v })} type="date" />
+                      <Field label="CPF do aluno" value={childForm.cpf} onChange={(v) => setChildForm({ ...childForm, cpf: v })} required />
+                      <Field label="Nascimento" value={childForm.birthDate} onChange={(v) => setChildForm({ ...childForm, birthDate: v })} type="date" required />
                       <Field label="Serie/turma" value={childForm.grade} onChange={(v) => setChildForm({ ...childForm, grade: v })} />
                     </div>
                     <label>
@@ -503,6 +543,44 @@ export default function DashboardPage() {
                           )}
                         </div>
                       </div>
+                    ))}
+                  </div>
+                </Panel>
+              </div>
+            )}
+
+            {active === "checkin" && (
+              <div className="grid grid-cols-1 gap-5 xl:grid-cols-[330px_1fr]">
+                <Panel title="Check-in da van" subtitle="Escaneie o QR Code fixado na van para registrar embarque.">
+                  <div className="rounded-2xl bg-navy p-5 text-white">
+                    <QrCode size={24} className="text-sun" />
+                    <h3 className="mt-4 text-lg font-semibold">Registro com horario e local</h3>
+                    <p className="mt-2 text-sm leading-relaxed text-white/60">
+                      Depois que o QR for escaneado, o sistema pede a localizacao do celular e salva o horario para os pais e o motorista acompanharem.
+                    </p>
+                  </div>
+                  <div className="mt-4 space-y-2">
+                    {data.children.map((child) => (
+                      <div key={child.id} className="rounded-2xl border border-line p-4 dark:border-white/10">
+                        <div className="font-semibold text-navy dark:text-white">{child.name}</div>
+                        <div className="mt-1 text-sm text-mute dark:text-white/55">
+                          CPF final {child.cpfLast4 || "nao informado"} - {schoolName(child.schoolId)}
+                        </div>
+                        <AbsenceBadge status={child.absenceStatus} />
+                      </div>
+                    ))}
+                  </div>
+                </Panel>
+
+                <Panel title="Historico de check-ins" subtitle="Ultimos registros feitos pelo QR da van.">
+                  <div className="space-y-3">
+                    {recentCheckins.length === 0 && <EmptyState text="Nenhum check-in registrado ainda." />}
+                    {recentCheckins.map((checkin) => (
+                      <CheckinRow
+                        key={checkin.id}
+                        checkin={checkin}
+                        childName={childName(checkin.childId)}
+                      />
                     ))}
                   </div>
                 </Panel>
@@ -690,20 +768,84 @@ function PixBox({ settings }: { settings: ParentDashboardPayload["settings"] }) 
   );
 }
 
-function ChildCard({ child, schoolName }: { child: ChildRecord; schoolName: string }) {
+function ChildCard({
+  child,
+  schoolName,
+  saving,
+  onStatus,
+}: {
+  child: ChildRecord;
+  schoolName: string;
+  saving: boolean;
+  onStatus: (childId: string, status: ChildAbsenceStatus) => void;
+}) {
   return (
     <div className="rounded-2xl border border-line p-4 dark:border-white/10">
       <div className="flex items-start justify-between gap-3">
         <div>
           <div className="font-semibold text-navy dark:text-white">{child.name}</div>
           <div className="mt-1 text-sm text-mute dark:text-white/55">{schoolName} · {child.grade || "Serie nao informada"}</div>
+          <div className="mt-1 text-xs text-mute dark:text-white/45">
+            CPF final {child.cpfLast4 || "nao informado"} - nascimento {child.birthDate || "nao informado"}
+          </div>
         </div>
-        <span className="rounded-full bg-ok/10 px-3 py-1 text-xs font-semibold text-ok">Ativo</span>
+        <AbsenceBadge status={child.absenceStatus} />
       </div>
       <div className="mt-4 rounded-xl bg-mist p-3 text-sm text-mute dark:bg-white/5 dark:text-white/60">
         {child.address.street || "Endereco nao informado"}, {child.address.number || "s/n"} · {child.address.neighborhood || "bairro"}
       </div>
+      <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-3">
+        <StatusButton
+          active={child.absenceStatus === "going"}
+          disabled={saving}
+          onClick={() => onStatus(child.id, "going")}
+        >
+          Vai hoje
+        </StatusButton>
+        <StatusButton
+          active={child.absenceStatus === "not_going"}
+          disabled={saving}
+          onClick={() => onStatus(child.id, "not_going")}
+        >
+          Nao vou hoje
+        </StatusButton>
+        <StatusButton
+          active={child.absenceStatus === "not_returning"}
+          disabled={saving}
+          onClick={() => onStatus(child.id, "not_returning")}
+        >
+          Nao volto
+        </StatusButton>
+      </div>
     </div>
+  );
+}
+
+function StatusButton({
+  active,
+  disabled,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  disabled: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={onClick}
+      className={cn(
+        "rounded-full px-3 py-2 text-xs font-semibold transition disabled:opacity-50",
+        active
+          ? "bg-navy text-white dark:bg-sun dark:text-navy"
+          : "bg-mist text-mute hover:bg-slate-200 dark:bg-white/5 dark:text-white/60 dark:hover:bg-white/10"
+      )}
+    >
+      {children}
+    </button>
   );
 }
 
@@ -729,6 +871,70 @@ function ProfileLine({ label, value }: { label: string; value: string }) {
     <div className="rounded-2xl border border-line p-4 dark:border-white/10">
       <div className="text-xs uppercase tracking-wide text-mute dark:text-white/50">{label}</div>
       <div className="mt-1 font-semibold text-navy dark:text-white">{value}</div>
+    </div>
+  );
+}
+
+function AbsenceBadge({ status }: { status: ChildAbsenceStatus }) {
+  return (
+    <span
+      className={cn(
+        "mt-3 inline-flex w-fit items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold",
+        status === "going" && "bg-ok/10 text-ok",
+        status === "not_going" && "bg-red-500/10 text-red-600 dark:text-red-300",
+        status === "not_returning" && "bg-sun/15 text-sun-2"
+      )}
+    >
+      <CalendarClock size={13} />
+      {absenceLabel(status)}
+    </span>
+  );
+}
+
+function absenceLabel(status: ChildAbsenceStatus) {
+  const labels: Record<ChildAbsenceStatus, string> = {
+    going: "Vai hoje",
+    not_going: "Nao vou hoje",
+    not_returning: "Nao volto",
+  };
+
+  return labels[status];
+}
+
+function CheckinRow({
+  checkin,
+  childName,
+}: {
+  checkin: ParentDashboardPayload["checkins"][number];
+  childName: string;
+}) {
+  const hasLocation = typeof checkin.latitude === "number" && typeof checkin.longitude === "number";
+
+  return (
+    <div className="rounded-2xl border border-line p-4 dark:border-white/10">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <div className="font-semibold text-navy dark:text-white">{childName}</div>
+          <div className="text-sm text-mute dark:text-white/55">
+            {new Date(checkin.scannedAt).toLocaleString("pt-BR")}
+          </div>
+        </div>
+        <span className="rounded-full bg-ok/10 px-3 py-1 text-xs font-semibold text-ok">
+          {checkin.type === "returning" ? "Volta" : "Embarque"}
+        </span>
+      </div>
+      {hasLocation ? (
+        <a
+          href={`https://www.google.com/maps?q=${checkin.latitude},${checkin.longitude}`}
+          target="_blank"
+          rel="noreferrer"
+          className="mt-3 inline-flex text-sm font-semibold text-sun-2 hover:underline"
+        >
+          Abrir localizacao
+        </a>
+      ) : (
+        <p className="mt-3 text-sm text-mute dark:text-white/45">Registrado sem permissao de GPS.</p>
+      )}
     </div>
   );
 }
