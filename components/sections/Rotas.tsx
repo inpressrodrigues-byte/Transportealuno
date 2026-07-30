@@ -1,12 +1,10 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { CheckCircle2, MapPin, MinusCircle } from "lucide-react";
-import { Card } from "@/components/ui/Card";
-import { SectionHeading } from "@/components/ui/SectionHeading";
+import { CheckCircle2, MapPin, MinusCircle, Navigation } from "lucide-react";
+import { ToledoLuxuryMap } from "@/components/ui/ToledoLuxuryMap";
 import { usePublicSite } from "@/lib/use-public-site";
 import type { NeighborhoodRecord } from "@/lib/app-types";
-import { cn } from "@/lib/utils";
 
 const fallbackNeighborhoods: NeighborhoodRecord[] = [
   {
@@ -14,7 +12,7 @@ const fallbackNeighborhoods: NeighborhoodRecord[] = [
     name: "Centro",
     area: "Central",
     served: true,
-    color: "#facc15",
+    color: "#d6b36a",
     position: { x: 50, y: 48 },
     notes: "Atendimento ativo",
     createdAt: "",
@@ -24,7 +22,7 @@ const fallbackNeighborhoods: NeighborhoodRecord[] = [
     name: "Jardim Porto Alegre",
     area: "Leste",
     served: true,
-    color: "#f472b6",
+    color: "#c9a76a",
     position: { x: 69, y: 45 },
     notes: "Atendimento ativo",
     createdAt: "",
@@ -34,7 +32,7 @@ const fallbackNeighborhoods: NeighborhoodRecord[] = [
     name: "Jardim La Salle",
     area: "Central",
     served: true,
-    color: "#38bdf8",
+    color: "#ead59a",
     position: { x: 43, y: 38 },
     notes: "Atendimento ativo",
     createdAt: "",
@@ -44,7 +42,7 @@ const fallbackNeighborhoods: NeighborhoodRecord[] = [
     name: "Sao Francisco",
     area: "Oeste",
     served: false,
-    color: "#94a3b8",
+    color: "#9ca3af",
     position: { x: 20, y: 34 },
     notes: "Ainda nao atendido",
     createdAt: "",
@@ -58,107 +56,101 @@ export function Rotas() {
   const paused = neighborhoods.filter((neighborhood) => !neighborhood.served);
 
   return (
-    <section id="rotas" className="bg-white py-24 sm:py-32 dark:bg-[#0b1220]">
-      <div className="mx-auto max-w-6xl px-4">
-        <SectionHeading eyebrow="Bairros" title="Mapa de atendimento em Toledo" />
+    <section id="rotas" className="relative overflow-hidden bg-[#0b0a08] py-24 text-[#f6ead0] sm:py-32">
+      <div className="absolute inset-0 opacity-[0.16] [background-image:linear-gradient(to_right,#d6b36a_1px,transparent_1px),linear-gradient(to_bottom,#d6b36a_1px,transparent_1px)] [background-size:72px_72px]" />
+      <div className="absolute inset-x-0 top-0 h-px bg-[#d6b36a]/35" />
+      <div className="absolute inset-x-0 bottom-0 h-px bg-[#d6b36a]/25" />
 
-        <div className="mt-14 grid grid-cols-1 gap-10 lg:grid-cols-5">
-          <div className="lg:col-span-3">
-            <NeighborhoodMap neighborhoods={neighborhoods} />
+      <div className="relative mx-auto max-w-7xl px-4">
+        <div className="grid grid-cols-1 gap-12 xl:grid-cols-[0.82fr_1.18fr] xl:items-end">
+          <div className="max-w-xl">
+            <div className="inline-flex items-center gap-2 border border-[#d6b36a]/35 px-4 py-2 text-xs font-semibold text-[#d6b36a]">
+              <MapPin size={14} /> Toledo, PR
+            </div>
+
+            <h2 className="mt-8 font-[var(--font-luxury)] text-5xl font-normal leading-[1.02] text-[#f8f0df] sm:text-6xl lg:text-7xl">
+              Mapa real da cidade, com atendimento no ponto certo.
+            </h2>
+
+            <p className="mt-7 max-w-lg text-base leading-8 text-white/62">
+              Uma leitura elegante dos bairros atendidos em Toledo. O mapa usa a cidade real como base e destaca, com acabamento premium, onde o transporte esta ativo.
+            </p>
+
+            <div className="mt-10 grid grid-cols-2 gap-3">
+              <LuxuryMetric label="Bairros ativos" value={served.length.toString()} />
+              <LuxuryMetric label="Em avaliacao" value={paused.length.toString()} />
+            </div>
           </div>
 
-          <div className="space-y-5 lg:col-span-2">
-            <Card>
-              <div className="flex items-center gap-3">
-                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-ok/10 text-ok">
-                  <CheckCircle2 size={18} />
-                </span>
-                <div>
-                  <h3 className="font-semibold text-navy dark:text-white">Bairros atendidos</h3>
-                  <p className="text-sm text-mute dark:text-white/60">{served.length} bairros ativos no painel</p>
-                </div>
-              </div>
-              <div className="mt-5 flex flex-wrap gap-2">
-                {served.map((neighborhood) => (
-                  <motion.span
-                    key={neighborhood.id}
-                    initial={{ opacity: 0, y: 8 }}
-                    whileInView={{ opacity: 1, y: 0 }}
-                    viewport={{ once: true }}
-                    className="rounded-full px-3 py-1.5 text-xs font-bold text-navy"
-                    style={{ backgroundColor: neighborhood.color }}
-                  >
-                    {neighborhood.name}
-                  </motion.span>
-                ))}
-              </div>
-            </Card>
+          <ToledoLuxuryMap neighborhoods={neighborhoods} />
+        </div>
 
-            <Card>
-              <div className="flex items-center gap-3">
-                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-200 text-slate-500 dark:bg-white/5 dark:text-white/45">
-                  <MinusCircle size={18} />
-                </span>
-                <div>
-                  <h3 className="font-semibold text-navy dark:text-white">Ainda nao atendidos</h3>
-                  <p className="text-sm text-mute dark:text-white/60">Podem ser ativados pelo painel interno.</p>
-                </div>
+        <div className="mt-12 grid grid-cols-1 gap-4 lg:grid-cols-[1.2fr_0.8fr]">
+          <div className="border border-[#d6b36a]/20 bg-[#15120d]/70 p-5 backdrop-blur-md">
+            <div className="flex items-center gap-3 text-[#f8f0df]">
+              <span className="flex h-10 w-10 items-center justify-center rounded-full border border-[#d6b36a]/35 text-[#d6b36a]">
+                <CheckCircle2 size={18} />
+              </span>
+              <div>
+                <h3 className="font-semibold">Bairros atendidos</h3>
+                <p className="text-sm text-white/48">Atualizado pelo painel interno.</p>
               </div>
-              <div className="mt-5 flex flex-wrap gap-2">
-                {paused.slice(0, 12).map((neighborhood) => (
-                  <span
-                    key={neighborhood.id}
-                    className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-500 grayscale dark:bg-white/5 dark:text-white/45"
-                  >
-                    {neighborhood.name}
-                  </span>
-                ))}
-              </div>
-            </Card>
+            </div>
+
+            <div className="mt-5 flex flex-wrap gap-2">
+              {served.map((neighborhood, index) => (
+                <motion.span
+                  key={neighborhood.id}
+                  initial={{ opacity: 0, y: 8 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.3, delay: Math.min(index * 0.012, 0.2) }}
+                  className="border border-[#d6b36a]/35 bg-[#d6b36a]/12 px-3 py-1.5 text-xs font-semibold text-[#f8f0df]"
+                >
+                  {neighborhood.name}
+                </motion.span>
+              ))}
+            </div>
           </div>
+
+          <div className="border border-white/10 bg-black/25 p-5 backdrop-blur-md">
+            <div className="flex items-center gap-3 text-[#f8f0df]">
+              <span className="flex h-10 w-10 items-center justify-center rounded-full border border-white/15 text-white/50">
+                <MinusCircle size={18} />
+              </span>
+              <div>
+                <h3 className="font-semibold">Ainda em avaliacao</h3>
+                <p className="text-sm text-white/42">Aparecem discretos no mapa.</p>
+              </div>
+            </div>
+
+            <div className="mt-5 flex flex-wrap gap-2">
+              {paused.slice(0, 12).map((neighborhood) => (
+                <span
+                  key={neighborhood.id}
+                  className="border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs font-semibold text-white/45"
+                >
+                  {neighborhood.name}
+                </span>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-8 flex flex-wrap items-center gap-3 text-sm text-white/52">
+          <Navigation size={16} className="text-[#d6b36a]" />
+          Mapa real com base OpenStreetMap/CARTO. Os pontos seguem os bairros configurados no painel.
         </div>
       </div>
     </section>
   );
 }
 
-function NeighborhoodMap({ neighborhoods }: { neighborhoods: NeighborhoodRecord[] }) {
+function LuxuryMetric({ label, value }: { label: string; value: string }) {
   return (
-    <div className="relative min-h-[440px] overflow-hidden rounded-3xl border border-line bg-gradient-to-br from-slate-100 via-white to-slate-200 p-5 shadow-sm dark:border-white/10 dark:from-slate-900 dark:via-slate-950 dark:to-slate-800">
-      <div className="absolute left-[9%] top-[7%] h-[82%] w-[80%] rounded-[38%_62%_44%_56%/46%_42%_58%_54%] border border-slate-300 bg-white/60 shadow-inner dark:border-white/10 dark:bg-white/5" />
-      <div className="absolute left-[15%] right-[14%] top-1/2 h-px bg-slate-300 dark:bg-white/10" />
-      <div className="absolute bottom-[15%] left-1/2 top-[14%] w-px bg-slate-300 dark:bg-white/10" />
-      <div className="absolute left-7 top-7 flex items-center gap-2 rounded-full bg-white/85 px-3 py-2 text-xs font-bold text-navy shadow-sm backdrop-blur dark:bg-slate-950/80 dark:text-white">
-        <MapPin size={14} className="text-sun-2" /> Toledo, PR
-      </div>
-
-      {neighborhoods.map((neighborhood, index) => (
-        <motion.span
-          key={neighborhood.id}
-          initial={{ opacity: 0, scale: 0.94 }}
-          whileInView={{ opacity: 1, scale: 1 }}
-          viewport={{ once: true, margin: "-60px" }}
-          transition={{ duration: 0.35, delay: Math.min(index * 0.015, 0.25) }}
-          className={cn(
-            "absolute max-w-[140px] -translate-x-1/2 -translate-y-1/2 rounded-full border px-3 py-1.5 text-center text-xs font-bold shadow-sm",
-            neighborhood.served
-              ? "border-white/70 text-navy"
-              : "border-slate-300 bg-slate-100 text-slate-500 grayscale dark:border-white/10 dark:bg-slate-800 dark:text-white/40"
-          )}
-          style={{
-            left: `${neighborhood.position.x}%`,
-            top: `${neighborhood.position.y}%`,
-            backgroundColor: neighborhood.served ? neighborhood.color : undefined,
-          }}
-        >
-          {neighborhood.name}
-        </motion.span>
-      ))}
-
-      <div className="absolute bottom-5 left-5 flex flex-wrap gap-2 rounded-2xl bg-white/85 p-3 text-xs font-semibold text-slate-600 shadow-sm backdrop-blur dark:bg-slate-950/80 dark:text-white/60">
-        <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-full bg-sun" /> Atendemos</span>
-        <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-full bg-slate-300" /> Nao atendemos</span>
-      </div>
+    <div className="border border-[#d6b36a]/24 bg-black/25 p-5">
+      <div className="font-[var(--font-luxury)] text-4xl leading-none text-[#f8f0df]">{value}</div>
+      <div className="mt-2 text-sm font-semibold text-white/45">{label}</div>
     </div>
   );
 }
