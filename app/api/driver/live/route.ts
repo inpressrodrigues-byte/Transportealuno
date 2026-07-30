@@ -16,6 +16,7 @@ export async function POST(request: Request) {
   const db = updateLiveTracking({
     driverId: String(body.driverId || ""),
     vanId: String(body.vanId || ""),
+    companyId: String(body.companyId || ""),
     active: body.active,
     latitude: Number.isFinite(Number(body.latitude)) ? Number(body.latitude) : undefined,
     longitude: Number.isFinite(Number(body.longitude)) ? Number(body.longitude) : undefined,
@@ -27,5 +28,6 @@ export async function POST(request: Request) {
     source: body.source || "gps",
   });
 
-  return NextResponse.json(db.liveTracking);
+  const updated = db.liveTrackings.find((item) => item.driverId === String(body.driverId || "")) || db.liveTracking;
+  return NextResponse.json(updated);
 }

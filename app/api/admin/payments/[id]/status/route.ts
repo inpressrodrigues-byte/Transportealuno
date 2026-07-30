@@ -35,8 +35,9 @@ export async function PUT(
     if ((status === "approved" || status === "proof_received") && payment.proof && !payment.receipt) {
       const parent = draft.parents.find((item) => item.id === payment.parentId);
       const child = draft.children.find((item) => item.id === payment.childId);
+      const company = draft.companies.find((item) => item.id === payment.companyId);
       if (parent && child) {
-        payment.receipt = createReceipt(payment, parent, child, draft.settings);
+        payment.receipt = createReceipt(payment, parent, child, company?.settings || draft.settings);
       }
     }
   });

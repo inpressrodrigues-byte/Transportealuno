@@ -11,7 +11,9 @@ import type {
   CheckinType,
   ChildAbsenceStatus,
   ChildRecord,
+  CompanyRecord,
   CompanySettings,
+  ContractRecord,
   DriverRecord,
   LiveTrackingState,
   NeighborhoodRecord,
@@ -19,6 +21,7 @@ import type {
   ParentRecord,
   PaymentRecord,
   ReceiptRecord,
+  RoutePlanRecord,
   SchoolCategory,
   SchoolRecord,
   Shift,
@@ -26,13 +29,15 @@ import type {
   VanQrCodeRecord,
   VanRecord,
 } from "@/lib/app-types";
-import { makeId, normalizeContact, normalizeCpf, shifts, todayIso } from "@/lib/app-utils";
+import { makeId, normalizeContact, normalizeCpf, normalizeDigits, shifts, todayIso } from "@/lib/app-utils";
 
 const DATA_DIR = process.env.VERCEL ? path.join("/tmp", "rota-segura") : path.join(process.cwd(), "data");
 const DB_PATH = path.join(DATA_DIR, "app-db.json");
 const LIVE_MAX_AGE_MINUTES = 45;
 const DEFAULT_ADMIN_LOGIN = "InpresS";
 const DEFAULT_ADMIN_PASSWORD = "GuGalex2011@.";
+const DEFAULT_COMPANY_ID = "company_oziel";
+const DEFAULT_COMPANY_PASSWORD = "Oziel@2026";
 const DEFAULT_DRIVER_CPF = "12345678910";
 const DEFAULT_DRIVER_ID = "driver_oziel";
 const DEFAULT_VAN_ID = "van_principal";
@@ -71,12 +76,50 @@ function defaultSettings(): CompanySettings {
     pixBank: "Sicoob",
     receiptText:
       "Recibo gerado automaticamente apos o envio do comprovante. A confirmacao definitiva depende da conciliacao bancaria.",
+    routeApiProvider: "local-ai",
+    routeApiKey: "",
+  };
+}
+
+function defaultContractTemplate() {
+  return [
+    "CONTRATO SIMBOLICO DE TRANSPORTE ESCOLAR",
+    "",
+    "Empresa: {{empresa}}",
+    "Responsavel: {{responsavel}}",
+    "Aluno: {{aluno}}",
+    "Escola: {{escola}}",
+    "",
+    "A empresa se compromete a realizar o transporte escolar conforme combinacao de horarios, bairros atendidos e disponibilidade de vaga.",
+    "O responsavel declara ciencia das regras de embarque, comunicacao de ausencia, pagamento mensal e envio de comprovante para liberacao de recibo.",
+    "",
+    "Assinatura simbolica do responsavel: {{assinatura}}",
+  ].join("\n");
+}
+
+function defaultCompany(): CompanyRecord {
+  const settings = defaultSettings();
+  const document = "00000000000000";
+
+  return {
+    id: DEFAULT_COMPANY_ID,
+    name: settings.businessName,
+    document,
+    documentHash: hashSecret(document),
+    documentLast4: document.slice(-4),
+    passwordHash: hashSecret(DEFAULT_COMPANY_PASSWORD),
+    active: true,
+    settings,
+    theme: defaultTheme(),
+    contractTemplate: defaultContractTemplate(),
+    createdAt: todayIso(),
   };
 }
 
 function defaultLiveTracking(): LiveTrackingState {
   return {
     id: "live_principal",
+    companyId: DEFAULT_COMPANY_ID,
     driverId: DEFAULT_DRIVER_ID,
     vanId: DEFAULT_VAN_ID,
     active: false,
@@ -93,6 +136,7 @@ function defaultLiveTracking(): LiveTrackingState {
 function defaultVanQrCode(): VanQrCodeRecord {
   return {
     id: "van_qr_main",
+    companyId: DEFAULT_COMPANY_ID,
     vanId: DEFAULT_VAN_ID,
     token: makeId("vanqr"),
     label: "Van principal",
@@ -106,6 +150,7 @@ function defaultDriver(): DriverRecord {
 
   return {
     id: DEFAULT_DRIVER_ID,
+    companyId: DEFAULT_COMPANY_ID,
     name: "Oziel Galtaroza Rodrigues",
     contact: "45999340446",
     cpfHash: hashSecret(DEFAULT_DRIVER_CPF),
@@ -120,6 +165,7 @@ function defaultDriver(): DriverRecord {
 function defaultVan(): VanRecord {
   return {
     id: DEFAULT_VAN_ID,
+    companyId: DEFAULT_COMPANY_ID,
     label: "Van principal",
     plate: "ABC-1D23",
     model: "Renault Master",
@@ -307,6 +353,8 @@ function createInitialDb(): AppDatabase {
   return {
     settings: defaultSettings(),
     theme: defaultTheme(),
+    companies: [defaultCompany()],
+    currentCompanyId: DEFAULT_COMPANY_ID,
     schools: seedSchools(),
     removedSchoolIds: [],
     neighborhoods: seedNeighborhoods(),
@@ -330,6 +378,7 @@ function createInitialDb(): AppDatabase {
     parents: [
       {
         id: parentId,
+        companyId: DEFAULT_COMPANY_ID,
         name: "Marcia Andrade",
         contact: "45988880001",
         email: "marcia@example.com",
@@ -342,6 +391,7 @@ function createInitialDb(): AppDatabase {
     children: [
       {
         id: childId,
+        companyId: DEFAULT_COMPANY_ID,
         parentId,
         driverId: DEFAULT_DRIVER_ID,
         vanId: DEFAULT_VAN_ID,
@@ -374,6 +424,7 @@ function createInitialDb(): AppDatabase {
     payments: [
       {
         id: "pay_aug_2026",
+        companyId: DEFAULT_COMPANY_ID,
         parentId,
         childId,
         month: "Agosto/2026",
@@ -384,6 +435,7 @@ function createInitialDb(): AppDatabase {
       },
       {
         id: "pay_jul_2026",
+        companyId: DEFAULT_COMPANY_ID,
         parentId,
         childId,
         month: "Julho/2026",
@@ -404,6 +456,8 @@ function createInitialDb(): AppDatabase {
         createdAt: now,
       },
     ],
+    contracts: [],
+    routePlans: [],
   };
 }
 
@@ -432,6 +486,10 @@ function normalizeDb(input: Partial<AppDatabase>): AppDatabase {
   const seed = createInitialDb();
   const removedSchoolIds = Array.isArray(input.removedSchoolIds) ? input.removedSchoolIds : [];
   const removedNeighborhoodIds = Array.isArray(input.removedNeighborhoodIds) ? input.removedNeighborhoodIds : [];
+  const companies = input.companies?.length
+    ? mergeById(input.companies.map(normalizeCompany), seed.companies)
+    : seed.companies;
+  const currentCompanyId = input.currentCompanyId || companies[0]?.id || DEFAULT_COMPANY_ID;
   const drivers = input.drivers?.length
     ? mergeById(input.drivers.map(normalizeDriver), seed.drivers)
     : seed.drivers;
@@ -452,29 +510,120 @@ function normalizeDb(input: Partial<AppDatabase>): AppDatabase {
     : seed.neighborhoods;
 
   return {
-    settings: { ...seed.settings, ...input.settings },
-    theme: { ...seed.theme, ...input.theme },
+    settings: { ...seed.settings, ...(companies.find((company) => company.id === currentCompanyId)?.settings || input.settings) },
+    theme: { ...seed.theme, ...(companies.find((company) => company.id === currentCompanyId)?.theme || input.theme) },
+    companies,
+    currentCompanyId,
     schools: schools.filter((schoolItem) => !removedSchoolIds.includes(schoolItem.id)),
     removedSchoolIds,
     neighborhoods: neighborhoods.filter((neighborhood) => !removedNeighborhoodIds.includes(neighborhood.id)),
     removedNeighborhoodIds,
-    liveTracking: visibleLive(liveTrackings[0] || seed.liveTracking),
-    liveTrackings,
-    vanQrCode: vanQrCodes[0] || seed.vanQrCode,
-    vanQrCodes,
+    liveTracking: visibleLive(ensureCompanyOnLive(liveTrackings[0] || seed.liveTracking, currentCompanyId)),
+    liveTrackings: liveTrackings.map((live) => ensureCompanyOnLive(live, currentCompanyId)),
+    vanQrCode: ensureCompanyOnQr(vanQrCodes[0] || seed.vanQrCode, currentCompanyId),
+    vanQrCodes: vanQrCodes.map((qr) => ensureCompanyOnQr(qr, currentCompanyId)),
     admins: input.admins?.length ? input.admins.map(normalizeAdmin) : seed.admins,
-    drivers,
-    vans,
-    parents: input.parents?.length ? input.parents : seed.parents,
-    children: input.children?.length ? input.children.map(normalizeChild) : seed.children,
-    checkins: input.checkins?.length ? input.checkins.map(normalizeCheckin) : seed.checkins,
-    payments: input.payments?.length ? input.payments : seed.payments,
+    drivers: drivers.map((driver) => ({ ...driver, companyId: driver.companyId || currentCompanyId })),
+    vans: vans.map((van) => ({ ...van, companyId: van.companyId || currentCompanyId })),
+    parents: (input.parents?.length ? input.parents : seed.parents).map((parent) => ({
+      ...parent,
+      companyId: parent.companyId || currentCompanyId,
+    })),
+    children: (input.children?.length ? input.children.map(normalizeChild) : seed.children).map((child) => ({
+      ...child,
+      companyId: child.companyId || currentCompanyId,
+    })),
+    checkins: (input.checkins?.length ? input.checkins.map(normalizeCheckin) : seed.checkins).map((checkin) => ({
+      ...checkin,
+      companyId: checkin.companyId || currentCompanyId,
+    })),
+    payments: (input.payments?.length ? input.payments : seed.payments).map((payment) => ({
+      ...payment,
+      companyId: payment.companyId || currentCompanyId,
+    })),
+    contracts: (input.contracts?.length ? input.contracts.map(normalizeContract) : seed.contracts).map((contract) => ({
+      ...contract,
+      companyId: contract.companyId || currentCompanyId,
+    })),
+    routePlans: (input.routePlans?.length ? input.routePlans.map(normalizeRoutePlan) : seed.routePlans).map((plan) => ({
+      ...plan,
+      companyId: plan.companyId || currentCompanyId,
+    })),
   };
 }
 
 function mergeById<T extends { id: string }>(current: T[], seeded: T[]) {
   const ids = new Set(current.map((item) => item.id));
   return [...current, ...seeded.filter((item) => !ids.has(item.id))];
+}
+
+function normalizeCompany(item: Partial<CompanyRecord>): CompanyRecord {
+  const seed = defaultCompany();
+  const settings = {
+    ...defaultSettings(),
+    ...item.settings,
+  };
+  const document = normalizeDigits(String(item.document || settings.document || seed.document));
+  const passwordHash = item.passwordHash || hashSecret(DEFAULT_COMPANY_PASSWORD);
+
+  return {
+    id: item.id || makeId("company"),
+    name: String(item.name || settings.businessName || settings.brandName || "Empresa").trim(),
+    document,
+    documentHash: item.documentHash || hashSecret(document),
+    documentLast4: item.documentLast4 || document.slice(-4),
+    passwordHash,
+    active: item.active ?? true,
+    settings: {
+      ...settings,
+      document: settings.document || document,
+      businessName: settings.businessName || item.name || "Empresa",
+      brandName: settings.brandName || item.name || "Empresa",
+      routeApiProvider: settings.routeApiProvider || "local-ai",
+      routeApiKey: settings.routeApiKey || "",
+    },
+    theme: { ...defaultTheme(), ...item.theme },
+    contractTemplate: item.contractTemplate || defaultContractTemplate(),
+    createdAt: item.createdAt || todayIso(),
+  };
+}
+
+function normalizeContract(item: Partial<ContractRecord>): ContractRecord {
+  return {
+    id: item.id || makeId("contract"),
+    companyId: item.companyId || DEFAULT_COMPANY_ID,
+    parentId: item.parentId || "",
+    childId: item.childId || "",
+    title: item.title || "Contrato de transporte escolar",
+    content: item.content || defaultContractTemplate(),
+    status: item.status === "signed" || item.status === "draft" ? item.status : "sent",
+    signerName: item.signerName || "",
+    signerDocument: item.signerDocument || "",
+    signedAt: item.signedAt || "",
+    createdAt: item.createdAt || todayIso(),
+  };
+}
+
+function normalizeRoutePlan(item: Partial<RoutePlanRecord>): RoutePlanRecord {
+  return {
+    id: item.id || makeId("routeplan"),
+    companyId: item.companyId || DEFAULT_COMPANY_ID,
+    driverId: item.driverId || "",
+    vanId: item.vanId || "",
+    provider: item.provider === "external-api" ? "external-api" : "local-ai",
+    summary: item.summary || "Rota sugerida com base nos enderecos cadastrados.",
+    totalEstimatedMinutes: Number(item.totalEstimatedMinutes || 0),
+    generatedAt: item.generatedAt || todayIso(),
+    stops: Array.isArray(item.stops) ? item.stops : [],
+  };
+}
+
+function ensureCompanyOnLive(item: LiveTrackingState, companyId: string): LiveTrackingState {
+  return { ...item, companyId: item.companyId || companyId };
+}
+
+function ensureCompanyOnQr(item: VanQrCodeRecord, companyId: string): VanQrCodeRecord {
+  return { ...item, companyId: item.companyId || companyId };
 }
 
 function normalizeSchool(item: Partial<SchoolRecord>): SchoolRecord {
@@ -519,6 +668,7 @@ function normalizeDriver(item: Partial<DriverRecord>): DriverRecord {
 
   return {
     id: item.id || makeId("driver"),
+    companyId: item.companyId || DEFAULT_COMPANY_ID,
     name: item.name || seed.name,
     contact,
     cpfHash: item.cpfHash || seed.cpfHash,
@@ -535,6 +685,7 @@ function normalizeVan(item: Partial<VanRecord>): VanRecord {
 
   return {
     id: item.id || makeId("van"),
+    companyId: item.companyId || DEFAULT_COMPANY_ID,
     label: item.label || seed.label,
     plate: item.plate || "",
     model: item.model || "",
@@ -554,6 +705,7 @@ function normalizeChild(item: Partial<ChildRecord>): ChildRecord {
 
   return {
     id: item.id || makeId("child"),
+    companyId: item.companyId || DEFAULT_COMPANY_ID,
     parentId: item.parentId || "",
     driverId: item.driverId || "",
     vanId: item.vanId || "",
@@ -590,6 +742,7 @@ function normalizeVanQrCode(item?: Partial<VanQrCodeRecord>): VanQrCodeRecord {
 
   return {
     id: item?.id || seed.id,
+    companyId: item?.companyId || DEFAULT_COMPANY_ID,
     vanId: item?.vanId || seed.vanId,
     token: item?.token || seed.token,
     label: item?.label || seed.label,
@@ -601,6 +754,7 @@ function normalizeVanQrCode(item?: Partial<VanQrCodeRecord>): VanQrCodeRecord {
 function normalizeCheckin(item: Partial<CheckinRecord>): CheckinRecord {
   return {
     id: item.id || makeId("checkin"),
+    companyId: item.companyId || DEFAULT_COMPANY_ID,
     parentId: item.parentId || "",
     childId: item.childId || "",
     vanId: item.vanId || "",
@@ -645,6 +799,7 @@ function normalizeLive(item: Partial<LiveTrackingState> | undefined, driverName:
     ...seed,
     ...item,
     id: item?.id || seed.id || makeId("live"),
+    companyId: item?.companyId || seed.companyId || DEFAULT_COMPANY_ID,
     driverId: item?.driverId || seed.driverId,
     vanId: item?.vanId || seed.vanId,
     driverName: item?.driverName || driverName,
@@ -718,35 +873,80 @@ export function mutateDb(mutator: (db: AppDatabase) => void) {
   return writeDb(db);
 }
 
-export function getAdminPayload(): AdminPayload {
+function resolveCompany(db: AppDatabase, companyId?: string) {
+  return db.companies.find((company) => company.id === companyId) ||
+    db.companies.find((company) => company.id === db.currentCompanyId) ||
+    db.companies[0] ||
+    defaultCompany();
+}
+
+function companySettings(db: AppDatabase, companyId?: string) {
+  return resolveCompany(db, companyId).settings || db.settings;
+}
+
+function companyTheme(db: AppDatabase, companyId?: string) {
+  return resolveCompany(db, companyId).theme || db.theme;
+}
+
+function publicCompanySettings(settings: CompanySettings) {
+  const copy = { ...settings };
+  delete copy.routeApiKey;
+  return copy;
+}
+
+function belongsToCompany<T extends { companyId?: string }>(item: T, companyId: string) {
+  return (item.companyId || DEFAULT_COMPANY_ID) === companyId;
+}
+
+export function getAdminPayload(companyId?: string): AdminPayload {
   const db = readDb();
-  const liveTrackings = db.liveTrackings.map(visibleLive);
+  const currentCompany = resolveCompany(db, companyId);
+  const currentCompanyId = currentCompany.id;
+  const drivers = db.drivers.filter((item) => belongsToCompany(item, currentCompanyId));
+  const vans = db.vans.filter((item) => belongsToCompany(item, currentCompanyId));
+  const parents = db.parents.filter((item) => belongsToCompany(item, currentCompanyId));
+  const children = db.children.filter((item) => belongsToCompany(item, currentCompanyId));
+  const checkins = db.checkins.filter((item) => belongsToCompany(item, currentCompanyId));
+  const payments = db.payments.filter((item) => belongsToCompany(item, currentCompanyId));
+  const contracts = db.contracts.filter((item) => belongsToCompany(item, currentCompanyId));
+  const routePlans = db.routePlans.filter((item) => belongsToCompany(item, currentCompanyId));
+  const liveTrackings = db.liveTrackings
+    .filter((item) => belongsToCompany(item, currentCompanyId))
+    .map(visibleLive);
+  const vanQrCodes = db.vanQrCodes.filter((item) => belongsToCompany(item, currentCompanyId));
+
   return {
     adminAccess: safeAdmin(db.admins[0]),
-    settings: db.settings,
-    theme: db.theme,
+    currentCompany: safeCompany(currentCompany),
+    companies: db.companies.map(safeCompany),
+    settings: companySettings(db, currentCompanyId),
+    theme: companyTheme(db, currentCompanyId),
     schools: db.schools,
     neighborhoods: db.neighborhoods,
-    liveTracking: liveTrackings[0] || visibleLive(db.liveTracking),
+    liveTracking: liveTrackings[0] || visibleLive(ensureCompanyOnLive(db.liveTracking, currentCompanyId)),
     liveTrackings,
-    vanQrCode: db.vanQrCode,
-    vanQrCodes: db.vanQrCodes,
-    drivers: db.drivers.map(safeDriver),
-    vans: db.vans,
-    parents: db.parents.map(safeParent),
-    children: db.children,
-    checkins: db.checkins,
-    payments: db.payments,
+    vanQrCode: vanQrCodes[0] || ensureCompanyOnQr(db.vanQrCode, currentCompanyId),
+    vanQrCodes,
+    drivers: drivers.map(safeDriver),
+    vans,
+    parents: parents.map(safeParent),
+    children,
+    checkins,
+    payments,
+    contracts,
+    routePlans,
   };
 }
 
 export function getPublicPayload() {
   const db = readDb();
+  const settings = publicCompanySettings(companySettings(db, db.currentCompanyId));
+
   return {
-    settings: db.settings,
-    theme: db.theme,
+    settings,
+    theme: companyTheme(db, db.currentCompanyId),
     schools: db.schools.filter((schoolItem) => schoolItem.active),
-    neighborhoods: db.neighborhoods,
+    neighborhoods: db.neighborhoods.filter((neighborhood) => neighborhood.served),
   };
 }
 
@@ -754,17 +954,20 @@ export function getParentDashboard(parentId: string): ParentDashboardPayload | n
   const db = readDb();
   const parent = db.parents.find((item) => item.id === parentId && item.active);
   if (!parent) return null;
+  const parentCompanyId = parent.companyId || DEFAULT_COMPANY_ID;
   const children = db.children.filter((child) => child.parentId === parent.id);
   const childDriverIds = new Set(children.map((child) => child.driverId).filter(Boolean));
   const childVanIds = new Set(children.map((child) => child.vanId).filter(Boolean));
   const relatedLiveTrackings = db.liveTrackings
+    .filter((live) => belongsToCompany(live, parentCompanyId))
     .map(visibleLive)
     .filter((live) => (live.driverId && childDriverIds.has(live.driverId)) || (live.vanId && childVanIds.has(live.vanId)));
-  const liveTracking = relatedLiveTrackings[0] || visibleLive(db.liveTracking);
+  const liveTracking = relatedLiveTrackings[0] || visibleLive(ensureCompanyOnLive(db.liveTracking, parentCompanyId));
+  const settings = publicCompanySettings(companySettings(db, parentCompanyId));
 
   return {
-    settings: db.settings,
-    theme: db.theme,
+    settings,
+    theme: companyTheme(db, parentCompanyId),
     schools: db.schools.filter((schoolItem) => schoolItem.active),
     neighborhoods: db.neighborhoods,
     liveTracking,
@@ -773,6 +976,7 @@ export function getParentDashboard(parentId: string): ParentDashboardPayload | n
     children,
     checkins: db.checkins.filter((checkin) => checkin.parentId === parent.id),
     payments: db.payments.filter((payment) => payment.parentId === parent.id),
+    contracts: db.contracts.filter((contract) => contract.parentId === parent.id),
   };
 }
 
@@ -808,6 +1012,7 @@ function safeAdmin(admin: AdminUser | undefined) {
 function safeDriver(driver: DriverRecord) {
   return {
     id: driver.id,
+    companyId: driver.companyId,
     name: driver.name,
     contact: driver.contact,
     cpfLast4: driver.cpfLast4,
@@ -815,6 +1020,26 @@ function safeDriver(driver: DriverRecord) {
     vanId: driver.vanId,
     active: driver.active,
     createdAt: driver.createdAt,
+  };
+}
+
+function safeCompany(company: CompanyRecord) {
+  const settings = publicCompanySettings(company.settings);
+
+  return {
+    id: company.id,
+    name: company.name,
+    document: company.document,
+    documentLast4: company.documentLast4,
+    active: company.active,
+    settings: {
+      ...settings,
+      routeApiProvider: company.settings.routeApiProvider || "local-ai",
+      hasRouteApiKey: Boolean(company.settings.routeApiKey),
+    },
+    theme: company.theme,
+    contractTemplate: company.contractTemplate,
+    createdAt: company.createdAt,
   };
 }
 
@@ -855,9 +1080,117 @@ export function updateAdminAccess(input: {
   return { db, error, adminAccess: safeAdmin(db.admins[0]) };
 }
 
-export function upsertDriver(input: Partial<DriverRecord> & { name: string; contact: string; cpf?: string }) {
+export function upsertCompany(input: {
+  id?: string;
+  name: string;
+  document: string;
+  password?: string;
+  active?: boolean;
+  settings?: Partial<CompanySettings>;
+  theme?: Partial<ThemeSettings>;
+  contractTemplate?: string;
+}) {
   let error = "";
   const db = mutateDb((draft) => {
+    const name = input.name.trim();
+    const document = normalizeDigits(input.document || input.settings?.document || "");
+    const password = input.password?.trim() || "";
+
+    if (!name || document.length < 11) {
+      error = "Informe nome da empresa e CNPJ/CPF com digitos validos.";
+      return;
+    }
+
+    if (!input.id && password.length < 6) {
+      error = "Informe uma senha inicial com pelo menos 6 caracteres.";
+      return;
+    }
+
+    const existing = input.id
+      ? draft.companies.find((item) => item.id === input.id)
+      : draft.companies.find((item) => normalizeDigits(item.document) === document);
+    const company: CompanyRecord = existing || {
+      ...defaultCompany(),
+      id: makeId("company"),
+      createdAt: todayIso(),
+    };
+
+    company.name = name;
+    company.document = document;
+    company.documentHash = hashSecret(document);
+    company.documentLast4 = document.slice(-4);
+    company.active = input.active ?? true;
+    company.settings = {
+      ...company.settings,
+      ...input.settings,
+      brandName: input.settings?.brandName?.trim() || company.settings.brandName || name,
+      businessName: input.settings?.businessName?.trim() || company.settings.businessName || name,
+      document: input.settings?.document?.trim() || document,
+      routeApiProvider: input.settings?.routeApiProvider || company.settings.routeApiProvider || "local-ai",
+      routeApiKey: input.settings?.routeApiKey ?? company.settings.routeApiKey ?? "",
+    };
+    company.theme = { ...company.theme, ...input.theme };
+    company.contractTemplate = input.contractTemplate?.trim() || company.contractTemplate || defaultContractTemplate();
+    if (password) company.passwordHash = hashSecret(password);
+
+    if (!existing) {
+      draft.companies.push(company);
+      draft.currentCompanyId = company.id;
+    }
+  });
+
+  return { db, error };
+}
+
+export function updateCompanyProfile(
+  companyId: string | undefined,
+  settings?: Partial<CompanySettings>,
+  theme?: Partial<ThemeSettings>
+) {
+  const db = mutateDb((draft) => {
+    const company = resolveCompany(draft, companyId);
+    if (settings) {
+      company.settings = {
+        ...company.settings,
+        ...settings,
+        brandName: settings.brandName?.trim() || company.settings.brandName,
+        businessName: settings.businessName?.trim() || company.settings.businessName,
+        pixKey: settings.pixKey?.trim() || company.settings.pixKey,
+        routeApiProvider: settings.routeApiProvider || company.settings.routeApiProvider || "local-ai",
+        routeApiKey: settings.routeApiKey ?? company.settings.routeApiKey ?? "",
+      };
+      company.name = company.settings.businessName || company.settings.brandName || company.name;
+      company.document = normalizeDigits(company.settings.document || company.document);
+      company.documentHash = hashSecret(company.document);
+      company.documentLast4 = company.document.slice(-4);
+    }
+
+    if (theme) {
+      company.theme = {
+        ...company.theme,
+        ...theme,
+      };
+    }
+
+    if (company.id === draft.currentCompanyId) {
+      draft.settings = company.settings;
+      draft.theme = company.theme;
+    }
+  });
+
+  const currentCompany = resolveCompany(db, companyId);
+  return {
+    db,
+    settings: currentCompany.settings,
+    theme: currentCompany.theme,
+    currentCompany: safeCompany(currentCompany),
+  };
+}
+
+export function upsertDriver(input: Partial<DriverRecord> & { name: string; contact: string; cpf?: string; companyId?: string }) {
+  let error = "";
+  const db = mutateDb((draft) => {
+    const companyId = resolveCompany(draft, input.companyId).id;
     const name = input.name.trim();
     const contact = normalizeContact(input.contact || "");
     const cpf = normalizeCpf(input.cpf || "");
@@ -872,9 +1205,10 @@ export function upsertDriver(input: Partial<DriverRecord> & { name: string; cont
       return;
     }
 
-    const existing = input.id ? draft.drivers.find((item) => item.id === input.id) : null;
+    const existing = input.id ? draft.drivers.find((item) => item.id === input.id && belongsToCompany(item, companyId)) : null;
     const driver: DriverRecord = existing || {
       id: makeId("driver"),
+      companyId,
       name,
       contact,
       cpfHash: hashSecret(cpf),
@@ -886,6 +1220,7 @@ export function upsertDriver(input: Partial<DriverRecord> & { name: string; cont
     };
 
     driver.name = name;
+    driver.companyId = companyId;
     driver.contact = contact;
     driver.license = input.license || "";
     driver.vanId = input.vanId || "";
@@ -898,7 +1233,7 @@ export function upsertDriver(input: Partial<DriverRecord> & { name: string; cont
 
     if (!existing) draft.drivers.push(driver);
 
-    draft.vans.forEach((van) => {
+    draft.vans.filter((van) => belongsToCompany(van, companyId)).forEach((van) => {
       if (van.driverId === driver.id && van.id !== driver.vanId) van.driverId = "";
       if (driver.vanId && van.id === driver.vanId) van.driverId = driver.id;
     });
@@ -907,18 +1242,45 @@ export function upsertDriver(input: Partial<DriverRecord> & { name: string; cont
   return { db, error };
 }
 
-export function upsertVan(input: Partial<VanRecord> & { label: string }) {
+export function deleteDriver(id: string, companyId?: string) {
   let error = "";
   const db = mutateDb((draft) => {
+    const activeCompanyId = resolveCompany(draft, companyId).id;
+    const driver = draft.drivers.find((item) => item.id === id && belongsToCompany(item, activeCompanyId));
+    if (!driver) {
+      error = "Motorista nao encontrado.";
+      return;
+    }
+
+    draft.drivers = draft.drivers.filter((item) => item.id !== id);
+    draft.vans.forEach((van) => {
+      if (belongsToCompany(van, activeCompanyId) && van.driverId === id) van.driverId = "";
+    });
+    draft.children.forEach((child) => {
+      if (belongsToCompany(child, activeCompanyId) && child.driverId === id) child.driverId = "";
+    });
+    draft.liveTrackings = draft.liveTrackings.filter((live) => live.driverId !== id);
+    draft.routePlans = draft.routePlans.filter((plan) => plan.driverId !== id);
+    if (draft.liveTracking.driverId === id) draft.liveTracking = defaultLiveTracking();
+  });
+
+  return { db, error };
+}
+
+export function upsertVan(input: Partial<VanRecord> & { label: string; companyId?: string }) {
+  let error = "";
+  const db = mutateDb((draft) => {
+    const companyId = resolveCompany(draft, input.companyId).id;
     const label = input.label.trim();
     if (!label) {
       error = "Informe o nome da van.";
       return;
     }
 
-    const existing = input.id ? draft.vans.find((item) => item.id === input.id) : null;
+    const existing = input.id ? draft.vans.find((item) => item.id === input.id && belongsToCompany(item, companyId)) : null;
     const van: VanRecord = existing || {
       id: makeId("van"),
+      companyId,
       label,
       plate: "",
       model: "",
@@ -931,6 +1293,7 @@ export function upsertVan(input: Partial<VanRecord> & { label: string }) {
     };
 
     van.label = label;
+    van.companyId = companyId;
     van.plate = input.plate || "";
     van.model = input.model || "";
     van.seats = Math.max(1, Number(input.seats || 15));
@@ -943,6 +1306,7 @@ export function upsertVan(input: Partial<VanRecord> & { label: string }) {
       draft.vans.push(van);
       draft.vanQrCodes.push({
         id: makeId("vanqr"),
+        companyId,
         vanId: van.id,
         token: makeId("vanqr"),
         label: van.label,
@@ -951,7 +1315,7 @@ export function upsertVan(input: Partial<VanRecord> & { label: string }) {
       });
     }
 
-    draft.drivers.forEach((driver) => {
+    draft.drivers.filter((driver) => belongsToCompany(driver, companyId)).forEach((driver) => {
       if (driver.vanId === van.id && driver.id !== van.driverId) driver.vanId = "";
       if (van.driverId && driver.id === van.driverId) driver.vanId = van.id;
     });
@@ -965,22 +1329,53 @@ export function upsertVan(input: Partial<VanRecord> & { label: string }) {
   return { db, error };
 }
 
+export function deleteVan(id: string, companyId?: string) {
+  let error = "";
+  const db = mutateDb((draft) => {
+    const activeCompanyId = resolveCompany(draft, companyId).id;
+    const van = draft.vans.find((item) => item.id === id && belongsToCompany(item, activeCompanyId));
+    if (!van) {
+      error = "Van nao encontrada.";
+      return;
+    }
+
+    draft.vans = draft.vans.filter((item) => item.id !== id);
+    draft.vanQrCodes = draft.vanQrCodes.filter((qr) => qr.vanId !== id);
+    draft.drivers.forEach((driver) => {
+      if (belongsToCompany(driver, activeCompanyId) && driver.vanId === id) driver.vanId = "";
+    });
+    draft.children.forEach((child) => {
+      if (!belongsToCompany(child, activeCompanyId) || child.vanId !== id) return;
+      child.vanId = "";
+      if (child.driverId === van.driverId) child.driverId = "";
+    });
+    draft.liveTrackings = draft.liveTrackings.filter((live) => live.vanId !== id);
+    draft.routePlans = draft.routePlans.filter((plan) => plan.vanId !== id);
+    draft.vanQrCode = draft.vanQrCodes.find((qr) => belongsToCompany(qr, activeCompanyId)) || defaultVanQrCode();
+    if (draft.liveTracking.vanId === id) draft.liveTracking = defaultLiveTracking();
+  });
+
+  return { db, error };
+}
+
 export function assignChildTransport(input: {
   childId: string;
   driverId?: string;
   vanId?: string;
   shift?: Shift | "";
+  companyId?: string;
 }) {
   let error = "";
   const db = mutateDb((draft) => {
-    const child = draft.children.find((item) => item.id === input.childId);
+    const companyId = resolveCompany(draft, input.companyId).id;
+    const child = draft.children.find((item) => item.id === input.childId && belongsToCompany(item, companyId));
     if (!child) {
       error = "Aluno nao encontrado.";
       return;
     }
 
-    const van = input.vanId ? draft.vans.find((item) => item.id === input.vanId) : null;
-    const driver = input.driverId ? draft.drivers.find((item) => item.id === input.driverId) : null;
+    const van = input.vanId ? draft.vans.find((item) => item.id === input.vanId && belongsToCompany(item, companyId)) : null;
+    const driver = input.driverId ? draft.drivers.find((item) => item.id === input.driverId && belongsToCompany(item, companyId)) : null;
 
     child.vanId = van?.id || "";
     child.driverId = driver?.id || van?.driverId || "";
@@ -1102,13 +1497,15 @@ export function updateChildAbsence(parentId: string, childId: string, status: Ch
   return { db, error };
 }
 
-export function regenerateVanQrCode(vanId = DEFAULT_VAN_ID) {
+export function regenerateVanQrCode(vanId = DEFAULT_VAN_ID, companyId?: string) {
   const targetVanId = vanId || DEFAULT_VAN_ID;
   return mutateDb((db) => {
-    const van = db.vans.find((item) => item.id === targetVanId);
+    const activeCompanyId = resolveCompany(db, companyId).id;
+    const van = db.vans.find((item) => item.id === targetVanId && belongsToCompany(item, activeCompanyId));
     const nextQr = {
       ...defaultVanQrCode(),
       id: makeId("vanqr"),
+      companyId: activeCompanyId,
       vanId: targetVanId,
       label: van?.label || db.vanQrCode?.label || "Van principal",
       generatedAt: todayIso(),
@@ -1118,7 +1515,7 @@ export function regenerateVanQrCode(vanId = DEFAULT_VAN_ID) {
       nextQr,
       ...db.vanQrCodes.filter((qr) => qr.vanId !== targetVanId),
     ];
-    db.vanQrCode = db.vanQrCodes[0] || nextQr;
+    db.vanQrCode = db.vanQrCodes.find((qr) => belongsToCompany(qr, activeCompanyId)) || nextQr;
   });
 }
 
@@ -1156,6 +1553,7 @@ export function createCheckin(input: {
 
     checkin = {
       id: makeId("checkin"),
+      companyId: qr.companyId || child.companyId || parent.companyId || DEFAULT_COMPANY_ID,
       parentId: parent.id,
       childId: child.id,
       vanId: qr.vanId || child.vanId || "",
@@ -1177,29 +1575,36 @@ export function createCheckin(input: {
 export function getDriverRoutePayload(driverId?: string) {
   const db = readDb();
   const driver = driverId ? db.drivers.find((item) => item.id === driverId && item.active) : null;
+  const companyId = driver?.companyId || DEFAULT_COMPANY_ID;
   const driverVan = driver?.vanId
-    ? db.vans.find((van) => van.id === driver.vanId && van.active)
+    ? db.vans.find((van) => van.id === driver.vanId && van.active && belongsToCompany(van, companyId))
     : null;
   const children = db.children.filter((child) => {
-    if (!child.active) return false;
+    if (!child.active || !belongsToCompany(child, companyId)) return false;
     if (!driver) return true;
     return child.driverId === driver.id || (!!driverVan && child.vanId === driverVan.id);
   });
   const childIds = new Set(children.map((child) => child.id));
   const liveTracking = driver ? getLiveTracking(driver.id) : visibleLive(db.liveTracking);
+  const routePlan = driver
+    ? db.routePlans
+        .filter((plan) => plan.driverId === driver.id && belongsToCompany(plan, companyId))
+        .sort((a, b) => b.generatedAt.localeCompare(a.generatedAt))[0] || null
+    : null;
 
   return {
-    settings: db.settings,
+    settings: companySettings(db, companyId),
     driver: driver ? safeDriver(driver) : null,
     van: driverVan || null,
     liveTracking,
     schools: db.schools.filter((schoolItem) => schoolItem.active),
-    parents: db.parents.map(safeParent),
+    parents: db.parents.filter((parent) => belongsToCompany(parent, companyId)).map(safeParent),
     children,
-    checkins: db.checkins.filter((checkin) => childIds.has(checkin.childId)).slice(0, 80),
+    checkins: db.checkins.filter((checkin) => childIds.has(checkin.childId) && belongsToCompany(checkin, companyId)).slice(0, 80),
     vanQrCode: driverVan
-      ? db.vanQrCodes.find((qr) => qr.vanId === driverVan.id) || db.vanQrCode
-      : db.vanQrCode,
+      ? db.vanQrCodes.find((qr) => qr.vanId === driverVan.id && belongsToCompany(qr, companyId)) || ensureCompanyOnQr(db.vanQrCode, companyId)
+      : ensureCompanyOnQr(db.vanQrCode, companyId),
+    routePlan,
   };
 }
 
@@ -1266,16 +1671,18 @@ export function updateLiveTracking(input: Partial<LiveTrackingState>) {
     const driver = input.driverId
       ? db.drivers.find((item) => item.id === input.driverId)
       : db.drivers.find((item) => item.vanId === input.vanId) || db.drivers[0];
+    const companyId = input.companyId || driver?.companyId || DEFAULT_COMPANY_ID;
     const vanId = input.vanId || driver?.vanId || db.vans[0]?.id || DEFAULT_VAN_ID;
-    const driverName = driver?.name || input.driverName || db.settings.driverName;
+    const driverName = driver?.name || input.driverName || companySettings(db, companyId).driverName;
     const current =
-      db.liveTrackings.find((item) => item.driverId === driver?.id || item.vanId === vanId) ||
+      db.liveTrackings.find((item) => belongsToCompany(item, companyId) && (item.driverId === driver?.id || item.vanId === vanId)) ||
       db.liveTracking ||
       defaultLiveTracking();
     const updated: LiveTrackingState = {
       ...current,
       ...input,
       id: current.id || makeId("live"),
+      companyId,
       driverId: driver?.id || input.driverId || current.driverId,
       vanId,
       active: input.active ?? current.active,
@@ -1294,4 +1701,224 @@ export function updateLiveTracking(input: Partial<LiveTrackingState>) {
     ];
     db.liveTracking = updated;
   });
+}
+
+function childAddressLine(child: ChildRecord) {
+  const address = [
+    child.address.street,
+    child.address.number,
+    child.address.neighborhood,
+    child.address.city || "Toledo",
+    child.address.state || "PR",
+  ].filter(Boolean);
+
+  return address.join(", ") || "Endereco nao informado";
+}
+
+function sortChildrenForRoute(children: ChildRecord[]) {
+  const withCoordinates = children.filter(
+    (child) => typeof child.address.latitude === "number" && typeof child.address.longitude === "number"
+  );
+
+  if (withCoordinates.length >= 2) {
+    const remaining = [...children];
+    const ordered: ChildRecord[] = [];
+    let cursor = { latitude: -24.7249, longitude: -53.7419 };
+
+    while (remaining.length) {
+      remaining.sort((a, b) => distanceFrom(cursor, a) - distanceFrom(cursor, b));
+      const next = remaining.shift();
+      if (!next) break;
+      ordered.push(next);
+      if (typeof next.address.latitude === "number" && typeof next.address.longitude === "number") {
+        cursor = { latitude: next.address.latitude, longitude: next.address.longitude };
+      }
+    }
+
+    return ordered;
+  }
+
+  return [...children].sort((a, b) => {
+    const left = `${a.address.neighborhood} ${a.address.street} ${a.name}`.trim();
+    const right = `${b.address.neighborhood} ${b.address.street} ${b.name}`.trim();
+    return left.localeCompare(right, "pt-BR");
+  });
+}
+
+function distanceFrom(cursor: { latitude: number; longitude: number }, child: ChildRecord) {
+  if (typeof child.address.latitude !== "number" || typeof child.address.longitude !== "number") return Number.MAX_SAFE_INTEGER;
+  return Math.hypot(cursor.latitude - child.address.latitude, cursor.longitude - child.address.longitude);
+}
+
+export function generateRoutePlan(input: { driverId: string; companyId?: string }) {
+  let error = "";
+  let routePlan: RoutePlanRecord | null = null;
+
+  const db = mutateDb((draft) => {
+    const driver = draft.drivers.find(
+      (item) => item.id === input.driverId && item.active && (!input.companyId || belongsToCompany(item, input.companyId))
+    );
+    if (!driver) {
+      error = "Motorista nao encontrado.";
+      return;
+    }
+
+    const companyId = driver.companyId || input.companyId || DEFAULT_COMPANY_ID;
+    const van = driver.vanId
+      ? draft.vans.find((item) => item.id === driver.vanId && item.active && belongsToCompany(item, companyId))
+      : null;
+    const students = draft.children.filter((child) => {
+      if (!child.active || !belongsToCompany(child, companyId) || child.absenceStatus === "not_going") return false;
+      return child.driverId === driver.id || (!!van && child.vanId === van.id);
+    });
+    const parentsById = new Map(draft.parents.map((parent) => [parent.id, parent]));
+    const schoolsById = new Map(draft.schools.map((schoolItem) => [schoolItem.id, schoolItem]));
+    const ordered = sortChildrenForRoute(students);
+    const provider = resolveCompany(draft, companyId).settings.routeApiKey ? "external-api" : "local-ai";
+
+    routePlan = {
+      id: makeId("routeplan"),
+      companyId,
+      driverId: driver.id,
+      vanId: van?.id || driver.vanId || "",
+      provider,
+      summary:
+        ordered.length === 0
+          ? "Nenhum aluno ativo para montar rota agora."
+          : provider === "external-api"
+            ? "Sugestao pronta para validar em API externa de rotas cadastrada pela empresa."
+            : "Sugestao local criada com base nos bairros, enderecos e localizacoes salvas dos alunos.",
+      totalEstimatedMinutes: ordered.length ? ordered.length * 7 + 8 : 0,
+      generatedAt: todayIso(),
+      stops: ordered.map((child, index) => ({
+        childId: child.id,
+        childName: child.name,
+        parentName: parentsById.get(child.parentId)?.name || "Responsavel",
+        address: childAddressLine(child),
+        neighborhood: child.address.neighborhood || "Bairro nao informado",
+        schoolName: schoolsById.get(child.schoolId)?.name || "Escola",
+        status: child.absenceStatus,
+        estimatedMinutes: (index + 1) * 7,
+      })),
+    };
+
+    draft.routePlans = [
+      routePlan,
+      ...draft.routePlans.filter((plan) => !(plan.driverId === driver.id && belongsToCompany(plan, companyId))).slice(0, 30),
+    ];
+  });
+
+  return { db, error, routePlan };
+}
+
+function renderContractTemplate(
+  template: string,
+  company: CompanyRecord,
+  parent: ParentRecord,
+  child: ChildRecord,
+  schoolName: string,
+  signature = "Aguardando assinatura"
+) {
+  return template
+    .replaceAll("{{empresa}}", company.settings.businessName || company.name)
+    .replaceAll("{{responsavel}}", parent.name)
+    .replaceAll("{{aluno}}", child.name)
+    .replaceAll("{{escola}}", schoolName)
+    .replaceAll("{{assinatura}}", signature);
+}
+
+export function updateContractTemplate(companyId: string | undefined, template: string) {
+  let error = "";
+  const db = mutateDb((draft) => {
+    const company = resolveCompany(draft, companyId);
+    const nextTemplate = template.trim();
+
+    if (nextTemplate.length < 40) {
+      error = "Escreva um contrato com pelo menos 40 caracteres.";
+      return;
+    }
+
+    company.contractTemplate = nextTemplate;
+  });
+
+  return { db, error };
+}
+
+export function createContract(input: { companyId?: string; parentId: string; childId: string; title?: string }) {
+  let error = "";
+  let contract: ContractRecord | null = null;
+
+  const db = mutateDb((draft) => {
+    const company = resolveCompany(draft, input.companyId);
+    const parent = draft.parents.find((item) => item.id === input.parentId && belongsToCompany(item, company.id));
+    const child = draft.children.find(
+      (item) => item.id === input.childId && item.parentId === input.parentId && belongsToCompany(item, company.id)
+    );
+
+    if (!parent || !child) {
+      error = "Responsavel ou aluno nao encontrado.";
+      return;
+    }
+
+    const schoolName = draft.schools.find((schoolItem) => schoolItem.id === child.schoolId)?.name || "Escola";
+    contract = {
+      id: makeId("contract"),
+      companyId: company.id,
+      parentId: parent.id,
+      childId: child.id,
+      title: input.title?.trim() || `Contrato - ${child.name}`,
+      content: renderContractTemplate(company.contractTemplate, company, parent, child, schoolName),
+      status: "sent",
+      createdAt: todayIso(),
+    };
+
+    draft.contracts = [contract, ...draft.contracts];
+  });
+
+  return { db, error, contract };
+}
+
+export function getContract(id: string) {
+  const db = readDb();
+  const contract = db.contracts.find((item) => item.id === id);
+  if (!contract) return null;
+  const company = resolveCompany(db, contract.companyId);
+  const parent = db.parents.find((item) => item.id === contract.parentId);
+  const child = db.children.find((item) => item.id === contract.childId);
+
+  return {
+    contract,
+    company: safeCompany(company),
+    parent: parent ? safeParent(parent) : null,
+    child: child || null,
+  };
+}
+
+export function signContract(input: { id: string; signerName: string; signerDocument: string }) {
+  let error = "";
+  let contract: ContractRecord | null = null;
+
+  const db = mutateDb((draft) => {
+    const found = draft.contracts.find((item) => item.id === input.id);
+    if (!found) {
+      error = "Contrato nao encontrado.";
+      return;
+    }
+
+    const signerName = input.signerName.trim();
+    const signerDocument = normalizeDigits(input.signerDocument);
+    if (!signerName || signerDocument.length < 11) {
+      error = "Informe nome completo e CPF/CNPJ para assinar.";
+      return;
+    }
+
+    found.status = "signed";
+    found.signerName = signerName;
+    found.signerDocument = signerDocument;
+    found.signedAt = todayIso();
+    found.content = found.content.replaceAll("Aguardando assinatura", signerName);
+    contract = found;
+  });
+
+  return { db, error, contract };
 }

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getAdminPayload, hashSecret, mutateDb } from "@/lib/server/app-db";
+import { getAdminPayload, hashSecret, mutateDb, readDb } from "@/lib/server/app-db";
 import { makeId, normalizeContact, normalizeCpf, todayIso } from "@/lib/app-utils";
 
 export async function POST(request: Request) {
@@ -7,6 +7,11 @@ export async function POST(request: Request) {
   const name = String(body?.name || "").trim();
   const contact = normalizeContact(String(body?.contact || ""));
   const cpf = normalizeCpf(String(body?.cpf || ""));
+  const requestedCompanyId = String(body?.companyId || "");
+  const activeCompanyId =
+    readDb().companies.find((company) => company.id === requestedCompanyId)?.id ||
+    readDb().currentCompanyId ||
+    readDb().companies[0]?.id;
 
   if (!name || !contact || cpf.length !== 11) {
     return NextResponse.json(
@@ -16,8 +21,12 @@ export async function POST(request: Request) {
   }
 
   mutateDb((draft) => {
-    const existing = draft.parents.find((parent) => normalizeContact(parent.contact) === contact);
+    const companyId = activeCompanyId || draft.currentCompanyId || draft.companies[0]?.id;
+    const existing = draft.parents.find(
+      (parent) => normalizeContact(parent.contact) === contact && (parent.companyId || companyId) === companyId
+    );
     if (existing) {
+      existing.companyId = companyId;
       existing.name = name;
       existing.email = String(body?.email || existing.email || "");
       existing.cpfHash = hashSecret(cpf);
@@ -28,6 +37,7 @@ export async function POST(request: Request) {
 
     draft.parents.push({
       id: makeId("parent"),
+      companyId,
       name,
       contact,
       email: String(body?.email || ""),
@@ -38,5 +48,5 @@ export async function POST(request: Request) {
     });
   });
 
-  return NextResponse.json(getAdminPayload());
+  return NextResponse.json(getAdminPayload(activeCompanyId));
 }

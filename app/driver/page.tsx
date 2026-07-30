@@ -14,6 +14,7 @@ import {
   Navigation,
   Phone,
   Power,
+  Route,
   Send,
   ShieldCheck,
   UsersRound,
@@ -26,6 +27,7 @@ import type {
   ChildRecord,
   CompanySettings,
   LiveTrackingState,
+  RoutePlanRecord,
   SafeDriverRecord,
   SafeParentRecord,
   SchoolRecord,
@@ -45,6 +47,7 @@ type DriverRoutePayload = {
   children: ChildRecord[];
   checkins: CheckinRecord[];
   vanQrCode: VanQrCodeRecord;
+  routePlan: RoutePlanRecord | null;
 };
 
 const emptyLive: LiveTrackingState = {
@@ -64,6 +67,7 @@ export default function DriverPage() {
   const [session, setSession] = useState<SessionUser | null>(null);
   const [live, setLive] = useState<LiveTrackingState>(emptyLive);
   const [routeState, setRouteState] = useState<DriverRoutePayload | null>(null);
+  const [routePlan, setRoutePlan] = useState<RoutePlanRecord | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState("");
   const [message, setMessage] = useState("");
@@ -83,6 +87,7 @@ export default function DriverPage() {
     if (response.ok) {
       const payload = (await response.json()) as DriverRoutePayload;
       setRouteState(payload);
+      setRoutePlan(payload.routePlan || null);
       setLive(payload.liveTracking || emptyLive);
     }
   }, [driverId]);
@@ -182,6 +187,7 @@ export default function DriverPage() {
       body: JSON.stringify({
         ...payload,
         driverId,
+        companyId: session?.companyId,
         vanId: routeState?.van?.id || routeState?.driver?.vanId || "",
         currentNeighborhood: manual.currentNeighborhood,
         nextStop: manual.nextStop,
@@ -240,6 +246,29 @@ export default function DriverPage() {
     }
     await postLive({ active: false, source: "manual" });
     setMessage("Ao vivo encerrado.");
+    setSaving("");
+  };
+
+  const generateRoutePlan = async () => {
+    if (!driverId) return;
+    setSaving("route-plan");
+    setMessage("");
+
+    const response = await fetch("/api/driver/route-plan", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ driverId, companyId: session?.companyId }),
+    });
+    const payload = (await response.json().catch(() => null)) as { routePlan?: RoutePlanRecord; error?: string } | null;
+
+    if (response.ok && payload?.routePlan) {
+      setRoutePlan(payload.routePlan);
+      await loadRouteState();
+      setMessage("Rota sugerida gerada.");
+    } else {
+      setMessage(payload?.error || "Nao foi possivel gerar a rota.");
+    }
+
     setSaving("");
   };
 
@@ -339,6 +368,53 @@ export default function DriverPage() {
           {message && (
             <div className="mt-5 rounded-2xl border border-sun/30 bg-sun/10 px-4 py-3 text-sm font-semibold text-sun">
               {message}
+            </div>
+          )}
+        </section>
+
+        <section className="mt-5 rounded-3xl border border-white/10 bg-white/[0.04] p-6 shadow-2xl">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm font-semibold uppercase tracking-[0.18em] text-sun">Rota IA</p>
+              <h2 className="mt-2 text-2xl font-semibold">Sugestao de caminho</h2>
+              <p className="mt-2 text-sm text-white/55">
+                Baseada nos enderecos dos alunos vinculados a este motorista.
+              </p>
+            </div>
+            <Button type="button" onClick={generateRoutePlan} disabled={saving === "route-plan"}>
+              <Route size={16} /> Gerar rota IA
+            </Button>
+          </div>
+
+          {routePlan ? (
+            <div className="mt-5">
+              <div className="rounded-2xl bg-white/10 p-4 text-sm text-white/65">
+                {routePlan.summary} Tempo total estimado: {routePlan.totalEstimatedMinutes} min.
+              </div>
+              <div className="mt-4 space-y-3">
+                {routePlan.stops.length === 0 && <EmptyState text="Sem alunos ativos para montar a rota." />}
+                {routePlan.stops.map((stop, index) => (
+                  <div key={`${stop.childId}-${index}`} className="rounded-2xl bg-white/10 p-4">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                      <div>
+                        <div className="text-xs font-semibold uppercase tracking-wide text-sun">Parada {index + 1}</div>
+                        <div className="mt-1 font-semibold">{stop.childName}</div>
+                        <div className="mt-1 text-sm text-white/55">{stop.address}</div>
+                        <div className="mt-1 text-xs text-white/45">
+                          {stop.parentName} - {stop.schoolName}
+                        </div>
+                      </div>
+                      <span className="w-fit rounded-full bg-sun px-3 py-1 text-xs font-bold text-navy">
+                        ~{stop.estimatedMinutes} min
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="mt-5 rounded-2xl bg-white/10 p-4 text-sm text-white/55">
+              Nenhuma rota gerada ainda. Toque no botao acima antes de iniciar o trajeto.
             </div>
           )}
         </section>

@@ -42,6 +42,7 @@ export async function POST(request: Request) {
 
     draft.children.push({
       id: makeId("child"),
+      companyId: parent.companyId,
       parentId,
       name,
       cpfHash,

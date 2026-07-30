@@ -41,6 +41,7 @@ export async function POST(
 
     const parent = draft.parents.find((item) => item.id === parentId);
     const child = draft.children.find((item) => item.id === payment.childId);
+    const company = draft.companies.find((item) => item.id === payment.companyId);
 
     if (!parent || !child) {
       error = "Dados do recibo incompletos.";
@@ -54,7 +55,7 @@ export async function POST(
       uploadedAt: todayIso(),
     };
     payment.status = "proof_received";
-    payment.receipt = createReceipt(payment, parent, child, draft.settings);
+    payment.receipt = createReceipt(payment, parent, child, company?.settings || draft.settings);
   });
 
   if (error) {

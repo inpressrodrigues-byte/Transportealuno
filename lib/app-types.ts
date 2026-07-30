@@ -1,4 +1,4 @@
-export type UserRole = "admin" | "parent" | "driver";
+export type UserRole = "admin" | "company" | "parent" | "driver";
 
 export type PaymentStatus =
   | "pending_proof"
@@ -42,6 +42,29 @@ export type CompanySettings = {
   pixHolder: string;
   pixBank: string;
   receiptText: string;
+  routeApiProvider?: string;
+  routeApiKey?: string;
+};
+
+export type CompanyRecord = {
+  id: string;
+  name: string;
+  document: string;
+  documentHash: string;
+  documentLast4: string;
+  passwordHash: string;
+  active: boolean;
+  settings: CompanySettings;
+  theme: ThemeSettings;
+  contractTemplate: string;
+  createdAt: string;
+};
+
+export type SafeCompanyRecord = Omit<CompanyRecord, "documentHash" | "passwordHash" | "settings"> & {
+  settings: Omit<CompanySettings, "routeApiKey"> & {
+    routeApiProvider?: string;
+    hasRouteApiKey?: boolean;
+  };
 };
 
 export type SchoolRecord = {
@@ -74,6 +97,7 @@ export type NeighborhoodRecord = {
 
 export type LiveTrackingState = {
   id: string;
+  companyId?: string;
   driverId?: string;
   vanId?: string;
   active: boolean;
@@ -107,6 +131,7 @@ export type AdminAccessRecord = {
 
 export type ParentRecord = {
   id: string;
+  companyId?: string;
   name: string;
   contact: string;
   email: string;
@@ -120,6 +145,7 @@ export type SafeParentRecord = Omit<ParentRecord, "cpfHash">;
 
 export type DriverRecord = {
   id: string;
+  companyId?: string;
   name: string;
   contact: string;
   cpfHash: string;
@@ -134,6 +160,7 @@ export type SafeDriverRecord = Omit<DriverRecord, "cpfHash">;
 
 export type VanRecord = {
   id: string;
+  companyId?: string;
   label: string;
   plate: string;
   model: string;
@@ -159,6 +186,7 @@ export type AddressRecord = {
 
 export type ChildRecord = {
   id: string;
+  companyId?: string;
   parentId: string;
   driverId?: string;
   vanId?: string;
@@ -181,6 +209,7 @@ export type ChildRecord = {
 
 export type VanQrCodeRecord = {
   id: string;
+  companyId?: string;
   vanId?: string;
   token: string;
   label: string;
@@ -190,6 +219,7 @@ export type VanQrCodeRecord = {
 
 export type CheckinRecord = {
   id: string;
+  companyId?: string;
   parentId: string;
   childId: string;
   vanId?: string;
@@ -223,6 +253,7 @@ export type ReceiptRecord = {
 
 export type PaymentRecord = {
   id: string;
+  companyId?: string;
   parentId: string;
   childId: string;
   month: string;
@@ -234,9 +265,48 @@ export type PaymentRecord = {
   createdAt: string;
 };
 
+export type ContractRecord = {
+  id: string;
+  companyId?: string;
+  parentId: string;
+  childId: string;
+  title: string;
+  content: string;
+  status: "draft" | "sent" | "signed";
+  signerName?: string;
+  signerDocument?: string;
+  signedAt?: string;
+  createdAt: string;
+};
+
+export type RoutePlanStop = {
+  childId: string;
+  childName: string;
+  parentName: string;
+  address: string;
+  neighborhood: string;
+  schoolName: string;
+  status: ChildAbsenceStatus;
+  estimatedMinutes: number;
+};
+
+export type RoutePlanRecord = {
+  id: string;
+  companyId?: string;
+  driverId: string;
+  vanId?: string;
+  provider: "local-ai" | "external-api";
+  summary: string;
+  totalEstimatedMinutes: number;
+  generatedAt: string;
+  stops: RoutePlanStop[];
+};
+
 export type AppDatabase = {
   settings: CompanySettings;
   theme: ThemeSettings;
+  companies: CompanyRecord[];
+  currentCompanyId?: string;
   schools: SchoolRecord[];
   removedSchoolIds: string[];
   neighborhoods: NeighborhoodRecord[];
@@ -252,6 +322,8 @@ export type AppDatabase = {
   children: ChildRecord[];
   checkins: CheckinRecord[];
   payments: PaymentRecord[];
+  contracts: ContractRecord[];
+  routePlans: RoutePlanRecord[];
 };
 
 export type SessionUser = {
@@ -259,6 +331,7 @@ export type SessionUser = {
   role: UserRole;
   name: string;
   contact: string;
+  companyId?: string;
 };
 
 export type ParentDashboardPayload = {
@@ -272,10 +345,13 @@ export type ParentDashboardPayload = {
   children: ChildRecord[];
   checkins: CheckinRecord[];
   payments: PaymentRecord[];
+  contracts: ContractRecord[];
 };
 
 export type AdminPayload = {
   adminAccess: AdminAccessRecord;
+  currentCompany?: SafeCompanyRecord;
+  companies: SafeCompanyRecord[];
   settings: CompanySettings;
   theme: ThemeSettings;
   schools: SchoolRecord[];
@@ -290,4 +366,6 @@ export type AdminPayload = {
   children: ChildRecord[];
   checkins: CheckinRecord[];
   payments: PaymentRecord[];
+  contracts: ContractRecord[];
+  routePlans: RoutePlanRecord[];
 };

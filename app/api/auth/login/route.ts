@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { hashSecret, readDb } from "@/lib/server/app-db";
-import { normalizeContact } from "@/lib/app-utils";
+import { normalizeContact, normalizeDigits } from "@/lib/app-utils";
 import type { SessionUser } from "@/lib/app-types";
 
 export async function POST(request: Request) {
@@ -35,6 +35,27 @@ export async function POST(request: Request) {
     return NextResponse.json({ user });
   }
 
+  const document = normalizeDigits(rawLogin);
+  const company = db.companies.find(
+    (item) =>
+      item.active &&
+      Boolean(document) &&
+      normalizeDigits(item.document) === document &&
+      item.passwordHash === passwordHash
+  );
+
+  if (company) {
+    const user: SessionUser = {
+      id: company.id,
+      role: "company",
+      name: company.name,
+      contact: company.document,
+      companyId: company.id,
+    };
+
+    return NextResponse.json({ user });
+  }
+
   const driver = db.drivers.find(
     (item) =>
       item.active &&
@@ -49,6 +70,7 @@ export async function POST(request: Request) {
       role: "driver",
       name: driver.name,
       contact: driver.contact,
+      companyId: driver.companyId,
     };
 
     return NextResponse.json({ user });
@@ -71,6 +93,7 @@ export async function POST(request: Request) {
     role: "parent",
     name: parent.name,
     contact: parent.contact,
+    companyId: parent.companyId,
   };
 
   return NextResponse.json({ user });

@@ -5,9 +5,12 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   Banknote,
+  Building2,
   Bus,
   CalendarClock,
   CheckCircle2,
+  Copy,
+  FileSignature,
   GraduationCap,
   Home,
   IdCard,
@@ -32,7 +35,6 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { LiveRouteMap } from "@/components/ui/LiveRouteMap";
-import { ToledoLuxuryMap } from "@/components/ui/ToledoLuxuryMap";
 import { cn } from "@/lib/utils";
 import type {
   AdminPayload,
@@ -58,6 +60,7 @@ import {
 
 type AdminTab =
   | "overview"
+  | "companies"
   | "company"
   | "drivers"
   | "vans"
@@ -67,10 +70,12 @@ type AdminTab =
   | "payments"
   | "live"
   | "checkin"
+  | "contracts"
   | "theme";
 
 const tabs = [
   { id: "overview" as AdminTab, label: "Visao geral", icon: Home },
+  { id: "companies" as AdminTab, label: "Empresas", icon: Building2 },
   { id: "company" as AdminTab, label: "Empresa e Pix", icon: Settings },
   { id: "drivers" as AdminTab, label: "Motoristas", icon: UsersRound },
   { id: "vans" as AdminTab, label: "Vans", icon: Bus },
@@ -80,6 +85,7 @@ const tabs = [
   { id: "payments" as AdminTab, label: "Pagamentos", icon: Wallet },
   { id: "live" as AdminTab, label: "Ao vivo", icon: Navigation },
   { id: "checkin" as AdminTab, label: "QR e check-in", icon: QrCode },
+  { id: "contracts" as AdminTab, label: "Contratos", icon: FileSignature },
   { id: "theme" as AdminTab, label: "Cores", icon: Palette },
 ];
 
@@ -94,6 +100,18 @@ const emptyCompany: CompanySettings = {
   pixHolder: "",
   pixBank: "",
   receiptText: "",
+  routeApiProvider: "local-ai",
+  routeApiKey: "",
+};
+
+const emptyCompanyForm = {
+  id: "",
+  name: "",
+  document: "",
+  password: "",
+  active: true,
+  whatsapp: "",
+  phone: "",
 };
 
 const emptyTheme: ThemeSettings = {
@@ -157,6 +175,7 @@ export default function AdminPage() {
   const router = useRouter();
   const [session, setSession] = useState<SessionUser | null>(null);
   const [data, setData] = useState<AdminPayload | null>(null);
+  const [selectedCompanyId, setSelectedCompanyId] = useState("");
   const [active, setActive] = useState<AdminTab>("overview");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState("");
@@ -168,6 +187,9 @@ export default function AdminPage() {
   const [loginForm, setLoginForm] = useState({ contact: "", password: "" });
   const [loginError, setLoginError] = useState("");
   const [adminAccessForm, setAdminAccessForm] = useState({ id: "", name: "", login: "", password: "" });
+  const [companyForm, setCompanyForm] = useState(emptyCompanyForm);
+  const [contractTemplate, setContractTemplate] = useState("");
+  const [contractForm, setContractForm] = useState({ parentId: "", childId: "", title: "" });
 
   const [settingsForm, setSettingsForm] = useState<CompanySettings>(emptyCompany);
   const [themeForm, setThemeForm] = useState<ThemeSettings>(emptyTheme);
@@ -184,12 +206,22 @@ export default function AdminPage() {
     amount: "220",
   });
 
-  const load = async () => {
-    const response = await fetch("/api/admin/state", { cache: "no-store" });
+  const activeCompanyId =
+    session?.role === "company"
+      ? session.companyId || session.id
+      : selectedCompanyId || data?.currentCompany?.id || data?.companies[0]?.id || "";
+  const visibleTabs = tabs.filter((tab) => session?.role === "admin" || tab.id !== "companies");
+
+  const load = async (companyId = activeCompanyId) => {
+    const suffix = companyId ? `?companyId=${encodeURIComponent(companyId)}` : "";
+    const response = await fetch(`/api/admin/state${suffix}`, { cache: "no-store" });
     const payload = (await response.json()) as AdminPayload;
     setData(payload);
+    const nextCompanyId = payload.currentCompany?.id || payload.companies[0]?.id || "";
+    if (nextCompanyId && session?.role !== "company") setSelectedCompanyId(nextCompanyId);
     setSettingsForm(payload.settings);
     setThemeForm(payload.theme);
+    setContractTemplate(payload.currentCompany?.contractTemplate || "");
     setAdminAccessForm({
       id: payload.adminAccess.id,
       name: payload.adminAccess.name,
@@ -217,13 +249,15 @@ export default function AdminPage() {
     const boot = async () => {
       const raw = localStorage.getItem("rota-segura-session");
       const parsed = raw ? (JSON.parse(raw) as SessionUser) : null;
-      if (!parsed || parsed.role !== "admin") {
+      if (!parsed || (parsed.role !== "admin" && parsed.role !== "company")) {
         if (alive) setLoading(false);
         return;
       }
 
       if (alive) setSession(parsed);
-      await load();
+      const companyId = parsed.role === "company" ? parsed.companyId || parsed.id : selectedCompanyId;
+      if (companyId && alive) setSelectedCompanyId(companyId);
+      await load(companyId);
       if (alive) setLoading(false);
     };
 
@@ -234,6 +268,8 @@ export default function AdminPage() {
     return () => {
       alive = false;
     };
+    // O carregamento inicial usa a sessao salva no navegador; reexecutar por troca de estado aqui causaria recarregamentos duplicados.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const loginAdmin = async (e: React.FormEvent) => {
@@ -254,7 +290,7 @@ export default function AdminPage() {
         return;
       }
 
-      if (payload.user.role !== "admin") {
+      if (payload.user.role !== "admin" && payload.user.role !== "company") {
         setLoginError("Este acesso nao pertence ao painel administrativo.");
         return;
       }
@@ -262,8 +298,10 @@ export default function AdminPage() {
       localStorage.setItem("rota-segura-session", JSON.stringify(payload.user));
       window.dispatchEvent(new Event("rota-segura-session"));
       setSession(payload.user);
-      await load();
-      setMessage("Admin conectado.");
+      const companyId = payload.user.role === "company" ? payload.user.companyId || payload.user.id : selectedCompanyId;
+      if (companyId) setSelectedCompanyId(companyId);
+      await load(companyId);
+      setMessage(payload.user.role === "company" ? "Empresa conectada." : "Admin conectado.");
     } catch {
       setLoginError("Falha ao conectar com o sistema.");
     } finally {
@@ -275,6 +313,11 @@ export default function AdminPage() {
     if (!data) return [];
     return data.children.filter((child) => child.parentId === paymentForm.parentId && child.active);
   }, [data, paymentForm.parentId]);
+
+  const selectedContractChildren = useMemo(() => {
+    if (!data) return [];
+    return data.children.filter((child) => child.parentId === contractForm.parentId && child.active);
+  }, [data, contractForm.parentId]);
 
   const filteredSchools = useMemo(() => {
     const list = data?.schools ?? [];
@@ -313,7 +356,7 @@ export default function AdminPage() {
     const response = await fetch("/api/admin/settings", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ settings: settingsForm, theme: themeForm }),
+      body: JSON.stringify({ companyId: activeCompanyId, settings: settingsForm, theme: themeForm }),
     });
     if (response.ok) {
       await load();
@@ -352,6 +395,110 @@ export default function AdminPage() {
     setSaving("");
   };
 
+  const saveCompany = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving("company-record");
+    setMessage("");
+    const response = await fetch("/api/admin/companies", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        id: companyForm.id,
+        name: companyForm.name,
+        document: companyForm.document,
+        password: companyForm.password,
+        active: companyForm.active,
+        settings: {
+          brandName: companyForm.name,
+          businessName: companyForm.name,
+          document: companyForm.document,
+          whatsapp: companyForm.whatsapp,
+          phone: companyForm.phone,
+        },
+      }),
+    });
+    const result = (await response.json().catch(() => null)) as AdminPayload & { error?: string } | null;
+
+    if (response.ok && result) {
+      setData(result);
+      const nextCompanyId = result.currentCompany?.id || result.companies[0]?.id || "";
+      setSelectedCompanyId(nextCompanyId);
+      setCompanyForm(emptyCompanyForm);
+      await load(nextCompanyId);
+      setMessage(companyForm.id ? "Empresa atualizada." : "Empresa criada. Login liberado pelo CNPJ e senha informados.");
+    } else {
+      setMessage(result?.error || "Nao foi possivel salvar a empresa.");
+    }
+
+    setSaving("");
+  };
+
+  const editCompany = (company: AdminPayload["companies"][number]) => {
+    setCompanyForm({
+      id: company.id,
+      name: company.name,
+      document: company.settings.document || company.document,
+      password: "",
+      active: company.active,
+      whatsapp: company.settings.whatsapp || "",
+      phone: company.settings.phone || "",
+    });
+    setActive("companies");
+  };
+
+  const switchCompany = async (companyId: string) => {
+    setSelectedCompanyId(companyId);
+    setSaving("company-switch");
+    await load(companyId);
+    setSaving("");
+  };
+
+  const saveContractTemplate = async () => {
+    setSaving("contract-template");
+    setMessage("");
+    const response = await fetch("/api/admin/contracts", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ companyId: activeCompanyId, template: contractTemplate }),
+    });
+    const result = (await response.json().catch(() => null)) as AdminPayload & { error?: string } | null;
+
+    if (response.ok && result) {
+      setData(result);
+      setMessage("Modelo de contrato salvo.");
+    } else {
+      setMessage(result?.error || "Nao foi possivel salvar o contrato.");
+    }
+
+    setSaving("");
+  };
+
+  const createContractForChild = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving("contract-create");
+    setMessage("");
+    const response = await fetch("/api/admin/contracts", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...contractForm, companyId: activeCompanyId }),
+    });
+    const result = (await response.json().catch(() => null)) as (AdminPayload & { contract?: AdminPayload["contracts"][number]; error?: string }) | null;
+
+    if (response.ok && result) {
+      setData(result);
+      setContractForm({ parentId: "", childId: "", title: "" });
+      const contractUrl = result.contract ? `${origin || ""}/contract/${result.contract.id}` : "";
+      if (contractUrl) {
+        await navigator.clipboard?.writeText(contractUrl).catch(() => {});
+      }
+      setMessage(contractUrl ? "Contrato gerado e link copiado." : "Contrato gerado.");
+    } else {
+      setMessage(result?.error || "Nao foi possivel gerar o contrato.");
+    }
+
+    setSaving("");
+  };
+
   const saveDriver = async (e?: React.FormEvent, payload = driverForm) => {
     e?.preventDefault();
     setSaving("driver");
@@ -359,7 +506,7 @@ export default function AdminPage() {
     const response = await fetch("/api/admin/drivers", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
+      body: JSON.stringify({ ...payload, companyId: activeCompanyId }),
     });
     const result = (await response.json().catch(() => null)) as { error?: string } | null;
 
@@ -387,6 +534,30 @@ export default function AdminPage() {
     setActive("drivers");
   };
 
+  const removeDriver = async (driver: AdminPayload["drivers"][number]) => {
+    const confirmed = window.confirm(`Excluir o motorista "${driver.name}"? Os alunos vinculados ficarao sem motorista.`);
+    if (!confirmed) return;
+
+    setSaving(`driver-delete-${driver.id}`);
+    setMessage("");
+    const response = await fetch("/api/admin/drivers", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: driver.id, companyId: activeCompanyId }),
+    });
+    const result = (await response.json().catch(() => null)) as { error?: string } | null;
+
+    if (response.ok) {
+      await load();
+      if (driverForm.id === driver.id) setDriverForm(emptyDriverForm);
+      setMessage("Motorista excluido.");
+    } else {
+      setMessage(result?.error || "Nao foi possivel excluir o motorista.");
+    }
+
+    setSaving("");
+  };
+
   const saveVan = async (e?: React.FormEvent, payload = vanForm) => {
     e?.preventDefault();
     setSaving("van");
@@ -394,7 +565,7 @@ export default function AdminPage() {
     const response = await fetch("/api/admin/vans", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...payload, seats: Number(payload.seats || 15) }),
+      body: JSON.stringify({ ...payload, companyId: activeCompanyId, seats: Number(payload.seats || 15) }),
     });
     const result = (await response.json().catch(() => null)) as { error?: string } | null;
 
@@ -424,6 +595,30 @@ export default function AdminPage() {
     setActive("vans");
   };
 
+  const removeVan = async (van: AdminPayload["vans"][number]) => {
+    const confirmed = window.confirm(`Excluir a van "${van.label}"? Os alunos vinculados ficarao sem van.`);
+    if (!confirmed) return;
+
+    setSaving(`van-delete-${van.id}`);
+    setMessage("");
+    const response = await fetch("/api/admin/vans", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: van.id, companyId: activeCompanyId }),
+    });
+    const result = (await response.json().catch(() => null)) as { error?: string } | null;
+
+    if (response.ok) {
+      await load();
+      if (vanForm.id === van.id) setVanForm(emptyVanForm);
+      setMessage("Van excluida.");
+    } else {
+      setMessage(result?.error || "Nao foi possivel excluir a van.");
+    }
+
+    setSaving("");
+  };
+
   const assignChildTransport = async (
     child: AdminPayload["children"][number],
     changes: { vanId?: string; driverId?: string; shift?: Shift | "" }
@@ -435,6 +630,7 @@ export default function AdminPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         childId: child.id,
+        companyId: activeCompanyId,
         vanId: changes.vanId ?? child.vanId ?? "",
         driverId: changes.driverId ?? child.driverId ?? "",
         shift: changes.shift ?? child.shift ?? "",
@@ -667,7 +863,7 @@ export default function AdminPage() {
     const response = await fetch("/api/admin/parents", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(parentForm),
+      body: JSON.stringify({ ...parentForm, companyId: activeCompanyId }),
     });
     if (response.ok) {
       await load();
@@ -686,6 +882,7 @@ export default function AdminPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         ...paymentForm,
+        companyId: activeCompanyId,
         amount: Number(paymentForm.amount.replace(",", ".")),
       }),
     });
@@ -723,6 +920,7 @@ export default function AdminPage() {
       body: JSON.stringify({
         active: false,
         source: "manual",
+        companyId: activeCompanyId,
         driverId: live?.driverId,
         vanId: live?.vanId,
       }),
@@ -738,7 +936,7 @@ export default function AdminPage() {
     const response = await fetch("/api/admin/qr", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ vanId }),
+      body: JSON.stringify({ vanId, companyId: activeCompanyId }),
     });
     if (response.ok) {
       await load();
@@ -760,6 +958,7 @@ export default function AdminPage() {
     const token = qrForVan(vanId)?.token || "";
     return token ? `${origin || ""}/checkin?token=${token}` : "";
   };
+  const contractUrlFor = (id: string) => `${origin || ""}/contract/${id}`;
   const qrImageFor = (vanId: string) => {
     const url = checkinUrlFor(vanId);
     return url ? `https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=${encodeURIComponent(url)}` : "";
@@ -811,7 +1010,7 @@ export default function AdminPage() {
         </Link>
 
         <nav className="mt-8 space-y-1">
-          {tabs.map((tab) => {
+          {visibleTabs.map((tab) => {
             const Icon = tab.icon;
             return (
               <button
@@ -847,7 +1046,7 @@ export default function AdminPage() {
             </button>
           </div>
           <div className="grid grid-cols-2 gap-2">
-            {tabs.map((tab) => (
+            {visibleTabs.map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setActive(tab.id)}
@@ -870,6 +1069,30 @@ export default function AdminPage() {
           <p className="mt-2 max-w-2xl text-sm text-mute dark:text-white/60">
             Cadastre escolas, bairros, motoristas, vans, pagamentos, Pix, cores e rastreamento ao vivo.
           </p>
+          <div className="mt-4 flex flex-col gap-3 rounded-2xl border border-line bg-white p-4 dark:border-white/10 dark:bg-white/[0.04] sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <div className="text-xs font-semibold uppercase tracking-wide text-mute dark:text-white/45">
+                Empresa ativa
+              </div>
+              <div className="mt-1 font-semibold text-navy dark:text-white">
+                {data.currentCompany?.name || settingsForm.businessName || "Empresa"}
+              </div>
+            </div>
+            {session.role === "admin" ? (
+              <select
+                value={activeCompanyId}
+                onChange={(e) => switchCompany(e.target.value)}
+                disabled={saving === "company-switch"}
+                className="rounded-xl border border-line bg-white px-4 py-3 text-sm font-semibold text-navy outline-none focus:border-sun dark:border-white/10 dark:bg-white/5 dark:text-white"
+              >
+                {data.companies.map((company) => (
+                  <option key={company.id} value={company.id}>{company.name}</option>
+                ))}
+              </select>
+            ) : (
+              <span className="rounded-full bg-sun px-3 py-1 text-xs font-bold text-navy">Painel da empresa</span>
+            )}
+          </div>
           {message && (
             <div className="mt-4 rounded-xl border border-sun/30 bg-sun/10 px-4 py-3 text-sm font-medium text-navy dark:text-sun">
               {message}
@@ -952,6 +1175,84 @@ export default function AdminPage() {
             </div>
           )}
 
+          {active === "companies" && session.role === "admin" && (
+            <div className="grid grid-cols-1 gap-5 xl:grid-cols-[380px_1fr]">
+              <Panel
+                title={companyForm.id ? "Editar empresa" : "Criar empresa"}
+                subtitle="O dono entra no /admin usando CNPJ e senha."
+              >
+                <form onSubmit={saveCompany} className="space-y-4">
+                  <Field label="Nome da empresa" value={companyForm.name} onChange={(v) => setCompanyForm({ ...companyForm, name: v })} />
+                  <Field label="CNPJ de login" value={companyForm.document} onChange={(v) => setCompanyForm({ ...companyForm, document: v })} />
+                  <Field
+                    label={companyForm.id ? "Nova senha" : "Senha inicial"}
+                    type="password"
+                    placeholder={companyForm.id ? "Deixe em branco para manter" : "Senha para a empresa"}
+                    value={companyForm.password}
+                    onChange={(v) => setCompanyForm({ ...companyForm, password: v })}
+                  />
+                  <Field label="WhatsApp da empresa" value={companyForm.whatsapp} onChange={(v) => setCompanyForm({ ...companyForm, whatsapp: v })} />
+                  <Field label="Telefone" value={companyForm.phone} onChange={(v) => setCompanyForm({ ...companyForm, phone: v })} />
+                  <label className="flex items-center gap-3 rounded-xl border border-line px-4 py-3 text-sm font-semibold text-navy dark:border-white/10 dark:text-white">
+                    <input
+                      type="checkbox"
+                      checked={companyForm.active}
+                      onChange={(e) => setCompanyForm({ ...companyForm, active: e.target.checked })}
+                      className="h-4 w-4 accent-sun"
+                    />
+                    Empresa ativa
+                  </label>
+                  <div className="flex flex-wrap gap-2">
+                    <Button type="submit" disabled={saving === "company-record"}>
+                      <Building2 size={16} /> {companyForm.id ? "Salvar empresa" : "Criar empresa"}
+                    </Button>
+                    {companyForm.id && (
+                      <Button type="button" variant="outlineDark" onClick={() => setCompanyForm(emptyCompanyForm)}>
+                        Cancelar
+                      </Button>
+                    )}
+                  </div>
+                </form>
+              </Panel>
+
+              <Panel title="Empresas cadastradas" subtitle="Cada empresa tem frota, motoristas, alunos, pagamentos e contrato.">
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                  {data.companies.map((company) => (
+                    <div key={company.id} className="rounded-2xl border border-line p-4 dark:border-white/10">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <div className="font-semibold text-navy dark:text-white">{company.name}</div>
+                          <div className="mt-1 text-sm text-mute dark:text-white/55">
+                            Login: CNPJ final {company.documentLast4 || "nao informado"}
+                          </div>
+                          <div className="mt-1 text-xs text-mute dark:text-white/45">
+                            WhatsApp {company.settings.whatsapp || "nao informado"}
+                          </div>
+                        </div>
+                        <span
+                          className={cn(
+                            "rounded-full px-3 py-1 text-xs font-semibold",
+                            company.active ? "bg-ok/10 text-ok" : "bg-slate-200 text-slate-500 dark:bg-white/5 dark:text-white/45"
+                          )}
+                        >
+                          {company.active ? "Ativa" : "Pausada"}
+                        </span>
+                      </div>
+                      <div className="mt-4 flex flex-wrap gap-2">
+                        <Button type="button" variant="outlineDark" size="sm" onClick={() => switchCompany(company.id)}>
+                          Abrir painel
+                        </Button>
+                        <Button type="button" variant="outlineDark" size="sm" onClick={() => editCompany(company)}>
+                          Editar
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </Panel>
+            </div>
+          )}
+
           {active === "company" && (
             <div className="space-y-5">
               <Panel title="Empresa, contato e Pix" subtitle="Esses dados aparecem para os pais e nos recibos.">
@@ -965,6 +1266,14 @@ export default function AdminPage() {
                   <Field label="Chave Pix" value={settingsForm.pixKey} onChange={(v) => setSettingsForm({ ...settingsForm, pixKey: v })} />
                   <Field label="Titular do Pix" value={settingsForm.pixHolder} onChange={(v) => setSettingsForm({ ...settingsForm, pixHolder: v })} />
                   <Field label="Banco do Pix" value={settingsForm.pixBank} onChange={(v) => setSettingsForm({ ...settingsForm, pixBank: v })} />
+                  <Field label="API de rotas" value={settingsForm.routeApiProvider || ""} onChange={(v) => setSettingsForm({ ...settingsForm, routeApiProvider: v })} placeholder="local-ai, google, mapbox, ors" />
+                  <Field
+                    label="Chave da API de rotas"
+                    type="password"
+                    value={settingsForm.routeApiKey || ""}
+                    onChange={(v) => setSettingsForm({ ...settingsForm, routeApiKey: v })}
+                    placeholder={data.currentCompany?.settings.hasRouteApiKey ? "Chave cadastrada" : "Opcional"}
+                  />
                   <label className="lg:col-span-2">
                     <span className="text-xs font-semibold uppercase tracking-wide text-mute dark:text-white/50">Texto do recibo</span>
                     <textarea
@@ -980,30 +1289,32 @@ export default function AdminPage() {
                 </Button>
               </Panel>
 
-              <Panel title="Acesso administrativo" subtitle="Altere o usuario do /admin e defina uma nova senha quando precisar.">
-                <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-                  <Field
-                    label="Nome exibido"
-                    value={adminAccessForm.name}
-                    onChange={(v) => setAdminAccessForm({ ...adminAccessForm, name: v })}
-                  />
-                  <Field
-                    label="Usuario do admin"
-                    value={adminAccessForm.login}
-                    onChange={(v) => setAdminAccessForm({ ...adminAccessForm, login: v })}
-                  />
-                  <Field
-                    label="Nova senha"
-                    type="password"
-                    placeholder="Deixe em branco para manter"
-                    value={adminAccessForm.password}
-                    onChange={(v) => setAdminAccessForm({ ...adminAccessForm, password: v })}
-                  />
-                </div>
-                <Button onClick={saveAdminAccess} className="mt-6" disabled={saving === "admin-access"}>
-                  <ShieldCheck size={16} /> Salvar acesso admin
-                </Button>
-              </Panel>
+              {session.role === "admin" && (
+                <Panel title="Acesso administrativo" subtitle="Altere o usuario do /admin e defina uma nova senha quando precisar.">
+                  <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+                    <Field
+                      label="Nome exibido"
+                      value={adminAccessForm.name}
+                      onChange={(v) => setAdminAccessForm({ ...adminAccessForm, name: v })}
+                    />
+                    <Field
+                      label="Usuario do admin"
+                      value={adminAccessForm.login}
+                      onChange={(v) => setAdminAccessForm({ ...adminAccessForm, login: v })}
+                    />
+                    <Field
+                      label="Nova senha"
+                      type="password"
+                      placeholder="Deixe em branco para manter"
+                      value={adminAccessForm.password}
+                      onChange={(v) => setAdminAccessForm({ ...adminAccessForm, password: v })}
+                    />
+                  </div>
+                  <Button onClick={saveAdminAccess} className="mt-6" disabled={saving === "admin-access"}>
+                    <ShieldCheck size={16} /> Salvar acesso admin
+                  </Button>
+                </Panel>
+              )}
             </div>
           )}
 
@@ -1093,6 +1404,15 @@ export default function AdminPage() {
                           disabled={saving === "driver"}
                         >
                           {driver.active ? "Pausar" : "Ativar"}
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outlineDark"
+                          size="sm"
+                          onClick={() => removeDriver(driver)}
+                          disabled={saving === `driver-delete-${driver.id}`}
+                        >
+                          <Trash2 size={14} /> Excluir
                         </Button>
                         <Link href="/driver" target="_blank" className="inline-flex items-center justify-center gap-2 rounded-full border border-line px-4 py-2 text-sm font-semibold text-navy transition hover:border-sun dark:border-white/10 dark:text-white">
                           <Navigation size={14} /> Tela motorista
@@ -1220,6 +1540,15 @@ export default function AdminPage() {
                               </Button>
                               <Button type="button" variant="outlineDark" size="sm" onClick={() => regenerateQr(van.id)} disabled={saving === `qr-${van.id}`}>
                                 <QrCode size={14} /> Novo QR
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="outlineDark"
+                                size="sm"
+                                onClick={() => removeVan(van)}
+                                disabled={saving === `van-delete-${van.id}`}
+                              >
+                                <Trash2 size={14} /> Excluir
                               </Button>
                             </div>
                           </div>
@@ -1409,7 +1738,7 @@ export default function AdminPage() {
             <div className="grid grid-cols-1 gap-5 xl:grid-cols-[380px_1fr]">
               <Panel
                 title={neighborhoodForm.id ? "Editar bairro" : "Adicionar bairro"}
-                subtitle="Bairros atendidos ficam coloridos no mapa."
+                subtitle="Marque quais bairros a empresa atende."
               >
                 <form onSubmit={(e) => saveNeighborhood(e)} className="space-y-4">
                   <Field label="Nome do bairro" value={neighborhoodForm.name} onChange={(v) => setNeighborhoodForm({ ...neighborhoodForm, name: v })} />
@@ -1423,19 +1752,15 @@ export default function AdminPage() {
                     />
                     Atendemos este bairro
                   </label>
-                  <div className="grid grid-cols-3 gap-3">
-                    <label>
-                      <span className="text-xs font-semibold uppercase tracking-wide text-mute dark:text-white/50">Cor</span>
-                      <input
-                        type="color"
-                        value={neighborhoodForm.color}
-                        onChange={(e) => setNeighborhoodForm({ ...neighborhoodForm, color: e.target.value })}
-                        className="mt-2 h-11 w-full rounded-xl border border-line bg-transparent"
-                      />
-                    </label>
-                    <Field label="X mapa" value={neighborhoodForm.x} onChange={(v) => setNeighborhoodForm({ ...neighborhoodForm, x: v })} />
-                    <Field label="Y mapa" value={neighborhoodForm.y} onChange={(v) => setNeighborhoodForm({ ...neighborhoodForm, y: v })} />
-                  </div>
+                  <label>
+                    <span className="text-xs font-semibold uppercase tracking-wide text-mute dark:text-white/50">Cor de identificacao</span>
+                    <input
+                      type="color"
+                      value={neighborhoodForm.color}
+                      onChange={(e) => setNeighborhoodForm({ ...neighborhoodForm, color: e.target.value })}
+                      className="mt-2 h-11 w-full rounded-xl border border-line bg-transparent"
+                    />
+                  </label>
                   <Field label="Notas internas" value={neighborhoodForm.notes} onChange={(v) => setNeighborhoodForm({ ...neighborhoodForm, notes: v })} />
                   <div className="flex flex-wrap gap-2">
                     <Button type="submit" disabled={saving === "neighborhood"}>
@@ -1450,9 +1775,8 @@ export default function AdminPage() {
                 </form>
               </Panel>
 
-              <Panel title="Mapa de atendimento" subtitle="Colorido atende; preto e branco ainda nao atende.">
-                <ToledoLuxuryMap neighborhoods={data.neighborhoods} />
-                <div className="mt-6 rounded-2xl border border-line bg-mist p-4 dark:border-white/10 dark:bg-white/5">
+              <Panel title="Bairros atendidos" subtitle="Lista simples para selecionar, atender, pausar ou excluir bairros.">
+                <div className="rounded-2xl border border-line bg-mist p-4 dark:border-white/10 dark:bg-white/5">
                   <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                     <label className="flex items-center gap-3 text-sm font-semibold text-navy dark:text-white">
                       <input
@@ -1478,6 +1802,17 @@ export default function AdminPage() {
                       <Trash2 size={14} /> Excluir selecionados
                     </Button>
                   </div>
+                </div>
+                <div className="mt-6 flex flex-wrap gap-2">
+                  {servedNeighborhoods.length === 0 && <EmptyState text="Nenhum bairro atendido ainda." />}
+                  {servedNeighborhoods.map((neighborhood) => (
+                    <span
+                      key={neighborhood.id}
+                      className="border-b-2 border-sun px-1 pb-1 text-sm font-semibold text-navy dark:text-white"
+                    >
+                      {neighborhood.name}
+                    </span>
+                  ))}
                 </div>
                 <div className="mt-6 grid grid-cols-1 gap-3 md:grid-cols-2">
                   {data.neighborhoods.map((neighborhood) => (
@@ -1861,6 +2196,103 @@ export default function AdminPage() {
             </div>
           )}
 
+          {active === "contracts" && (
+            <div className="grid grid-cols-1 gap-5 xl:grid-cols-[420px_1fr]">
+              <Panel title="Modelo de contrato" subtitle="A empresa pode escrever o texto que sera usado nos links de assinatura.">
+                <div className="rounded-2xl bg-mist p-4 text-sm text-mute dark:bg-white/5 dark:text-white/60">
+                  Use os campos: {"{{empresa}}"}, {"{{responsavel}}"}, {"{{aluno}}"}, {"{{escola}}"} e {"{{assinatura}}"}.
+                </div>
+                <textarea
+                  value={contractTemplate}
+                  onChange={(e) => setContractTemplate(e.target.value)}
+                  rows={14}
+                  className="mt-4 w-full rounded-xl border border-line bg-white px-4 py-3 text-sm leading-7 text-navy outline-none focus:border-sun dark:border-white/10 dark:bg-white/5 dark:text-white"
+                />
+                <Button onClick={saveContractTemplate} className="mt-4" disabled={saving === "contract-template"}>
+                  <FileSignature size={16} /> Salvar modelo
+                </Button>
+              </Panel>
+
+              <div className="space-y-5">
+                <Panel title="Gerar contrato" subtitle="Crie um link para o responsavel assinar simbolicamente.">
+                  <form onSubmit={createContractForChild} className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                    <label>
+                      <span className="text-xs font-semibold uppercase tracking-wide text-mute dark:text-white/50">Responsavel</span>
+                      <select
+                        value={contractForm.parentId}
+                        onChange={(e) => setContractForm({ ...contractForm, parentId: e.target.value, childId: "" })}
+                        className="mt-2 w-full rounded-xl border border-line bg-white px-4 py-3 text-sm text-navy outline-none focus:border-sun dark:border-white/10 dark:bg-white/5 dark:text-white"
+                        required
+                      >
+                        <option value="">Selecione</option>
+                        {data.parents.map((parent) => (
+                          <option key={parent.id} value={parent.id}>{parent.name}</option>
+                        ))}
+                      </select>
+                    </label>
+                    <label>
+                      <span className="text-xs font-semibold uppercase tracking-wide text-mute dark:text-white/50">Aluno</span>
+                      <select
+                        value={contractForm.childId}
+                        onChange={(e) => setContractForm({ ...contractForm, childId: e.target.value })}
+                        className="mt-2 w-full rounded-xl border border-line bg-white px-4 py-3 text-sm text-navy outline-none focus:border-sun dark:border-white/10 dark:bg-white/5 dark:text-white"
+                        required
+                      >
+                        <option value="">Selecione</option>
+                        {selectedContractChildren.map((child) => (
+                          <option key={child.id} value={child.id}>{child.name}</option>
+                        ))}
+                      </select>
+                    </label>
+                    <div className="lg:col-span-2">
+                      <Field
+                        label="Titulo"
+                        value={contractForm.title}
+                        onChange={(v) => setContractForm({ ...contractForm, title: v })}
+                        placeholder="Contrato de transporte escolar"
+                      />
+                    </div>
+                    <Button type="submit" disabled={saving === "contract-create"}>
+                      <FileSignature size={16} /> Gerar link
+                    </Button>
+                  </form>
+                </Panel>
+
+                <Panel title="Contratos gerados" subtitle={`${data.contracts.length} contrato(s) nesta empresa.`}>
+                  <div className="space-y-3">
+                    {data.contracts.length === 0 && <EmptyState text="Nenhum contrato gerado ainda." />}
+                    {data.contracts.map((contract) => {
+                      const url = contractUrlFor(contract.id);
+                      return (
+                        <div key={contract.id} className="rounded-2xl border border-line p-4 dark:border-white/10">
+                          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                            <div>
+                              <div className="font-semibold text-navy dark:text-white">{contract.title}</div>
+                              <div className="mt-1 text-sm text-mute dark:text-white/55">
+                                {parentName(contract.parentId)} - {childName(contract.childId)}
+                              </div>
+                              <div className="mt-1 text-xs text-mute dark:text-white/45">
+                                {contract.status === "signed" ? "Assinado" : "Aguardando assinatura"}
+                              </div>
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                              <Link href={url} target="_blank" className="inline-flex items-center justify-center gap-2 rounded-full border border-line px-4 py-2 text-sm font-semibold text-navy transition hover:border-sun dark:border-white/10 dark:text-white">
+                                Abrir
+                              </Link>
+                              <Button type="button" variant="outlineDark" size="sm" onClick={() => navigator.clipboard?.writeText(url)}>
+                                <Copy size={14} /> Copiar
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </Panel>
+              </div>
+            </div>
+          )}
+
           {active === "theme" && (
             <Panel title="Cores do sistema" subtitle="Muda a paleta usada no site, admin e area dos pais.">
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -1929,19 +2361,19 @@ function AdminLogin({
         </p>
         <h1 className="mt-3 text-3xl font-semibold">Entrada administrativa</h1>
         <p className="mt-2 text-sm leading-relaxed text-white/55">
-          Acesso separado da area dos responsaveis. Use o usuario e a senha do administrador.
+          Acesso separado da area dos responsaveis. Admin entra com usuario; empresa entra com CNPJ e senha.
         </p>
 
         <form onSubmit={onSubmit} className="mt-7 space-y-5">
           <label>
-            <span className="text-xs font-semibold uppercase tracking-wide text-white/55">Usuario do admin</span>
+            <span className="text-xs font-semibold uppercase tracking-wide text-white/55">Usuario ou CNPJ</span>
             <div className="mt-2 flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-3 focus-within:border-sun/50">
               <IdCard size={16} className="text-white/40" />
               <input
                 required
                 value={form.contact}
                 onChange={(e) => onChange({ ...form, contact: e.target.value })}
-                placeholder="InpresS"
+                placeholder="InpresS ou CNPJ"
                 className="w-full bg-transparent text-sm text-white placeholder:text-white/30 outline-none"
               />
             </div>
@@ -1975,7 +2407,7 @@ function AdminLogin({
               </>
             ) : (
               <>
-                <IdCard size={16} /> Entrar no admin
+                <IdCard size={16} /> Entrar
               </>
             )}
           </Button>

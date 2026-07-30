@@ -649,14 +649,14 @@ function LivePanel({
 
   useEffect(() => {
     const timer = window.setInterval(() => {
-      fetch("/api/live", { cache: "no-store" })
+      fetch(initialLive.driverId ? `/api/live?driverId=${encodeURIComponent(initialLive.driverId)}` : "/api/live", { cache: "no-store" })
         .then((response) => response.json())
         .then((payload: LiveTrackingState) => setLive(payload))
         .catch(() => {});
     }, 12000);
 
     return () => window.clearInterval(timer);
-  }, []);
+  }, [initialLive.driverId]);
 
   return (
     <div className="rounded-2xl border border-line bg-navy p-6 text-white dark:border-white/10">

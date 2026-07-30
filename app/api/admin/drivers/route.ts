@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getAdminPayload, upsertDriver } from "@/lib/server/app-db";
+import { deleteDriver, getAdminPayload, upsertDriver } from "@/lib/server/app-db";
 
 export async function POST(request: Request) {
   const body = await request.json().catch(() => null);
@@ -11,6 +11,7 @@ export async function POST(request: Request) {
     cpf: String(body?.cpf || ""),
     license: String(body?.license || ""),
     vanId: String(body?.vanId || ""),
+    companyId: String(body?.companyId || ""),
     active: body?.active ?? true,
   });
 
@@ -18,5 +19,17 @@ export async function POST(request: Request) {
     return NextResponse.json({ error }, { status: 400 });
   }
 
-  return NextResponse.json(getAdminPayload());
+  return NextResponse.json(getAdminPayload(String(body?.companyId || "") || undefined));
+}
+
+export async function DELETE(request: Request) {
+  const body = await request.json().catch(() => null);
+  const companyId = String(body?.companyId || "");
+  const { error } = deleteDriver(String(body?.id || ""), companyId || undefined);
+
+  if (error) {
+    return NextResponse.json({ error }, { status: 400 });
+  }
+
+  return NextResponse.json(getAdminPayload(companyId || undefined));
 }
