@@ -9,21 +9,21 @@ type MapPoint = NeighborhoodRecord & {
   longitude: number;
 };
 
-type LeafletMapInstance = {
+export type LeafletMapInstance = {
   remove: () => void;
   fitBounds: (bounds: unknown, options?: Record<string, unknown>) => void;
   setView: (center: [number, number], zoom: number) => void;
 };
 
-type LeafletMarker = {
+export type LeafletMarker = {
   remove: () => void;
 };
 
-type LeafletBounds = {
+export type LeafletBounds = {
   pad: (ratio: number) => LeafletBounds;
 };
 
-type LeafletNamespace = {
+export type LeafletNamespace = {
   map: (element: HTMLDivElement, options: Record<string, unknown>) => LeafletMapInstance;
   tileLayer: (url: string, options: Record<string, unknown>) => { addTo: (map: LeafletMapInstance) => void };
   control: {
@@ -231,7 +231,7 @@ declare global {
   }
 }
 
-function loadLeaflet() {
+export function loadLeaflet() {
   if (typeof window === "undefined") {
     return Promise.reject(new Error("Leaflet so carrega no navegador."));
   }

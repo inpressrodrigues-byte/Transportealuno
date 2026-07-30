@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Bus, CalendarClock, CheckCircle2, Loader2, MapPin, Navigation, Power, Send } from "lucide-react";
 import { Button } from "@/components/ui/Button";
+import { LiveRouteMap } from "@/components/ui/LiveRouteMap";
 import type {
   CheckinRecord,
   ChildAbsenceStatus,
@@ -196,8 +197,11 @@ export default function DriverPage() {
             <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
               <StatusLine label="Bairro" value={live.currentNeighborhood || "Sem bairro"} />
               <StatusLine label="Previsao" value={live.active ? `${live.estimatedMinutes || 0} min` : "Indisponivel"} />
-              <StatusLine label="Latitude" value={live.latitude ? live.latitude.toFixed(5) : "Sem GPS"} />
-              <StatusLine label="Longitude" value={live.longitude ? live.longitude.toFixed(5) : "Sem GPS"} />
+              <StatusLine label="Proxima parada" value={live.nextStop || "Nao informada"} />
+              <StatusLine label="Ultimo sinal" value={live.lastSeenAt ? new Date(live.lastSeenAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) : "Sem sinal"} />
+            </div>
+            <div className="mt-4">
+              <LiveRouteMap live={live} compact />
             </div>
           </div>
 

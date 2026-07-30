@@ -24,6 +24,7 @@ export function ThemeToggle() {
     const next = !dark;
     document.documentElement.classList.toggle("dark", next);
     try {
+      localStorage.setItem("theme-mode", next ? "dark" : "light");
       localStorage.setItem("theme", next ? "dark" : "light");
     } catch {}
   };

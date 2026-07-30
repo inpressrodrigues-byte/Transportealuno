@@ -21,9 +21,11 @@ export default function RootLayout({
             __html: `
               (function() {
                 try {
-                  var stored = localStorage.getItem('theme');
+                  var stored = localStorage.getItem('theme-mode') || localStorage.getItem('theme');
                   var theme = stored || 'light';
-                  if (theme === 'dark') document.documentElement.classList.add('dark');
+                  var hour = new Date().getHours();
+                  var autoDark = theme === 'auto' && (hour >= 18 || hour < 6);
+                  if (theme === 'dark' || autoDark) document.documentElement.classList.add('dark');
                 } catch (e) {}
               })();
             `,

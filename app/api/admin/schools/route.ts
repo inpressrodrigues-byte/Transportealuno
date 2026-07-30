@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { deleteSchool, upsertSchool } from "@/lib/server/app-db";
+import { bulkUpdateSchools, deleteSchool, upsertSchool } from "@/lib/server/app-db";
 import { schoolCategories, shifts } from "@/lib/app-utils";
 import type { SchoolCategory, Shift } from "@/lib/app-types";
 
@@ -36,5 +36,22 @@ export async function DELETE(request: Request) {
   }
 
   const db = deleteSchool(id);
+  return NextResponse.json({ schools: db.schools });
+}
+
+export async function PATCH(request: Request) {
+  const body = await request.json().catch(() => null);
+  const ids = Array.isArray(body?.ids) ? body.ids.map((id: string) => String(id)) : [];
+  const action = String(body?.action || "");
+
+  if (ids.length === 0) {
+    return NextResponse.json({ error: "Selecione pelo menos uma escola." }, { status: 400 });
+  }
+
+  if (!["serve", "pause", "delete"].includes(action)) {
+    return NextResponse.json({ error: "Acao invalida para escolas." }, { status: 400 });
+  }
+
+  const db = bulkUpdateSchools(ids, action as "serve" | "pause" | "delete");
   return NextResponse.json({ schools: db.schools });
 }

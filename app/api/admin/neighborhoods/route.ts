@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { upsertNeighborhood } from "@/lib/server/app-db";
+import { bulkUpdateNeighborhoods, upsertNeighborhood } from "@/lib/server/app-db";
 
 export async function POST(request: Request) {
   const body = await request.json().catch(() => null);
@@ -21,5 +21,22 @@ export async function POST(request: Request) {
     },
   });
 
+  return NextResponse.json({ neighborhoods: db.neighborhoods });
+}
+
+export async function PATCH(request: Request) {
+  const body = await request.json().catch(() => null);
+  const ids = Array.isArray(body?.ids) ? body.ids.map((id: string) => String(id)) : [];
+  const action = String(body?.action || "");
+
+  if (ids.length === 0) {
+    return NextResponse.json({ error: "Selecione pelo menos um bairro." }, { status: 400 });
+  }
+
+  if (!["serve", "pause", "delete"].includes(action)) {
+    return NextResponse.json({ error: "Acao invalida para bairros." }, { status: 400 });
+  }
+
+  const db = bulkUpdateNeighborhoods(ids, action as "serve" | "pause" | "delete");
   return NextResponse.json({ neighborhoods: db.neighborhoods });
 }

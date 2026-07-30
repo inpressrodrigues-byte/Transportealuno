@@ -26,7 +26,7 @@ import type {
 } from "@/lib/app-types";
 import { makeId, normalizeContact, normalizeCpf, shifts, todayIso } from "@/lib/app-utils";
 
-const DATA_DIR = path.join(process.cwd(), "data");
+const DATA_DIR = process.env.VERCEL ? path.join("/tmp", "rota-segura") : path.join(process.cwd(), "data");
 const DB_PATH = path.join(DATA_DIR, "app-db.json");
 const LIVE_MAX_AGE_MINUTES = 45;
 const DEFAULT_ADMIN_LOGIN = "InpresS";
@@ -270,6 +270,7 @@ function createInitialDb(): AppDatabase {
     schools: seedSchools(),
     removedSchoolIds: [],
     neighborhoods: seedNeighborhoods(),
+    removedNeighborhoodIds: [],
     liveTracking: defaultLiveTracking(),
     vanQrCode: defaultVanQrCode(),
     admins: [
@@ -383,6 +384,7 @@ function ensureDb() {
 function normalizeDb(input: Partial<AppDatabase>): AppDatabase {
   const seed = createInitialDb();
   const removedSchoolIds = Array.isArray(input.removedSchoolIds) ? input.removedSchoolIds : [];
+  const removedNeighborhoodIds = Array.isArray(input.removedNeighborhoodIds) ? input.removedNeighborhoodIds : [];
   const schools = input.schools?.length
     ? mergeById(input.schools.map(normalizeSchool), seed.schools)
     : seed.schools;
@@ -395,7 +397,8 @@ function normalizeDb(input: Partial<AppDatabase>): AppDatabase {
     theme: { ...seed.theme, ...input.theme },
     schools: schools.filter((schoolItem) => !removedSchoolIds.includes(schoolItem.id)),
     removedSchoolIds,
-    neighborhoods,
+    neighborhoods: neighborhoods.filter((neighborhood) => !removedNeighborhoodIds.includes(neighborhood.id)),
+    removedNeighborhoodIds,
     liveTracking: normalizeLive(input.liveTracking, input.settings?.driverName || seed.settings.driverName),
     vanQrCode: normalizeVanQrCode(input.vanQrCode),
     admins: input.admins?.length ? input.admins.map(normalizeAdmin) : seed.admins,
@@ -739,6 +742,7 @@ export function upsertSchool(input: Partial<SchoolRecord> & { name: string }) {
     const servedShifts = normalizeShifts(input.servedShifts, input.shift);
 
     if (input.id) {
+      db.removedSchoolIds = (db.removedSchoolIds || []).filter((id) => id !== input.id);
       const foundSchool = db.schools.find((item) => item.id === input.id);
       if (foundSchool) {
         foundSchool.name = input.name.trim();
@@ -774,6 +778,33 @@ export function deleteSchool(id: string) {
   return mutateDb((db) => {
     db.removedSchoolIds = Array.from(new Set([...(db.removedSchoolIds || []), id]));
     db.schools = db.schools.filter((schoolItem) => schoolItem.id !== id);
+  });
+}
+
+export function bulkUpdateSchools(ids: string[], action: "serve" | "pause" | "delete") {
+  const cleanIds = Array.from(new Set(ids.map((id) => String(id || "").trim()).filter(Boolean)));
+
+  return mutateDb((db) => {
+    if (cleanIds.length === 0) return;
+
+    if (action === "delete") {
+      db.removedSchoolIds = Array.from(new Set([...(db.removedSchoolIds || []), ...cleanIds]));
+      db.schools = db.schools.filter((schoolItem) => !cleanIds.includes(schoolItem.id));
+      return;
+    }
+
+    const served = action === "serve";
+    db.schools.forEach((schoolItem) => {
+      if (!cleanIds.includes(schoolItem.id)) return;
+      schoolItem.served = served;
+      schoolItem.active = true;
+      if (served && schoolItem.servedShifts.length === 0) {
+        schoolItem.servedShifts = [...shifts];
+      }
+      schoolItem.shift = served
+        ? schoolItem.servedShifts.map(shiftTitle).join(", ") || "Atendida"
+        : "Nao atendida";
+    });
   });
 }
 
@@ -871,6 +902,7 @@ export function upsertNeighborhood(input: Partial<NeighborhoodRecord> & { name: 
   return mutateDb((db) => {
     const now = todayIso();
     if (input.id) {
+      db.removedNeighborhoodIds = (db.removedNeighborhoodIds || []).filter((id) => id !== input.id);
       const foundNeighborhood = db.neighborhoods.find((item) => item.id === input.id);
       if (foundNeighborhood) {
         foundNeighborhood.name = input.name.trim();
@@ -898,6 +930,27 @@ export function upsertNeighborhood(input: Partial<NeighborhoodRecord> & { name: 
         y: Number(input.position?.y ?? 50),
       },
       createdAt: now,
+    });
+  });
+}
+
+export function bulkUpdateNeighborhoods(ids: string[], action: "serve" | "pause" | "delete") {
+  const cleanIds = Array.from(new Set(ids.map((id) => String(id || "").trim()).filter(Boolean)));
+
+  return mutateDb((db) => {
+    if (cleanIds.length === 0) return;
+
+    if (action === "delete") {
+      db.removedNeighborhoodIds = Array.from(new Set([...(db.removedNeighborhoodIds || []), ...cleanIds]));
+      db.neighborhoods = db.neighborhoods.filter((neighborhood) => !cleanIds.includes(neighborhood.id));
+      return;
+    }
+
+    const served = action === "serve";
+    db.neighborhoods.forEach((neighborhood) => {
+      if (!cleanIds.includes(neighborhood.id)) return;
+      neighborhood.served = served;
+      neighborhood.notes = served ? "Atendimento ativo" : "Ainda nao atendido";
     });
   });
 }

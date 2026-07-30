@@ -204,6 +204,7 @@ export type AppDatabase = {
   schools: SchoolRecord[];
   removedSchoolIds: string[];
   neighborhoods: NeighborhoodRecord[];
+  removedNeighborhoodIds: string[];
   liveTracking: LiveTrackingState;
   vanQrCode: VanQrCodeRecord;
   admins: AdminUser[];

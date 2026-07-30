@@ -30,6 +30,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
+import { LiveRouteMap } from "@/components/ui/LiveRouteMap";
 import { cn } from "@/lib/utils";
 import type {
   AdminPayload,
@@ -124,6 +125,8 @@ export default function AdminPage() {
   const [saving, setSaving] = useState("");
   const [message, setMessage] = useState("");
   const [schoolFilter, setSchoolFilter] = useState<SchoolCategory | "todas">("todas");
+  const [selectedSchoolIds, setSelectedSchoolIds] = useState<string[]>([]);
+  const [selectedNeighborhoodIds, setSelectedNeighborhoodIds] = useState<string[]>([]);
   const [origin] = useState(() => (typeof window === "undefined" ? "" : window.location.origin));
   const [loginForm, setLoginForm] = useState({ contact: "", password: "" });
   const [loginError, setLoginError] = useState("");
@@ -161,7 +164,11 @@ export default function AdminPage() {
     document.documentElement.classList.add("dark");
 
     return () => {
-      if (!wasDark) document.documentElement.classList.remove("dark");
+      if (wasDark) return;
+      const mode = localStorage.getItem("theme-mode") || localStorage.getItem("theme") || "light";
+      const hour = new Date().getHours();
+      const dark = mode === "dark" || (mode === "auto" && (hour >= 18 || hour < 6));
+      document.documentElement.classList.toggle("dark", dark);
     };
   }, []);
 
@@ -235,6 +242,12 @@ export default function AdminPage() {
     if (schoolFilter === "todas") return list;
     return list.filter((schoolItem) => schoolItem.category === schoolFilter);
   }, [data, schoolFilter]);
+  const visibleSchoolIds = filteredSchools.map((schoolItem) => schoolItem.id);
+  const allVisibleSchoolsSelected =
+    visibleSchoolIds.length > 0 && visibleSchoolIds.every((id) => selectedSchoolIds.includes(id));
+  const visibleNeighborhoodIds = data?.neighborhoods.map((neighborhood) => neighborhood.id) ?? [];
+  const allVisibleNeighborhoodsSelected =
+    visibleNeighborhoodIds.length > 0 && visibleNeighborhoodIds.every((id) => selectedNeighborhoodIds.includes(id));
 
   const servedSchools = data?.schools.filter((schoolItem) => schoolItem.served && schoolItem.active) ?? [];
   const servedNeighborhoods = data?.neighborhoods.filter((neighborhood) => neighborhood.served) ?? [];
@@ -340,6 +353,59 @@ export default function AdminPage() {
     setSaving("");
   };
 
+  const toggleSchoolSelection = (id: string) => {
+    setSelectedSchoolIds((current) =>
+      current.includes(id) ? current.filter((item) => item !== id) : [...current, id]
+    );
+  };
+
+  const toggleVisibleSchoolsSelection = () => {
+    setSelectedSchoolIds((current) => {
+      if (allVisibleSchoolsSelected) {
+        return current.filter((id) => !visibleSchoolIds.includes(id));
+      }
+
+      return Array.from(new Set([...current, ...visibleSchoolIds]));
+    });
+  };
+
+  const bulkUpdateSchools = async (action: "serve" | "pause" | "delete") => {
+    if (selectedSchoolIds.length === 0) {
+      setMessage("Selecione pelo menos uma escola.");
+      return;
+    }
+
+    if (action === "delete") {
+      const confirmed = window.confirm(`Excluir ${selectedSchoolIds.length} escola(s) selecionada(s)?`);
+      if (!confirmed) return;
+    }
+
+    setSaving(`schools-bulk-${action}`);
+    setMessage("");
+    const response = await fetch("/api/admin/schools", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ids: selectedSchoolIds, action }),
+    });
+    const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+
+    if (response.ok) {
+      await load();
+      setSelectedSchoolIds([]);
+      setMessage(
+        action === "delete"
+          ? "Escolas excluidas."
+          : action === "serve"
+            ? "Escolas marcadas como atendidas."
+            : "Escolas pausadas."
+      );
+    } else {
+      setMessage(payload?.error || "Nao foi possivel atualizar as escolas.");
+    }
+
+    setSaving("");
+  };
+
   const editSchool = (schoolItem: AdminPayload["schools"][number]) => {
     setSchoolForm({
       id: schoolItem.id,
@@ -395,6 +461,63 @@ export default function AdminPage() {
       notes: neighborhood.notes,
     });
     setActive("neighborhoods");
+  };
+
+  const toggleNeighborhoodSelection = (id: string) => {
+    setSelectedNeighborhoodIds((current) =>
+      current.includes(id) ? current.filter((item) => item !== id) : [...current, id]
+    );
+  };
+
+  const toggleVisibleNeighborhoodsSelection = () => {
+    setSelectedNeighborhoodIds((current) => {
+      if (allVisibleNeighborhoodsSelected) {
+        return current.filter((id) => !visibleNeighborhoodIds.includes(id));
+      }
+
+      return Array.from(new Set([...current, ...visibleNeighborhoodIds]));
+    });
+  };
+
+  const bulkUpdateNeighborhoods = async (
+    action: "serve" | "pause" | "delete",
+    ids = selectedNeighborhoodIds
+  ) => {
+    if (ids.length === 0) {
+      setMessage("Selecione pelo menos um bairro.");
+      return;
+    }
+
+    if (action === "delete") {
+      const confirmed = window.confirm(`Excluir ${ids.length} bairro(s) selecionado(s)?`);
+      if (!confirmed) return;
+    }
+
+    setSaving(`neighborhoods-bulk-${action}`);
+    setMessage("");
+    const response = await fetch("/api/admin/neighborhoods", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ids, action }),
+    });
+    const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+
+    if (response.ok) {
+      await load();
+      setSelectedNeighborhoodIds((current) => current.filter((id) => !ids.includes(id)));
+      if (neighborhoodForm.id && ids.includes(neighborhoodForm.id)) setNeighborhoodForm(emptyNeighborhoodForm);
+      setMessage(
+        action === "delete"
+          ? "Bairros excluidos."
+          : action === "serve"
+            ? "Bairros marcados como atendidos."
+            : "Bairros pausados."
+      );
+    } else {
+      setMessage(payload?.error || "Nao foi possivel atualizar os bairros.");
+    }
+
+    setSaving("");
   };
 
   const createParent = async (e: React.FormEvent) => {
@@ -764,16 +887,51 @@ export default function AdminPage() {
                     </button>
                   ))}
                 </div>
+                <div className="mb-4 rounded-2xl border border-line bg-mist p-4 dark:border-white/10 dark:bg-white/5">
+                  <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                    <label className="flex items-center gap-3 text-sm font-semibold text-navy dark:text-white">
+                      <input
+                        type="checkbox"
+                        checked={allVisibleSchoolsSelected}
+                        onChange={toggleVisibleSchoolsSelection}
+                        className="h-4 w-4 accent-sun"
+                      />
+                      Selecionar escolas visiveis
+                    </label>
+                    <span className="text-xs font-semibold uppercase tracking-wide text-mute dark:text-white/50">
+                      {selectedSchoolIds.length} selecionada(s)
+                    </span>
+                  </div>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <Button type="button" variant="outlineDark" size="sm" onClick={() => bulkUpdateSchools("serve")} disabled={saving === "schools-bulk-serve"}>
+                      Atender selecionadas
+                    </Button>
+                    <Button type="button" variant="outlineDark" size="sm" onClick={() => bulkUpdateSchools("pause")} disabled={saving === "schools-bulk-pause"}>
+                      Pausar selecionadas
+                    </Button>
+                    <Button type="button" variant="outlineDark" size="sm" onClick={() => bulkUpdateSchools("delete")} disabled={saving === "schools-bulk-delete"}>
+                      <Trash2 size={14} /> Excluir selecionadas
+                    </Button>
+                  </div>
+                </div>
                 <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                   {filteredSchools.map((schoolItem) => (
                     <div key={schoolItem.id} className="rounded-2xl border border-line p-4 dark:border-white/10">
                       <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <div className="font-semibold text-navy dark:text-white">{schoolItem.name}</div>
-                          <div className="mt-1 text-sm text-mute dark:text-white/55">
-                            {schoolCategoryLabel(schoolItem.category)} - {schoolItem.neighborhood || schoolItem.city}
+                        <label className="flex min-w-0 items-start gap-3">
+                          <input
+                            type="checkbox"
+                            checked={selectedSchoolIds.includes(schoolItem.id)}
+                            onChange={() => toggleSchoolSelection(schoolItem.id)}
+                            className="mt-1 h-4 w-4 flex-none accent-sun"
+                          />
+                          <div className="min-w-0">
+                            <div className="font-semibold text-navy dark:text-white">{schoolItem.name}</div>
+                            <div className="mt-1 text-sm text-mute dark:text-white/55">
+                              {schoolCategoryLabel(schoolItem.category)} - {schoolItem.neighborhood || schoolItem.city}
+                            </div>
                           </div>
-                        </div>
+                        </label>
                         <span className={cn(
                           "rounded-full px-3 py-1 text-xs font-semibold",
                           schoolItem.served ? "bg-ok/10 text-ok" : "bg-slate-200 text-slate-500 dark:bg-white/5 dark:text-white/45"
@@ -861,14 +1019,49 @@ export default function AdminPage() {
 
               <Panel title="Mapa de atendimento" subtitle="Colorido atende; preto e branco ainda nao atende.">
                 <NeighborhoodMap neighborhoods={data.neighborhoods} />
+                <div className="mt-6 rounded-2xl border border-line bg-mist p-4 dark:border-white/10 dark:bg-white/5">
+                  <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                    <label className="flex items-center gap-3 text-sm font-semibold text-navy dark:text-white">
+                      <input
+                        type="checkbox"
+                        checked={allVisibleNeighborhoodsSelected}
+                        onChange={toggleVisibleNeighborhoodsSelection}
+                        className="h-4 w-4 accent-sun"
+                      />
+                      Selecionar bairros visiveis
+                    </label>
+                    <span className="text-xs font-semibold uppercase tracking-wide text-mute dark:text-white/50">
+                      {selectedNeighborhoodIds.length} selecionado(s)
+                    </span>
+                  </div>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <Button type="button" variant="outlineDark" size="sm" onClick={() => bulkUpdateNeighborhoods("serve")} disabled={saving === "neighborhoods-bulk-serve"}>
+                      Atender selecionados
+                    </Button>
+                    <Button type="button" variant="outlineDark" size="sm" onClick={() => bulkUpdateNeighborhoods("pause")} disabled={saving === "neighborhoods-bulk-pause"}>
+                      Pausar selecionados
+                    </Button>
+                    <Button type="button" variant="outlineDark" size="sm" onClick={() => bulkUpdateNeighborhoods("delete")} disabled={saving === "neighborhoods-bulk-delete"}>
+                      <Trash2 size={14} /> Excluir selecionados
+                    </Button>
+                  </div>
+                </div>
                 <div className="mt-6 grid grid-cols-1 gap-3 md:grid-cols-2">
                   {data.neighborhoods.map((neighborhood) => (
                     <div key={neighborhood.id} className="rounded-2xl border border-line p-4 dark:border-white/10">
                       <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <div className="font-semibold text-navy dark:text-white">{neighborhood.name}</div>
-                          <div className="text-sm text-mute dark:text-white/55">{neighborhood.area}</div>
-                        </div>
+                        <label className="flex min-w-0 items-start gap-3">
+                          <input
+                            type="checkbox"
+                            checked={selectedNeighborhoodIds.includes(neighborhood.id)}
+                            onChange={() => toggleNeighborhoodSelection(neighborhood.id)}
+                            className="mt-1 h-4 w-4 flex-none accent-sun"
+                          />
+                          <div className="min-w-0">
+                            <div className="font-semibold text-navy dark:text-white">{neighborhood.name}</div>
+                            <div className="text-sm text-mute dark:text-white/55">{neighborhood.area}</div>
+                          </div>
+                        </label>
                         <span
                           className={cn(
                             "rounded-full px-3 py-1 text-xs font-semibold",
@@ -901,6 +1094,15 @@ export default function AdminPage() {
                           disabled={saving === "neighborhood"}
                         >
                           {neighborhood.served ? "Pausar" : "Atender"}
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outlineDark"
+                          size="sm"
+                          onClick={() => bulkUpdateNeighborhoods("delete", [neighborhood.id])}
+                          disabled={saving === "neighborhoods-bulk-delete"}
+                        >
+                          <Trash2 size={14} /> Excluir
                         </Button>
                       </div>
                     </div>
@@ -1041,9 +1243,13 @@ export default function AdminPage() {
                   </div>
 
                   <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
-                    <ProfileLine label="Latitude" value={data.liveTracking.latitude ? data.liveTracking.latitude.toFixed(5) : "Sem GPS"} />
-                    <ProfileLine label="Longitude" value={data.liveTracking.longitude ? data.liveTracking.longitude.toFixed(5) : "Sem GPS"} />
+                    <ProfileLine label="Bairro" value={data.liveTracking.currentNeighborhood || "Sem bairro"} />
+                    <ProfileLine label="Proxima parada" value={data.liveTracking.nextStop || "Nao informada"} />
                     <ProfileLine label="Estimativa" value={data.liveTracking.active ? `${data.liveTracking.estimatedMinutes || 0} min` : "Indisponivel"} />
+                  </div>
+
+                  <div className="mt-5">
+                    <LiveRouteMap live={data.liveTracking} />
                   </div>
 
                   <div className="mt-5 flex flex-wrap gap-2">

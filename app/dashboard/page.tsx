@@ -22,11 +22,14 @@ import {
   ReceiptText,
   School,
   ShieldCheck,
+  Moon,
+  Sun,
   UserRound,
   Wallet,
   X,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
+import { LiveRouteMap } from "@/components/ui/LiveRouteMap";
 import { cn } from "@/lib/utils";
 import type {
   AddressRecord,
@@ -41,6 +44,7 @@ import type {
 import { formatCurrency, formatPhone, normalizeDigits, paymentStatusLabel } from "@/lib/app-utils";
 
 type ParentTab = "inicio" | "ao-vivo" | "alunos" | "pagamentos" | "checkin" | "perfil";
+type ThemeMode = "light" | "dark" | "auto";
 
 const tabs = [
   { id: "inicio" as ParentTab, label: "Inicio", icon: Home },
@@ -89,12 +93,15 @@ export default function DashboardPage() {
     if (!response.ok) throw new Error("Responsavel nao encontrado");
     const payload = (await response.json()) as ParentDashboardPayload;
     setData(payload);
-    const firstServedSchool = payload.schools.find((school) => school.served);
+    const firstServedSchool =
+      payload.schools.find((school) => school.served && school.active) ||
+      payload.schools.find((school) => school.active);
     setChildForm((current) => ({
       ...current,
       schoolId: current.schoolId || firstServedSchool?.id || payload.schools[0]?.id || "",
       responsiblePhone: current.responsiblePhone || payload.parent.contact,
     }));
+    return payload;
   };
 
   useEffect(() => {
@@ -136,6 +143,11 @@ export default function DashboardPage() {
 
   const schoolName = (id: string) => data?.schools.find((school) => school.id === id)?.name || "Escola";
   const childName = (id: string) => data?.children.find((child) => child.id === id)?.name || "Aluno";
+  const servedChildSchools = data?.schools.filter((school) => school.active && school.served) ?? [];
+  const childSchoolOptions =
+    servedChildSchools.length > 0
+      ? servedChildSchools
+      : (data?.schools.filter((school) => school.active) ?? []);
 
   const updateAddress = (patch: Partial<AddressRecord>) => {
     setChildForm((current) => ({
@@ -219,11 +231,14 @@ export default function DashboardPage() {
       return;
     }
 
-    await load(session.id);
+    const refreshed = await load(session.id);
+    const firstServedSchool =
+      refreshed.schools.find((school) => school.served && school.active) ||
+      refreshed.schools.find((school) => school.active);
     setChildForm({
       ...emptyChild,
-      schoolId: data?.schools.find((school) => school.served)?.id || data?.schools[0]?.id || "",
-      responsiblePhone: data?.parent.contact || "",
+      schoolId: firstServedSchool?.id || "",
+      responsiblePhone: refreshed.parent.contact || "",
       address: emptyAddress,
     });
     setMessage("Aluno cadastrado.");
@@ -437,11 +452,16 @@ export default function DashboardPage() {
                         className="mt-2 w-full rounded-xl border border-line bg-white px-4 py-3 text-sm text-navy outline-none focus:border-sun dark:border-white/10 dark:bg-white/5 dark:text-white"
                       >
                         <option value="">Selecione</option>
-                        {data.schools.filter((school) => school.served).map((school) => (
+                        {childSchoolOptions.map((school) => (
                           <option key={school.id} value={school.id}>{school.name}</option>
                         ))}
                       </select>
                     </label>
+                    {childSchoolOptions.length === 0 && (
+                      <div className="rounded-xl border border-red-300/40 bg-red-500/10 px-4 py-3 text-sm text-red-600 dark:text-red-200">
+                        Nenhuma escola ativa no momento. Cadastre ou ative uma escola no admin.
+                      </div>
+                    )}
                     <Field label="Numero do responsavel" value={childForm.responsiblePhone} onChange={(v) => setChildForm({ ...childForm, responsiblePhone: v })} />
 
                     <div className="rounded-2xl border border-line p-4 dark:border-white/10">
@@ -595,6 +615,7 @@ export default function DashboardPage() {
                   <ProfileLine label="Email" value={data.parent.email || "Nao informado"} />
                   <ProfileLine label="CPF senha" value={`Final ${data.parent.cpfLast4}`} />
                 </div>
+                <ThemePreference />
               </Panel>
             )}
           </section>
@@ -660,28 +681,19 @@ function LivePanel({
         </span>
       </div>
 
-      <div className={cn("mt-6 grid grid-cols-1 gap-3", expanded ? "md:grid-cols-3" : "sm:grid-cols-2")}>
+      <div className={cn("mt-6 grid grid-cols-1 gap-3", expanded ? "md:grid-cols-4" : "sm:grid-cols-2")}>
         <LiveLine label="Bairro atual" value={live.active ? live.currentNeighborhood || "Em deslocamento" : "Indisponivel"} />
         <LiveLine label="Proxima parada" value={live.active ? live.nextStop || "Nao informada" : "Indisponivel"} />
         <LiveLine label="Previsao" value={live.active ? `${live.estimatedMinutes || 0} min` : "Indisponivel"} />
         {expanded && (
-          <>
-            <LiveLine label="Latitude" value={live.latitude ? live.latitude.toFixed(5) : "Sem GPS"} />
-            <LiveLine label="Longitude" value={live.longitude ? live.longitude.toFixed(5) : "Sem GPS"} />
-            <LiveLine label="Ultimo sinal" value={live.lastSeenAt ? new Date(live.lastSeenAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) : "Sem sinal"} />
-          </>
+          <LiveLine label="Ultimo sinal" value={live.lastSeenAt ? new Date(live.lastSeenAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) : "Sem sinal"} />
         )}
       </div>
 
-      {live.active && live.latitude && live.longitude && (
-        <a
-          href={`https://www.google.com/maps?q=${live.latitude},${live.longitude}`}
-          target="_blank"
-          rel="noreferrer"
-          className="mt-5 inline-flex items-center gap-2 rounded-full bg-sun px-5 py-2.5 text-sm font-semibold text-navy"
-        >
-          <MapPin size={15} /> Abrir no mapa
-        </a>
+      {(expanded || live.active) && (
+        <div className="mt-5">
+          <LiveRouteMap live={live} compact={!expanded} />
+        </div>
       )}
     </div>
   );
@@ -873,6 +885,73 @@ function ProfileLine({ label, value }: { label: string; value: string }) {
       <div className="mt-1 font-semibold text-navy dark:text-white">{value}</div>
     </div>
   );
+}
+
+function ThemePreference() {
+  const [mode, setMode] = useState<ThemeMode>("light");
+
+  useEffect(() => {
+    const stored = normalizeThemeMode(localStorage.getItem("theme-mode") || localStorage.getItem("theme"));
+    setMode(stored);
+    applyThemeMode(stored);
+
+    const timer = window.setInterval(() => {
+      const current = normalizeThemeMode(localStorage.getItem("theme-mode") || localStorage.getItem("theme"));
+      if (current === "auto") applyThemeMode("auto");
+    }, 60000);
+
+    return () => window.clearInterval(timer);
+  }, []);
+
+  const options = [
+    { id: "light" as ThemeMode, label: "Dia", icon: Sun },
+    { id: "dark" as ThemeMode, label: "Noite", icon: Moon },
+    { id: "auto" as ThemeMode, label: "Automatico", icon: Clock },
+  ];
+
+  return (
+    <div className="mt-6">
+      <div className="text-xs font-semibold uppercase tracking-wide text-mute dark:text-white/50">Aparencia geral</div>
+      <div className="mt-3 grid grid-cols-3 gap-2">
+        {options.map((option) => {
+          const Icon = option.icon;
+          return (
+            <button
+              key={option.id}
+              type="button"
+              onClick={() => {
+                setMode(option.id);
+                applyThemeMode(option.id);
+              }}
+              className={cn(
+                "flex min-h-12 items-center justify-center gap-2 rounded-xl px-3 text-sm font-semibold transition",
+                mode === option.id
+                  ? "bg-navy text-white dark:bg-sun dark:text-navy"
+                  : "bg-mist text-mute hover:bg-slate-200 dark:bg-white/5 dark:text-white/60 dark:hover:bg-white/10"
+              )}
+            >
+              <Icon size={15} /> {option.label}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function normalizeThemeMode(value: string | null): ThemeMode {
+  if (value === "dark" || value === "auto") return value;
+  return "light";
+}
+
+function applyThemeMode(mode: ThemeMode) {
+  const hour = new Date().getHours();
+  const dark = mode === "dark" || (mode === "auto" && (hour >= 18 || hour < 6));
+  document.documentElement.classList.toggle("dark", dark);
+  try {
+    localStorage.setItem("theme-mode", mode);
+    localStorage.setItem("theme", dark ? "dark" : "light");
+  } catch {}
 }
 
 function AbsenceBadge({ status }: { status: ChildAbsenceStatus }) {

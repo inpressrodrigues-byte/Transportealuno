@@ -10,23 +10,41 @@ export async function POST(request: Request) {
   const birthDate = String(body?.birthDate || "");
   const schoolId = String(body?.schoolId || "");
 
-  if (!parentId || !name || !cpf || !birthDate || !schoolId) {
+  if (!parentId || !name || cpf.length !== 11 || !birthDate || !schoolId) {
     return NextResponse.json(
       { error: "Informe responsavel, nome, CPF, nascimento e escola do aluno." },
       { status: 400 }
     );
   }
 
+  const cpfHash = hashSecret(cpf);
+  let error = "";
+
   const db = mutateDb((draft) => {
     const parent = draft.parents.find((item) => item.id === parentId && item.active);
     const school = draft.schools.find((item) => item.id === schoolId && item.active);
-    if (!parent || !school) return;
+    if (!parent) {
+      error = "Responsavel nao encontrado. Entre novamente na area dos pais.";
+      return;
+    }
+    if (!school) {
+      error = "Escola nao encontrada. Selecione outra escola.";
+      return;
+    }
+
+    const duplicated = draft.children.find(
+      (child) => child.parentId === parentId && child.cpfHash === cpfHash && child.active
+    );
+    if (duplicated) {
+      error = "Este aluno ja esta cadastrado neste perfil.";
+      return;
+    }
 
     draft.children.push({
       id: makeId("child"),
       parentId,
       name,
-      cpfHash: hashSecret(cpf),
+      cpfHash,
       cpfLast4: cpf.slice(-4),
       birthDate,
       schoolId,
@@ -51,6 +69,10 @@ export async function POST(request: Request) {
       createdAt: todayIso(),
     });
   });
+
+  if (error) {
+    return NextResponse.json({ error }, { status: 400 });
+  }
 
   return NextResponse.json({
     children: db.children.filter((child) => child.parentId === parentId),
