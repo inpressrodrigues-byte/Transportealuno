@@ -4,9 +4,10 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { NeighborhoodRecord } from "@/lib/app-types";
 import { cn } from "@/lib/utils";
 
-type MapPoint = NeighborhoodRecord & {
+type MapShape = NeighborhoodRecord & {
   latitude: number;
   longitude: number;
+  boundary: [number, number][];
 };
 
 export type LeafletMapInstance = {
@@ -36,6 +37,10 @@ export type LeafletNamespace = {
     coordinates: [number, number],
     options: Record<string, unknown>
   ) => LeafletMarker;
+  polygon: (
+    coordinates: [number, number][],
+    options: Record<string, unknown>
+  ) => LeafletMarker;
   divIcon: (options: Record<string, unknown>) => unknown;
   latLngBounds: (coordinates: [number, number][]) => LeafletBounds;
 };
@@ -55,7 +60,7 @@ export function ToledoLuxuryMap({ neighborhoods }: { neighborhoods: Neighborhood
   const markersRef = useRef<LeafletMarker[]>([]);
   const [ready, setReady] = useState(false);
 
-  const points = useMemo(() => neighborhoods.map(toMapPoint), [neighborhoods]);
+  const shapes = useMemo(() => neighborhoods.map(toMapShape), [neighborhoods]);
 
   useEffect(() => {
     let cancelled = false;
@@ -105,41 +110,45 @@ export function ToledoLuxuryMap({ neighborhoods }: { neighborhoods: Neighborhood
 
     let cancelled = false;
 
-    const renderMarkers = async () => {
+    const renderBoundaries = async () => {
       const L = await loadLeaflet();
       if (cancelled) return;
 
       markersRef.current.forEach((marker) => marker.remove());
       markersRef.current = [];
 
-      points.forEach((point) => {
-        const marker = L.marker([point.latitude, point.longitude], {
-          icon: L.divIcon({
-            className: cn("toledo-lux-marker", point.served ? "is-served" : "is-muted"),
-            html: markerHtml(point),
-            iconSize: [24, 24],
-            iconAnchor: [12, 12],
-          }),
-          keyboard: false,
+      shapes.forEach((shape) => {
+        const color = shape.served ? shape.color || "#d6b36a" : "#9ca3af";
+        const boundary = L.polygon(shape.boundary, {
+          className: cn("toledo-neighborhood-outline", shape.served ? "is-served" : "is-muted"),
+          color,
+          dashArray: shape.served ? "8 0" : "4 6",
+          fillColor: color,
+          fillOpacity: shape.served ? 0.16 : 0.05,
+          interactive: false,
+          opacity: shape.served ? 0.95 : 0.45,
+          smoothFactor: 1,
+          weight: shape.served ? 2.6 : 1.8,
         }).addTo(map);
 
-        markersRef.current.push(marker);
+        markersRef.current.push(boundary);
       });
 
-      if (points.length > 1) {
-        const bounds = L.latLngBounds(points.map((point) => [point.latitude, point.longitude]));
-        map.fitBounds(bounds.pad(0.18), { animate: false, maxZoom: 13 });
+      const allCoordinates = shapes.flatMap((shape) => shape.boundary);
+      if (allCoordinates.length > 1) {
+        const bounds = L.latLngBounds(allCoordinates);
+        map.fitBounds(bounds.pad(0.08), { animate: false, maxZoom: 13 });
       } else {
         map.setView(TOLEDO_CENTER, 12);
       }
     };
 
-    renderMarkers();
+    renderBoundaries();
 
     return () => {
       cancelled = true;
     };
-  }, [points]);
+  }, [shapes]);
 
   return (
     <div className="relative overflow-hidden rounded-[24px] border border-[#c6a15b]/35 bg-[#f4f0e7] p-2 shadow-[0_28px_80px_rgba(0,0,0,0.34)]">
@@ -157,23 +166,20 @@ export function ToledoLuxuryMap({ neighborhoods }: { neighborhoods: Neighborhood
   );
 }
 
-function toMapPoint(neighborhood: NeighborhoodRecord): MapPoint {
+function toMapShape(neighborhood: NeighborhoodRecord): MapShape {
   const x = clamp(Number(neighborhood.position?.x ?? 50), 0, 100);
   const y = clamp(Number(neighborhood.position?.y ?? 50), 0, 100);
   const latitude = TOLEDO_VIEWPORT.north - (y / 100) * (TOLEDO_VIEWPORT.north - TOLEDO_VIEWPORT.south);
   const longitude = TOLEDO_VIEWPORT.west + (x / 100) * (TOLEDO_VIEWPORT.east - TOLEDO_VIEWPORT.west);
+  const key = slugify(neighborhood.name);
+  const boundary = NEIGHBORHOOD_BOUNDARIES[key] || ellipseBoundary([latitude, longitude], 0.0065, 0.011);
 
   return {
     ...neighborhood,
     latitude,
     longitude,
+    boundary,
   };
-}
-
-function markerHtml(point: MapPoint) {
-  const color = point.served ? "#d6b36a" : "#9ca3af";
-
-  return `<span class="marker-dot" style="--marker-color:${escapeHtml(color)}" aria-label="${escapeHtml(point.name)}"></span>`;
 }
 
 function clamp(value: number, min: number, max: number) {
@@ -181,14 +187,99 @@ function clamp(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max);
 }
 
-function escapeHtml(value: string) {
-  return value
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
+function ellipseBoundary(center: [number, number], latRadius: number, lngRadius: number) {
+  return Array.from({ length: 18 }, (_, index) => {
+    const angle = (Math.PI * 2 * index) / 18;
+    return [
+      center[0] + Math.sin(angle) * latRadius,
+      center[1] + Math.cos(angle) * lngRadius,
+    ] as [number, number];
+  });
 }
+
+function slugify(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+}
+
+const NEIGHBORHOOD_BOUNDARIES: Record<string, [number, number][]> = {
+  "sao-francisco": [
+    [-24.7028, -53.7904],
+    [-24.6974, -53.7726],
+    [-24.7048, -53.7545],
+    [-24.7237, -53.7556],
+    [-24.7357, -53.7712],
+    [-24.7289, -53.7932],
+  ],
+  "vila-pioneiro": [
+    [-24.7362, -53.7415],
+    [-24.7328, -53.7181],
+    [-24.7468, -53.7068],
+    [-24.7657, -53.7146],
+    [-24.7711, -53.7355],
+    [-24.7518, -53.7462],
+  ],
+  centro: [
+    [-24.7144, -53.7518],
+    [-24.7102, -53.7358],
+    [-24.7226, -53.7215],
+    [-24.7378, -53.7316],
+    [-24.7344, -53.7511],
+  ],
+  "jardim-la-salle": [
+    [-24.7039, -53.7646],
+    [-24.7048, -53.7424],
+    [-24.7208, -53.7355],
+    [-24.7322, -53.7476],
+    [-24.7244, -53.7673],
+  ],
+  "vila-industrial": [
+    [-24.7352, -53.7704],
+    [-24.7292, -53.7508],
+    [-24.7465, -53.7382],
+    [-24.7624, -53.7535],
+    [-24.7558, -53.7738],
+  ],
+  "jardim-porto-alegre": [
+    [-24.7066, -53.7054],
+    [-24.7044, -53.6818],
+    [-24.7242, -53.6726],
+    [-24.7392, -53.6908],
+    [-24.7296, -53.7116],
+  ],
+  "jardim-gisela": [
+    [-24.7382, -53.7168],
+    [-24.7365, -53.6942],
+    [-24.7554, -53.6856],
+    [-24.7696, -53.7045],
+    [-24.7568, -53.7224],
+  ],
+  "jardim-coopagro": [
+    [-24.7142, -53.8056],
+    [-24.7068, -53.7842],
+    [-24.7244, -53.7718],
+    [-24.7415, -53.7882],
+    [-24.7336, -53.8105],
+  ],
+  "jardim-panorama": [
+    [-24.7528, -53.7554],
+    [-24.7485, -53.7346],
+    [-24.7676, -53.7228],
+    [-24.7835, -53.7415],
+    [-24.7756, -53.7628],
+  ],
+  "jardim-maracana": [
+    [-24.6838, -53.7416],
+    [-24.6855, -53.7195],
+    [-24.7048, -53.7138],
+    [-24.7164, -53.7316],
+    [-24.7025, -53.7511],
+  ],
+};
 
 declare global {
   interface Window {

@@ -162,7 +162,7 @@ export default function LoginPage() {
           </div>
 
           <p className="mt-5 text-sm leading-relaxed text-white/55">
-            Ainda nao tem acesso? Peça para a empresa cadastrar seu responsavel no painel administrativo.
+            Ainda nao tem acesso? Peca para a empresa cadastrar seu responsavel no painel administrativo.
           </p>
         </section>
       </div>

@@ -15,6 +15,7 @@ import {
   Lock,
   LogOut,
   MapPinned,
+  MessageCircle,
   Navigation,
   Palette,
   QrCode,
@@ -31,6 +32,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { LiveRouteMap } from "@/components/ui/LiveRouteMap";
+import { ToledoLuxuryMap } from "@/components/ui/ToledoLuxuryMap";
 import { cn } from "@/lib/utils";
 import type {
   AdminPayload,
@@ -54,11 +56,24 @@ import {
   shiftsLabel,
 } from "@/lib/app-utils";
 
-type AdminTab = "overview" | "company" | "schools" | "neighborhoods" | "parents" | "payments" | "live" | "checkin" | "theme";
+type AdminTab =
+  | "overview"
+  | "company"
+  | "drivers"
+  | "vans"
+  | "schools"
+  | "neighborhoods"
+  | "parents"
+  | "payments"
+  | "live"
+  | "checkin"
+  | "theme";
 
 const tabs = [
   { id: "overview" as AdminTab, label: "Visao geral", icon: Home },
   { id: "company" as AdminTab, label: "Empresa e Pix", icon: Settings },
+  { id: "drivers" as AdminTab, label: "Motoristas", icon: UsersRound },
+  { id: "vans" as AdminTab, label: "Vans", icon: Bus },
   { id: "schools" as AdminTab, label: "Escolas", icon: School },
   { id: "neighborhoods" as AdminTab, label: "Bairros", icon: MapPinned },
   { id: "parents" as AdminTab, label: "Responsaveis", icon: UsersRound },
@@ -116,6 +131,28 @@ const emptyNeighborhoodForm = {
   notes: "",
 };
 
+const emptyDriverForm = {
+  id: "",
+  name: "",
+  contact: "",
+  cpf: "",
+  license: "",
+  vanId: "",
+  active: true,
+};
+
+const emptyVanForm = {
+  id: "",
+  label: "",
+  plate: "",
+  model: "",
+  seats: "15",
+  color: "#facc15",
+  driverId: "",
+  active: true,
+  notes: "",
+};
+
 export default function AdminPage() {
   const router = useRouter();
   const [session, setSession] = useState<SessionUser | null>(null);
@@ -136,6 +173,8 @@ export default function AdminPage() {
   const [themeForm, setThemeForm] = useState<ThemeSettings>(emptyTheme);
   const [schoolForm, setSchoolForm] = useState(emptySchoolForm);
   const [neighborhoodForm, setNeighborhoodForm] = useState(emptyNeighborhoodForm);
+  const [driverForm, setDriverForm] = useState(emptyDriverForm);
+  const [vanForm, setVanForm] = useState(emptyVanForm);
   const [parentForm, setParentForm] = useState({ name: "", contact: "", email: "", cpf: "" });
   const [paymentForm, setPaymentForm] = useState({
     parentId: "",
@@ -251,15 +290,16 @@ export default function AdminPage() {
 
   const servedSchools = data?.schools.filter((schoolItem) => schoolItem.served && schoolItem.active) ?? [];
   const servedNeighborhoods = data?.neighborhoods.filter((neighborhood) => neighborhood.served) ?? [];
+  const activeDrivers = data?.drivers.filter((driver) => driver.active) ?? [];
+  const activeVans = data?.vans.filter((van) => van.active) ?? [];
   const pendingPayments = data?.payments.filter((payment) => payment.status === "pending_proof").length ?? 0;
   const receivedProofs = data?.payments.filter((payment) => payment.proof).length ?? 0;
+  const approvedPayments = data?.payments.filter((payment) => payment.status === "approved") ?? [];
+  const openPayments = data?.payments.filter((payment) => payment.status !== "approved") ?? [];
+  const approvedAmount = approvedPayments.reduce((total, payment) => total + payment.amount, 0);
+  const openAmount = openPayments.reduce((total, payment) => total + payment.amount, 0);
   const todayNotices = data?.children.filter((child) => child.absenceStatus !== "going") ?? [];
   const recentCheckins = data?.checkins.slice(0, 12) ?? [];
-  const checkinUrl = data?.vanQrCode?.token ? `${origin || ""}/checkin?token=${data.vanQrCode.token}` : "";
-  const qrImageUrl = checkinUrl
-    ? `https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=${encodeURIComponent(checkinUrl)}`
-    : "";
-
   const logout = () => {
     localStorage.removeItem("rota-segura-session");
     setSession(null);
@@ -307,6 +347,106 @@ export default function AdminPage() {
       setMessage("Acesso administrativo atualizado.");
     } else {
       setMessage(payload?.error || "Nao foi possivel atualizar o acesso.");
+    }
+
+    setSaving("");
+  };
+
+  const saveDriver = async (e?: React.FormEvent, payload = driverForm) => {
+    e?.preventDefault();
+    setSaving("driver");
+    setMessage("");
+    const response = await fetch("/api/admin/drivers", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const result = (await response.json().catch(() => null)) as { error?: string } | null;
+
+    if (response.ok) {
+      await load();
+      setDriverForm(emptyDriverForm);
+      setMessage(payload.id ? "Motorista atualizado." : "Motorista cadastrado.");
+    } else {
+      setMessage(result?.error || "Nao foi possivel salvar o motorista.");
+    }
+
+    setSaving("");
+  };
+
+  const editDriver = (driver: AdminPayload["drivers"][number]) => {
+    setDriverForm({
+      id: driver.id,
+      name: driver.name,
+      contact: driver.contact,
+      cpf: "",
+      license: driver.license,
+      vanId: driver.vanId,
+      active: driver.active,
+    });
+    setActive("drivers");
+  };
+
+  const saveVan = async (e?: React.FormEvent, payload = vanForm) => {
+    e?.preventDefault();
+    setSaving("van");
+    setMessage("");
+    const response = await fetch("/api/admin/vans", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...payload, seats: Number(payload.seats || 15) }),
+    });
+    const result = (await response.json().catch(() => null)) as { error?: string } | null;
+
+    if (response.ok) {
+      await load();
+      setVanForm(emptyVanForm);
+      setMessage(payload.id ? "Van atualizada." : "Van cadastrada.");
+    } else {
+      setMessage(result?.error || "Nao foi possivel salvar a van.");
+    }
+
+    setSaving("");
+  };
+
+  const editVan = (van: AdminPayload["vans"][number]) => {
+    setVanForm({
+      id: van.id,
+      label: van.label,
+      plate: van.plate,
+      model: van.model,
+      seats: String(van.seats),
+      color: van.color,
+      driverId: van.driverId,
+      active: van.active,
+      notes: van.notes,
+    });
+    setActive("vans");
+  };
+
+  const assignChildTransport = async (
+    child: AdminPayload["children"][number],
+    changes: { vanId?: string; driverId?: string; shift?: Shift | "" }
+  ) => {
+    setSaving(`child-assign-${child.id}`);
+    setMessage("");
+    const response = await fetch("/api/admin/children/assignment", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        childId: child.id,
+        vanId: changes.vanId ?? child.vanId ?? "",
+        driverId: changes.driverId ?? child.driverId ?? "",
+        shift: changes.shift ?? child.shift ?? "",
+      }),
+    });
+    const result = (await response.json().catch(() => null)) as { error?: string } | null;
+
+    if (response.ok) {
+      await load();
+      setMessage("Rota do aluno atualizada.");
+    } else {
+      setMessage(result?.error || "Nao foi possivel atualizar a rota do aluno.");
     }
 
     setSaving("");
@@ -575,22 +715,31 @@ export default function AdminPage() {
     setSaving("");
   };
 
-  const stopLive = async () => {
-    setSaving("live");
+  const stopLive = async (live = data?.liveTracking) => {
+    setSaving(`live-${live?.driverId || "main"}`);
     await fetch("/api/driver/live", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ active: false, source: "manual" }),
+      body: JSON.stringify({
+        active: false,
+        source: "manual",
+        driverId: live?.driverId,
+        vanId: live?.vanId,
+      }),
     });
     await load();
     setMessage("Ao vivo encerrado.");
     setSaving("");
   };
 
-  const regenerateQr = async () => {
-    setSaving("qr");
+  const regenerateQr = async (vanId?: string) => {
+    setSaving(`qr-${vanId || "main"}`);
     setMessage("");
-    const response = await fetch("/api/admin/qr", { method: "POST" });
+    const response = await fetch("/api/admin/qr", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ vanId }),
+    });
     if (response.ok) {
       await load();
       setMessage("Novo QR Code da van gerado.");
@@ -603,6 +752,30 @@ export default function AdminPage() {
   const schoolName = (id: string) => data?.schools.find((schoolItem) => schoolItem.id === id)?.name || "Sem escola";
   const parentName = (id: string) => data?.parents.find((parent) => parent.id === id)?.name || "Responsavel";
   const childName = (id: string) => data?.children.find((child) => child.id === id)?.name || "Aluno";
+  const parentContact = (id: string) => data?.parents.find((parent) => parent.id === id)?.contact || "";
+  const driverName = (id?: string) => data?.drivers.find((driver) => driver.id === id)?.name || "Sem motorista";
+  const vanName = (id?: string) => data?.vans.find((van) => van.id === id)?.label || "Sem van";
+  const qrForVan = (vanId: string) => data?.vanQrCodes.find((qr) => qr.vanId === vanId) || data?.vanQrCode;
+  const checkinUrlFor = (vanId: string) => {
+    const token = qrForVan(vanId)?.token || "";
+    return token ? `${origin || ""}/checkin?token=${token}` : "";
+  };
+  const qrImageFor = (vanId: string) => {
+    const url = checkinUrlFor(vanId);
+    return url ? `https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=${encodeURIComponent(url)}` : "";
+  };
+  const paymentMessageHref = (payment: AdminPayload["payments"][number]) => {
+    const contact = parentContact(payment.parentId);
+    const phone = contact.startsWith("55") ? contact : `55${contact}`;
+    const text = [
+      `Ola, ${parentName(payment.parentId)}.`,
+      `Consta uma mensalidade em aberto de ${childName(payment.childId)} referente a ${payment.month}.`,
+      `Valor: ${formatCurrency(payment.amount)}. Vencimento: ${payment.dueDate}.`,
+      "Por favor, envie o comprovante pela area do responsavel para liberar o recibo.",
+    ].join(" ");
+
+    return `https://wa.me/${phone}?text=${encodeURIComponent(text)}`;
+  };
 
   if (loading) {
     return (
@@ -633,7 +806,7 @@ export default function AdminPage() {
           </span>
           <div>
             <div className="text-sm font-bold text-navy dark:text-white">Oziel Turismo</div>
-            <div className="text-xs text-mute dark:text-white/45">Painel administrativo</div>
+            <div className="text-xs text-mute dark:text-white/45">Painel da empresa</div>
           </div>
         </Link>
 
@@ -690,12 +863,12 @@ export default function AdminPage() {
         </div>
 
         <header className="mx-auto max-w-6xl">
-          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-sun-2">Admin</p>
+          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-sun-2">Empresa</p>
           <h1 className="mt-2 text-3xl font-semibold text-navy dark:text-white">
-            Controle do transporte escolar
+            Controle profissional do transporte escolar
           </h1>
           <p className="mt-2 max-w-2xl text-sm text-mute dark:text-white/60">
-            Cadastre escolas, turnos, bairros atendidos, pagamentos, Pix, cores e rastreamento ao vivo.
+            Cadastre escolas, bairros, motoristas, vans, pagamentos, Pix, cores e rastreamento ao vivo.
           </p>
           {message && (
             <div className="mt-4 rounded-xl border border-sun/30 bg-sun/10 px-4 py-3 text-sm font-medium text-navy dark:text-sun">
@@ -707,11 +880,13 @@ export default function AdminPage() {
         <section className="mx-auto mt-8 max-w-6xl">
           {active === "overview" && (
             <div className="space-y-6">
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
                 <Metric icon={School} label="Escolas atendidas" value={servedSchools.length.toString()} />
                 <Metric icon={MapPinned} label="Bairros atendidos" value={servedNeighborhoods.length.toString()} />
                 <Metric icon={GraduationCap} label="Alunos" value={data.children.length.toString()} />
-                <Metric icon={ReceiptText} label="Comprovantes" value={receivedProofs.toString()} />
+                <Metric icon={UsersRound} label="Motoristas" value={activeDrivers.length.toString()} />
+                <Metric icon={Bus} label="Vans ativas" value={activeVans.length.toString()} />
+                <Metric icon={ReceiptText} label="Em aberto" value={openPayments.length.toString()} />
               </div>
 
               <div className="grid grid-cols-1 gap-5 xl:grid-cols-[1fr_360px]">
@@ -722,25 +897,58 @@ export default function AdminPage() {
                     childName={childName}
                     saving={saving}
                     onStatus={updatePaymentStatus}
+                    messageHref={paymentMessageHref}
                   />
                 </Panel>
 
-                <Panel title="Ao vivo" subtitle={data.liveTracking.active ? "Motorista em rota" : "Fora de rota"}>
+                <Panel title="Resumo financeiro" subtitle="Recebidos e pendencias da empresa">
                   <div className="rounded-2xl bg-mist p-5 text-sm dark:bg-white/5">
-                    <div className="text-xs uppercase tracking-wide text-mute dark:text-white/45">Bairro atual</div>
+                    <div className="text-xs uppercase tracking-wide text-mute dark:text-white/45">Recebido aprovado</div>
                     <div className="mt-1 font-semibold text-navy dark:text-white">
-                      {data.liveTracking.currentNeighborhood || "Sem sinal"}
+                      {formatCurrency(approvedAmount)}
                     </div>
-                    <div className="mt-4 text-xs uppercase tracking-wide text-mute dark:text-white/45">Previsao</div>
+                    <div className="mt-4 text-xs uppercase tracking-wide text-mute dark:text-white/45">Em aberto</div>
                     <div className="mt-1 font-semibold text-navy dark:text-white">
-                      {data.liveTracking.active ? `${data.liveTracking.estimatedMinutes || 0} min` : "Indisponivel"}
+                      {formatCurrency(openAmount)}
                     </div>
-                    <Button type="button" className="mt-5" onClick={() => setActive("live")}>
-                      Abrir controle
+                    <div className="mt-4 text-xs uppercase tracking-wide text-mute dark:text-white/45">Comprovantes</div>
+                    <div className="mt-1 font-semibold text-navy dark:text-white">
+                      {receivedProofs} recebido(s)
+                    </div>
+                    <Button type="button" className="mt-5" onClick={() => setActive("payments")}>
+                      Abrir cobranca
                     </Button>
                   </div>
                 </Panel>
               </div>
+
+              <Panel title="Vans em operacao" subtitle="Status rapido da equipe e da frota">
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+                  {data.vans.map((van) => {
+                    const live = data.liveTrackings.find((item) => item.vanId === van.id);
+                    return (
+                      <div key={van.id} className="rounded-2xl border border-line p-4 dark:border-white/10">
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <div className="font-semibold text-navy dark:text-white">{van.label}</div>
+                            <div className="mt-1 text-sm text-mute dark:text-white/55">
+                              {driverName(van.driverId)} - {van.plate || "sem placa"}
+                            </div>
+                          </div>
+                          <span
+                            className={cn(
+                              "rounded-full px-3 py-1 text-xs font-semibold",
+                              live?.active ? "bg-ok/10 text-ok" : "bg-slate-200 text-slate-500 dark:bg-white/5 dark:text-white/45"
+                            )}
+                          >
+                            {live?.active ? "AO VIVO" : "Parada"}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </Panel>
             </div>
           )}
 
@@ -795,6 +1003,231 @@ export default function AdminPage() {
                 <Button onClick={saveAdminAccess} className="mt-6" disabled={saving === "admin-access"}>
                   <ShieldCheck size={16} /> Salvar acesso admin
                 </Button>
+              </Panel>
+            </div>
+          )}
+
+          {active === "drivers" && (
+            <div className="grid grid-cols-1 gap-5 xl:grid-cols-[380px_1fr]">
+              <Panel
+                title={driverForm.id ? "Editar motorista" : "Cadastrar motorista"}
+                subtitle="O motorista acessa /driver com contato e CPF."
+              >
+                <form onSubmit={(e) => saveDriver(e)} className="space-y-4">
+                  <Field label="Nome completo" value={driverForm.name} onChange={(v) => setDriverForm({ ...driverForm, name: v })} />
+                  <Field label="Contato do motorista" value={driverForm.contact} onChange={(v) => setDriverForm({ ...driverForm, contact: v })} />
+                  <Field
+                    label={driverForm.id ? "Nova senha CPF" : "CPF senha"}
+                    value={driverForm.cpf}
+                    onChange={(v) => setDriverForm({ ...driverForm, cpf: v })}
+                    placeholder={driverForm.id ? "Deixe em branco para manter" : "000.000.000-00"}
+                  />
+                  <Field label="CNH / observacao" value={driverForm.license} onChange={(v) => setDriverForm({ ...driverForm, license: v })} />
+                  <label>
+                    <span className="text-xs font-semibold uppercase tracking-wide text-mute dark:text-white/50">Van vinculada</span>
+                    <select
+                      value={driverForm.vanId}
+                      onChange={(e) => setDriverForm({ ...driverForm, vanId: e.target.value })}
+                      className="mt-2 w-full rounded-xl border border-line bg-white px-4 py-3 text-sm text-navy outline-none focus:border-sun dark:border-white/10 dark:bg-white/5 dark:text-white"
+                    >
+                      <option value="">Sem van fixa</option>
+                      {data.vans.map((van) => (
+                        <option key={van.id} value={van.id}>{van.label}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="flex items-center gap-3 rounded-xl border border-line px-4 py-3 text-sm font-semibold text-navy dark:border-white/10 dark:text-white">
+                    <input
+                      type="checkbox"
+                      checked={driverForm.active}
+                      onChange={(e) => setDriverForm({ ...driverForm, active: e.target.checked })}
+                      className="h-4 w-4 accent-sun"
+                    />
+                    Motorista ativo
+                  </label>
+                  <div className="flex flex-wrap gap-2">
+                    <Button type="submit" disabled={saving === "driver"}>
+                      <Save size={16} /> {driverForm.id ? "Salvar" : "Cadastrar"}
+                    </Button>
+                    {driverForm.id && (
+                      <Button type="button" variant="outlineDark" onClick={() => setDriverForm(emptyDriverForm)}>
+                        Cancelar
+                      </Button>
+                    )}
+                  </div>
+                </form>
+              </Panel>
+
+              <Panel title="Motoristas cadastrados" subtitle="Equipe com acesso proprio para ver alunos e iniciar rota.">
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                  {data.drivers.map((driver) => (
+                    <div key={driver.id} className="rounded-2xl border border-line p-4 dark:border-white/10">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <div className="font-semibold text-navy dark:text-white">{driver.name}</div>
+                          <div className="mt-1 text-sm text-mute dark:text-white/55">
+                            {formatPhone(driver.contact)} - CPF final {driver.cpfLast4 || "nao informado"}
+                          </div>
+                          <div className="mt-1 text-sm text-mute dark:text-white/55">
+                            {vanName(driver.vanId)} {driver.license ? `- ${driver.license}` : ""}
+                          </div>
+                        </div>
+                        <span
+                          className={cn(
+                            "rounded-full px-3 py-1 text-xs font-semibold",
+                            driver.active ? "bg-ok/10 text-ok" : "bg-slate-200 text-slate-500 dark:bg-white/5 dark:text-white/45"
+                          )}
+                        >
+                          {driver.active ? "Ativo" : "Pausado"}
+                        </span>
+                      </div>
+                      <div className="mt-4 flex flex-wrap gap-2">
+                        <Button type="button" variant="outlineDark" size="sm" onClick={() => editDriver(driver)}>
+                          Editar
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outlineDark"
+                          size="sm"
+                          onClick={() => saveDriver(undefined, { ...driver, cpf: "", active: !driver.active })}
+                          disabled={saving === "driver"}
+                        >
+                          {driver.active ? "Pausar" : "Ativar"}
+                        </Button>
+                        <Link href="/driver" target="_blank" className="inline-flex items-center justify-center gap-2 rounded-full border border-line px-4 py-2 text-sm font-semibold text-navy transition hover:border-sun dark:border-white/10 dark:text-white">
+                          <Navigation size={14} /> Tela motorista
+                        </Link>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </Panel>
+            </div>
+          )}
+
+          {active === "vans" && (
+            <div className="grid grid-cols-1 gap-5 xl:grid-cols-[380px_1fr]">
+              <Panel
+                title={vanForm.id ? "Editar van" : "Cadastrar van"}
+                subtitle="Controle placa, motorista, lugares e QR individual da van."
+              >
+                <form onSubmit={(e) => saveVan(e)} className="space-y-4">
+                  <Field label="Nome da van" value={vanForm.label} onChange={(v) => setVanForm({ ...vanForm, label: v })} placeholder="Van 01 - Manha" />
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <Field label="Placa" value={vanForm.plate} onChange={(v) => setVanForm({ ...vanForm, plate: v })} />
+                    <Field label="Lugares" type="number" value={vanForm.seats} onChange={(v) => setVanForm({ ...vanForm, seats: v })} />
+                  </div>
+                  <Field label="Modelo" value={vanForm.model} onChange={(v) => setVanForm({ ...vanForm, model: v })} />
+                  <label>
+                    <span className="text-xs font-semibold uppercase tracking-wide text-mute dark:text-white/50">Motorista responsavel</span>
+                    <select
+                      value={vanForm.driverId}
+                      onChange={(e) => setVanForm({ ...vanForm, driverId: e.target.value })}
+                      className="mt-2 w-full rounded-xl border border-line bg-white px-4 py-3 text-sm text-navy outline-none focus:border-sun dark:border-white/10 dark:bg-white/5 dark:text-white"
+                    >
+                      <option value="">Sem motorista fixo</option>
+                      {data.drivers.map((driver) => (
+                        <option key={driver.id} value={driver.id}>{driver.name}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>
+                    <span className="text-xs font-semibold uppercase tracking-wide text-mute dark:text-white/50">Cor da van no painel</span>
+                    <input
+                      type="color"
+                      value={vanForm.color}
+                      onChange={(e) => setVanForm({ ...vanForm, color: e.target.value })}
+                      className="mt-2 h-11 w-full rounded-xl border border-line bg-transparent"
+                    />
+                  </label>
+                  <Field label="Observacoes" value={vanForm.notes} onChange={(v) => setVanForm({ ...vanForm, notes: v })} />
+                  <label className="flex items-center gap-3 rounded-xl border border-line px-4 py-3 text-sm font-semibold text-navy dark:border-white/10 dark:text-white">
+                    <input
+                      type="checkbox"
+                      checked={vanForm.active}
+                      onChange={(e) => setVanForm({ ...vanForm, active: e.target.checked })}
+                      className="h-4 w-4 accent-sun"
+                    />
+                    Van ativa
+                  </label>
+                  <div className="flex flex-wrap gap-2">
+                    <Button type="submit" disabled={saving === "van"}>
+                      <Save size={16} /> {vanForm.id ? "Salvar" : "Cadastrar"}
+                    </Button>
+                    {vanForm.id && (
+                      <Button type="button" variant="outlineDark" onClick={() => setVanForm(emptyVanForm)}>
+                        Cancelar
+                      </Button>
+                    )}
+                  </div>
+                </form>
+              </Panel>
+
+              <Panel title="Frota" subtitle="Cada van pode ter motorista, QR e alunos vinculados.">
+                <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+                  {data.vans.map((van) => {
+                    const students = data.children.filter((child) => child.vanId === van.id);
+                    const qrImage = qrImageFor(van.id);
+                    const url = checkinUrlFor(van.id);
+
+                    return (
+                      <div key={van.id} className="rounded-2xl border border-line p-4 dark:border-white/10">
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <div className="font-semibold text-navy dark:text-white">{van.label}</div>
+                            <div className="mt-1 text-sm text-mute dark:text-white/55">
+                              {van.model || "Modelo nao informado"} - {van.plate || "sem placa"}
+                            </div>
+                            <div className="mt-1 text-sm text-mute dark:text-white/55">
+                              {driverName(van.driverId)} - {students.length}/{van.seats} aluno(s)
+                            </div>
+                          </div>
+                          <span
+                            className={cn(
+                              "rounded-full px-3 py-1 text-xs font-semibold",
+                              van.active ? "bg-ok/10 text-ok" : "bg-slate-200 text-slate-500 dark:bg-white/5 dark:text-white/45"
+                            )}
+                          >
+                            {van.active ? "Ativa" : "Pausada"}
+                          </span>
+                        </div>
+
+                        <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-[150px_1fr]">
+                          <div className="rounded-xl bg-mist p-3 text-center dark:bg-white/5">
+                            {qrImage ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img src={qrImage} alt={`QR Code da ${van.label}`} className="mx-auto h-32 w-32 rounded-lg bg-white p-2" />
+                            ) : (
+                              <div className="flex h-32 items-center justify-center text-xs text-mute">Sem QR</div>
+                            )}
+                          </div>
+                          <div className="min-w-0">
+                            <div className="break-all rounded-xl bg-mist px-3 py-2 text-xs text-mute dark:bg-white/5 dark:text-white/55">
+                              {url || "Link indisponivel"}
+                            </div>
+                            <div className="mt-3 flex flex-wrap gap-2">
+                              <Button type="button" variant="outlineDark" size="sm" onClick={() => editVan(van)}>
+                                Editar
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="outlineDark"
+                                size="sm"
+                                onClick={() => saveVan(undefined, { ...van, seats: String(van.seats), active: !van.active })}
+                                disabled={saving === "van"}
+                              >
+                                {van.active ? "Pausar" : "Ativar"}
+                              </Button>
+                              <Button type="button" variant="outlineDark" size="sm" onClick={() => regenerateQr(van.id)} disabled={saving === `qr-${van.id}`}>
+                                <QrCode size={14} /> Novo QR
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </Panel>
             </div>
           )}
@@ -1018,7 +1451,7 @@ export default function AdminPage() {
               </Panel>
 
               <Panel title="Mapa de atendimento" subtitle="Colorido atende; preto e branco ainda nao atende.">
-                <NeighborhoodMap neighborhoods={data.neighborhoods} />
+                <ToledoLuxuryMap neighborhoods={data.neighborhoods} />
                 <div className="mt-6 rounded-2xl border border-line bg-mist p-4 dark:border-white/10 dark:bg-white/5">
                   <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                     <label className="flex items-center gap-3 text-sm font-semibold text-navy dark:text-white">
@@ -1153,11 +1586,49 @@ export default function AdminPage() {
                                   <AbsenceBadge status={child.absenceStatus} />
                                 </div>
                                 <div className="text-mute dark:text-white/55">{schoolName(child.schoolId)}</div>
-                                <div className="mt-1 text-xs text-mute dark:text-white/45">
-                                  CPF final {child.cpfLast4 || "nao informado"} - nascimento {child.birthDate || "nao informado"}
-                                </div>
-                              </div>
-                            ))}
+                                 <div className="mt-1 text-xs text-mute dark:text-white/45">
+                                   CPF final {child.cpfLast4 || "nao informado"} - nascimento {child.birthDate || "nao informado"}
+                                 </div>
+                                  <div className="mt-3 grid grid-cols-1 gap-2 lg:grid-cols-3">
+                                    <select
+                                      value={child.vanId || ""}
+                                      onChange={(e) => assignChildTransport(child, { vanId: e.target.value })}
+                                      disabled={saving === `child-assign-${child.id}`}
+                                      className="rounded-xl border border-line bg-white px-3 py-2 text-xs font-semibold text-navy outline-none focus:border-sun dark:border-white/10 dark:bg-white/5 dark:text-white"
+                                      aria-label={`Van de ${child.name}`}
+                                    >
+                                      <option value="">Sem van</option>
+                                      {data.vans.map((van) => (
+                                        <option key={van.id} value={van.id}>{van.label}</option>
+                                      ))}
+                                    </select>
+                                    <select
+                                      value={child.driverId || ""}
+                                      onChange={(e) => assignChildTransport(child, { driverId: e.target.value })}
+                                      disabled={saving === `child-assign-${child.id}`}
+                                      className="rounded-xl border border-line bg-white px-3 py-2 text-xs font-semibold text-navy outline-none focus:border-sun dark:border-white/10 dark:bg-white/5 dark:text-white"
+                                      aria-label={`Motorista de ${child.name}`}
+                                    >
+                                      <option value="">Sem motorista</option>
+                                      {data.drivers.map((driver) => (
+                                        <option key={driver.id} value={driver.id}>{driver.name}</option>
+                                      ))}
+                                    </select>
+                                    <select
+                                      value={child.shift || ""}
+                                      onChange={(e) => assignChildTransport(child, { shift: e.target.value as Shift | "" })}
+                                      disabled={saving === `child-assign-${child.id}`}
+                                      className="rounded-xl border border-line bg-white px-3 py-2 text-xs font-semibold text-navy outline-none focus:border-sun dark:border-white/10 dark:bg-white/5 dark:text-white"
+                                      aria-label={`Turno de ${child.name}`}
+                                    >
+                                      <option value="">Sem turno</option>
+                                      {shifts.map((shift) => (
+                                        <option key={shift} value={shift}>{shiftLabel(shift)}</option>
+                                      ))}
+                                    </select>
+                                  </div>
+                               </div>
+                             ))}
                           </div>
                         )}
                       </div>
@@ -1209,13 +1680,19 @@ export default function AdminPage() {
                 </form>
               </Panel>
 
-              <Panel title="Pagamentos" subtitle="Aprove ou recuse comprovantes recebidos.">
+              <Panel title="Dashboard financeiro" subtitle="Acompanhe recebidos, pendencias e cobre pelo WhatsApp.">
+                <div className="mb-5 grid grid-cols-1 gap-3 md:grid-cols-3">
+                  <ProfileLine label="Pago" value={formatCurrency(approvedAmount)} />
+                  <ProfileLine label="Em aberto" value={formatCurrency(openAmount)} />
+                  <ProfileLine label="Pendencias" value={`${openPayments.length} mensalidade(s)`} />
+                </div>
                 <PaymentList
                   payments={data.payments}
                   parentName={parentName}
                   childName={childName}
                   saving={saving}
                   onStatus={updatePaymentStatus}
+                  messageHref={paymentMessageHref}
                 />
               </Panel>
             </div>
@@ -1256,17 +1733,42 @@ export default function AdminPage() {
                     <Link href="/driver" target="_blank" className="inline-flex items-center justify-center gap-2 rounded-full bg-sun px-6 py-3 text-sm font-semibold text-navy transition hover:bg-sun-2">
                       <Navigation size={16} /> Abrir tela do motorista
                     </Link>
-                    <Button type="button" variant="outlineDark" onClick={stopLive} disabled={saving === "live"}>
+                    <Button type="button" variant="outlineDark" onClick={() => stopLive()} disabled={saving === `live-${data.liveTracking.driverId || "main"}`}>
                       Encerrar ao vivo
                     </Button>
                   </div>
                 </div>
 
                 <div className="rounded-2xl bg-mist p-5 text-sm text-mute dark:bg-white/5 dark:text-white/60">
-                  <div className="font-semibold text-navy dark:text-white">Como funciona</div>
+                  <div className="font-semibold text-navy dark:text-white">Vans e sinais</div>
                   <p className="mt-2">
-                    O celular do motorista envia a posicao atual enquanto a rota estiver ligada. Se parar de enviar sinal por mais de 45 minutos, a area dos pais deixa de mostrar o ao vivo.
+                    Cada motorista liga a propria rota no celular. Depois de 45 minutos sem sinal, os pais deixam de ver o ao vivo.
                   </p>
+                  <div className="mt-4 space-y-3">
+                    {data.vans.map((van) => {
+                      const live = data.liveTrackings.find((item) => item.vanId === van.id);
+                      return (
+                        <div key={van.id} className="rounded-xl bg-white p-3 dark:bg-white/5">
+                          <div className="font-semibold text-navy dark:text-white">{van.label}</div>
+                          <div className="mt-1 text-xs text-mute dark:text-white/50">{driverName(van.driverId)}</div>
+                          <div className="mt-2 flex items-center justify-between gap-2">
+                            <span className={cn("rounded-full px-2 py-1 text-[11px] font-semibold", live?.active ? "bg-ok/10 text-ok" : "bg-slate-200 text-slate-500 dark:bg-white/5 dark:text-white/45")}>
+                              {live?.active ? "AO VIVO" : "Parada"}
+                            </span>
+                            {live?.active && (
+                              <button
+                                type="button"
+                                onClick={() => stopLive(live)}
+                                className="text-[11px] font-bold text-red-600 hover:underline dark:text-red-300"
+                              >
+                                Encerrar
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
             </Panel>
@@ -1274,40 +1776,51 @@ export default function AdminPage() {
 
           {active === "checkin" && (
             <div className="grid grid-cols-1 gap-5 xl:grid-cols-[360px_1fr]">
-              <Panel title="QR Code da van" subtitle="Imprima ou deixe este QR fixado dentro da van.">
-                <div className="rounded-2xl border border-line bg-white p-4 text-center dark:border-white/10 dark:bg-white/[0.04]">
-                  {qrImageUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={qrImageUrl}
-                      alt="QR Code da van para check-in"
-                      className="mx-auto h-64 w-64 rounded-xl bg-white p-3"
-                    />
-                  ) : (
-                    <div className="flex h-64 items-center justify-center rounded-xl bg-mist text-sm text-mute dark:bg-white/5 dark:text-white/50">
-                      Gerando QR
-                    </div>
-                  )}
-                  <div className="mt-4 break-all rounded-xl bg-mist px-3 py-2 text-xs text-mute dark:bg-white/5 dark:text-white/55">
-                    {checkinUrl || "Link indisponivel"}
-                  </div>
-                </div>
-                <div className="mt-4 flex flex-wrap gap-2">
-                  <Button type="button" onClick={regenerateQr} disabled={saving === "qr"}>
-                    <QrCode size={16} /> Gerar novo QR
-                  </Button>
-                  {checkinUrl && (
-                    <Button
-                      type="button"
-                      variant="outlineDark"
-                      onClick={() => navigator.clipboard?.writeText(checkinUrl)}
-                    >
-                      Copiar link
-                    </Button>
-                  )}
+              <Panel title="QR Code das vans" subtitle="Cada van tem seu proprio QR para check-in seguro.">
+                <div className="space-y-4">
+                  {data.vans.map((van) => {
+                    const qrImage = qrImageFor(van.id);
+                    const url = checkinUrlFor(van.id);
+
+                    return (
+                      <div key={van.id} className="rounded-2xl border border-line bg-white p-4 text-center dark:border-white/10 dark:bg-white/[0.04]">
+                        <div className="mb-3 text-sm font-semibold text-navy dark:text-white">{van.label}</div>
+                        {qrImage ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={qrImage}
+                            alt={`QR Code da ${van.label}`}
+                            className="mx-auto h-52 w-52 rounded-xl bg-white p-3"
+                          />
+                        ) : (
+                          <div className="flex h-52 items-center justify-center rounded-xl bg-mist text-sm text-mute dark:bg-white/5 dark:text-white/50">
+                            Gerando QR
+                          </div>
+                        )}
+                        <div className="mt-4 break-all rounded-xl bg-mist px-3 py-2 text-xs text-mute dark:bg-white/5 dark:text-white/55">
+                          {url || "Link indisponivel"}
+                        </div>
+                        <div className="mt-4 flex flex-wrap justify-center gap-2">
+                          <Button type="button" onClick={() => regenerateQr(van.id)} disabled={saving === `qr-${van.id}`} size="sm">
+                            <QrCode size={14} /> Novo QR
+                          </Button>
+                          {url && (
+                            <Button
+                              type="button"
+                              variant="outlineDark"
+                              size="sm"
+                              onClick={() => navigator.clipboard?.writeText(url)}
+                            >
+                              Copiar link
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
                 <p className="mt-4 text-sm leading-relaxed text-mute dark:text-white/55">
-                  Ao trocar o QR, o codigo antigo deixa de registrar check-ins.
+                  Ao trocar o QR de uma van, o codigo antigo daquela van deixa de registrar check-ins.
                 </p>
               </Panel>
 
@@ -1531,45 +2044,20 @@ function Field({
   );
 }
 
-function NeighborhoodMap({ neighborhoods }: { neighborhoods: NeighborhoodRecord[] }) {
-  return (
-    <div className="relative min-h-[360px] overflow-hidden rounded-3xl border border-line bg-gradient-to-br from-slate-100 via-white to-slate-200 p-4 dark:border-white/10 dark:from-slate-900 dark:via-slate-950 dark:to-slate-800">
-      <div className="absolute inset-6 rounded-[38%_62%_44%_56%/46%_42%_58%_54%] border border-slate-300 bg-white/50 shadow-inner grayscale dark:border-white/10 dark:bg-white/5" />
-      <div className="absolute inset-x-14 top-1/2 h-px bg-slate-300 dark:bg-white/10" />
-      <div className="absolute left-1/2 top-10 h-[280px] w-px bg-slate-300 dark:bg-white/10" />
-      {neighborhoods.map((neighborhood) => (
-        <span
-          key={neighborhood.id}
-          title={neighborhood.notes || neighborhood.name}
-          className={cn(
-            "absolute h-5 w-5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white shadow-md transition",
-            neighborhood.served
-              ? "bg-sun"
-              : "bg-slate-300 grayscale dark:border-white/20 dark:bg-slate-700"
-          )}
-          style={{
-            left: `${neighborhood.position.x}%`,
-            top: `${neighborhood.position.y}%`,
-            backgroundColor: neighborhood.served ? neighborhood.color : undefined,
-          }}
-        />
-      ))}
-    </div>
-  );
-}
-
 function PaymentList({
   payments,
   parentName,
   childName,
   saving,
   onStatus,
+  messageHref,
 }: {
   payments: AdminPayload["payments"];
   parentName: (id: string) => string;
   childName: (id: string) => string;
   saving: string;
   onStatus: (paymentId: string, status: PaymentStatus) => void;
+  messageHref: (payment: AdminPayload["payments"][number]) => string;
 }) {
   if (payments.length === 0) {
     return (
@@ -1634,6 +2122,13 @@ function PaymentList({
               <span className="inline-flex items-center gap-2 rounded-full bg-mist px-3 py-2 text-xs font-semibold text-mute dark:bg-white/5 dark:text-white/55">
                 Sem comprovante, sem recibo
               </span>
+            )}
+            {payment.status !== "approved" && (
+              <a href={messageHref(payment)} target="_blank" rel="noreferrer">
+                <Button type="button" variant="outlineDark" size="sm">
+                  <MessageCircle size={14} /> Cobrar no WhatsApp
+                </Button>
+              </a>
             )}
           </div>
         </div>

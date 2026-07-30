@@ -1,4 +1,4 @@
-export type UserRole = "admin" | "parent";
+export type UserRole = "admin" | "parent" | "driver";
 
 export type PaymentStatus =
   | "pending_proof"
@@ -73,6 +73,9 @@ export type NeighborhoodRecord = {
 };
 
 export type LiveTrackingState = {
+  id: string;
+  driverId?: string;
+  vanId?: string;
   active: boolean;
   driverName: string;
   startedAt: string;
@@ -115,6 +118,33 @@ export type ParentRecord = {
 
 export type SafeParentRecord = Omit<ParentRecord, "cpfHash">;
 
+export type DriverRecord = {
+  id: string;
+  name: string;
+  contact: string;
+  cpfHash: string;
+  cpfLast4: string;
+  license: string;
+  vanId: string;
+  active: boolean;
+  createdAt: string;
+};
+
+export type SafeDriverRecord = Omit<DriverRecord, "cpfHash">;
+
+export type VanRecord = {
+  id: string;
+  label: string;
+  plate: string;
+  model: string;
+  seats: number;
+  color: string;
+  driverId: string;
+  active: boolean;
+  notes: string;
+  createdAt: string;
+};
+
 export type AddressRecord = {
   cep: string;
   street: string;
@@ -130,6 +160,9 @@ export type AddressRecord = {
 export type ChildRecord = {
   id: string;
   parentId: string;
+  driverId?: string;
+  vanId?: string;
+  shift?: Shift;
   name: string;
   cpfHash: string;
   cpfLast4: string;
@@ -148,6 +181,7 @@ export type ChildRecord = {
 
 export type VanQrCodeRecord = {
   id: string;
+  vanId?: string;
   token: string;
   label: string;
   active: boolean;
@@ -158,6 +192,8 @@ export type CheckinRecord = {
   id: string;
   parentId: string;
   childId: string;
+  vanId?: string;
+  driverId?: string;
   type: CheckinType;
   scannedAt: string;
   latitude?: number;
@@ -206,8 +242,12 @@ export type AppDatabase = {
   neighborhoods: NeighborhoodRecord[];
   removedNeighborhoodIds: string[];
   liveTracking: LiveTrackingState;
+  liveTrackings: LiveTrackingState[];
   vanQrCode: VanQrCodeRecord;
+  vanQrCodes: VanQrCodeRecord[];
   admins: AdminUser[];
+  drivers: DriverRecord[];
+  vans: VanRecord[];
   parents: ParentRecord[];
   children: ChildRecord[];
   checkins: CheckinRecord[];
@@ -227,6 +267,7 @@ export type ParentDashboardPayload = {
   schools: SchoolRecord[];
   neighborhoods: NeighborhoodRecord[];
   liveTracking: LiveTrackingState;
+  liveTrackings: LiveTrackingState[];
   parent: SafeParentRecord;
   children: ChildRecord[];
   checkins: CheckinRecord[];
@@ -240,7 +281,11 @@ export type AdminPayload = {
   schools: SchoolRecord[];
   neighborhoods: NeighborhoodRecord[];
   liveTracking: LiveTrackingState;
+  liveTrackings: LiveTrackingState[];
   vanQrCode: VanQrCodeRecord;
+  vanQrCodes: VanQrCodeRecord[];
+  drivers: SafeDriverRecord[];
+  vans: VanRecord[];
   parents: SafeParentRecord[];
   children: ChildRecord[];
   checkins: CheckinRecord[];

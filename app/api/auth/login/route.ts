@@ -35,6 +35,25 @@ export async function POST(request: Request) {
     return NextResponse.json({ user });
   }
 
+  const driver = db.drivers.find(
+    (item) =>
+      item.active &&
+      Boolean(contact) &&
+      normalizeContact(item.contact) === contact &&
+      item.cpfHash === passwordHash
+  );
+
+  if (driver) {
+    const user: SessionUser = {
+      id: driver.id,
+      role: "driver",
+      name: driver.name,
+      contact: driver.contact,
+    };
+
+    return NextResponse.json({ user });
+  }
+
   const parent = db.parents.find(
     (item) =>
       item.active &&

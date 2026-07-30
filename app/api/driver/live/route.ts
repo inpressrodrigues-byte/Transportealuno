@@ -2,8 +2,9 @@ import { NextResponse } from "next/server";
 import { getLiveTracking, updateLiveTracking } from "@/lib/server/app-db";
 import type { LiveTrackingState } from "@/lib/app-types";
 
-export async function GET() {
-  return NextResponse.json(getLiveTracking());
+export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url);
+  return NextResponse.json(getLiveTracking(searchParams.get("driverId") || undefined));
 }
 
 export async function POST(request: Request) {
@@ -13,6 +14,8 @@ export async function POST(request: Request) {
   }
 
   const db = updateLiveTracking({
+    driverId: String(body.driverId || ""),
+    vanId: String(body.vanId || ""),
     active: body.active,
     latitude: Number.isFinite(Number(body.latitude)) ? Number(body.latitude) : undefined,
     longitude: Number.isFinite(Number(body.longitude)) ? Number(body.longitude) : undefined,

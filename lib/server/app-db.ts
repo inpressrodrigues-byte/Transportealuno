@@ -12,6 +12,7 @@ import type {
   ChildAbsenceStatus,
   ChildRecord,
   CompanySettings,
+  DriverRecord,
   LiveTrackingState,
   NeighborhoodRecord,
   ParentDashboardPayload,
@@ -23,6 +24,7 @@ import type {
   Shift,
   ThemeSettings,
   VanQrCodeRecord,
+  VanRecord,
 } from "@/lib/app-types";
 import { makeId, normalizeContact, normalizeCpf, shifts, todayIso } from "@/lib/app-utils";
 
@@ -31,6 +33,9 @@ const DB_PATH = path.join(DATA_DIR, "app-db.json");
 const LIVE_MAX_AGE_MINUTES = 45;
 const DEFAULT_ADMIN_LOGIN = "InpresS";
 const DEFAULT_ADMIN_PASSWORD = "GuGalex2011@.";
+const DEFAULT_DRIVER_CPF = "12345678910";
+const DEFAULT_DRIVER_ID = "driver_oziel";
+const DEFAULT_VAN_ID = "van_principal";
 
 let memoryDb: AppDatabase | null = null;
 
@@ -71,6 +76,9 @@ function defaultSettings(): CompanySettings {
 
 function defaultLiveTracking(): LiveTrackingState {
   return {
+    id: "live_principal",
+    driverId: DEFAULT_DRIVER_ID,
+    vanId: DEFAULT_VAN_ID,
     active: false,
     driverName: "Oziel Galtaroza Rodrigues",
     startedAt: "",
@@ -85,10 +93,42 @@ function defaultLiveTracking(): LiveTrackingState {
 function defaultVanQrCode(): VanQrCodeRecord {
   return {
     id: "van_qr_main",
+    vanId: DEFAULT_VAN_ID,
     token: makeId("vanqr"),
     label: "Van principal",
     active: true,
     generatedAt: todayIso(),
+  };
+}
+
+function defaultDriver(): DriverRecord {
+  const now = todayIso();
+
+  return {
+    id: DEFAULT_DRIVER_ID,
+    name: "Oziel Galtaroza Rodrigues",
+    contact: "45999340446",
+    cpfHash: hashSecret(DEFAULT_DRIVER_CPF),
+    cpfLast4: DEFAULT_DRIVER_CPF.slice(-4),
+    license: "CNH profissional",
+    vanId: DEFAULT_VAN_ID,
+    active: true,
+    createdAt: now,
+  };
+}
+
+function defaultVan(): VanRecord {
+  return {
+    id: DEFAULT_VAN_ID,
+    label: "Van principal",
+    plate: "ABC-1D23",
+    model: "Renault Master",
+    seats: 15,
+    color: "#facc15",
+    driverId: DEFAULT_DRIVER_ID,
+    active: true,
+    notes: "Veiculo principal da empresa.",
+    createdAt: todayIso(),
   };
 }
 
@@ -272,7 +312,9 @@ function createInitialDb(): AppDatabase {
     neighborhoods: seedNeighborhoods(),
     removedNeighborhoodIds: [],
     liveTracking: defaultLiveTracking(),
+    liveTrackings: [defaultLiveTracking()],
     vanQrCode: defaultVanQrCode(),
+    vanQrCodes: [defaultVanQrCode()],
     admins: [
       {
         id: "admin_main",
@@ -283,6 +325,8 @@ function createInitialDb(): AppDatabase {
         createdAt: now,
       },
     ],
+    drivers: [defaultDriver()],
+    vans: [defaultVan()],
     parents: [
       {
         id: parentId,
@@ -299,6 +343,9 @@ function createInitialDb(): AppDatabase {
       {
         id: childId,
         parentId,
+        driverId: DEFAULT_DRIVER_ID,
+        vanId: DEFAULT_VAN_ID,
+        shift: "manha",
         name: "Sophia Andrade",
         cpfHash: hashSecret("52919401012"),
         cpfLast4: "1012",
@@ -385,6 +432,18 @@ function normalizeDb(input: Partial<AppDatabase>): AppDatabase {
   const seed = createInitialDb();
   const removedSchoolIds = Array.isArray(input.removedSchoolIds) ? input.removedSchoolIds : [];
   const removedNeighborhoodIds = Array.isArray(input.removedNeighborhoodIds) ? input.removedNeighborhoodIds : [];
+  const drivers = input.drivers?.length
+    ? mergeById(input.drivers.map(normalizeDriver), seed.drivers)
+    : seed.drivers;
+  const vans = input.vans?.length
+    ? mergeById(input.vans.map(normalizeVan), seed.vans)
+    : seed.vans;
+  const vanQrCodes = input.vanQrCodes?.length
+    ? mergeById(input.vanQrCodes.map(normalizeVanQrCode), seed.vanQrCodes)
+    : [normalizeVanQrCode(input.vanQrCode)];
+  const liveTrackings = input.liveTrackings?.length
+    ? mergeById(input.liveTrackings.map((item) => normalizeLive(item, input.settings?.driverName || seed.settings.driverName)), seed.liveTrackings)
+    : [normalizeLive(input.liveTracking, input.settings?.driverName || seed.settings.driverName)];
   const schools = input.schools?.length
     ? mergeById(input.schools.map(normalizeSchool), seed.schools)
     : seed.schools;
@@ -399,9 +458,13 @@ function normalizeDb(input: Partial<AppDatabase>): AppDatabase {
     removedSchoolIds,
     neighborhoods: neighborhoods.filter((neighborhood) => !removedNeighborhoodIds.includes(neighborhood.id)),
     removedNeighborhoodIds,
-    liveTracking: normalizeLive(input.liveTracking, input.settings?.driverName || seed.settings.driverName),
-    vanQrCode: normalizeVanQrCode(input.vanQrCode),
+    liveTracking: visibleLive(liveTrackings[0] || seed.liveTracking),
+    liveTrackings,
+    vanQrCode: vanQrCodes[0] || seed.vanQrCode,
+    vanQrCodes,
     admins: input.admins?.length ? input.admins.map(normalizeAdmin) : seed.admins,
+    drivers,
+    vans,
     parents: input.parents?.length ? input.parents : seed.parents,
     children: input.children?.length ? input.children.map(normalizeChild) : seed.children,
     checkins: input.checkins?.length ? input.checkins.map(normalizeCheckin) : seed.checkins,
@@ -449,13 +512,52 @@ function normalizeNeighborhood(item: Partial<NeighborhoodRecord>): NeighborhoodR
   };
 }
 
+function normalizeDriver(item: Partial<DriverRecord>): DriverRecord {
+  const seed = defaultDriver();
+  const contact = normalizeContact(String(item.contact || seed.contact));
+  const cpfLast4 = item.cpfLast4 || "8910";
+
+  return {
+    id: item.id || makeId("driver"),
+    name: item.name || seed.name,
+    contact,
+    cpfHash: item.cpfHash || seed.cpfHash,
+    cpfLast4,
+    license: item.license || "",
+    vanId: item.vanId || DEFAULT_VAN_ID,
+    active: item.active ?? true,
+    createdAt: item.createdAt || todayIso(),
+  };
+}
+
+function normalizeVan(item: Partial<VanRecord>): VanRecord {
+  const seed = defaultVan();
+
+  return {
+    id: item.id || makeId("van"),
+    label: item.label || seed.label,
+    plate: item.plate || "",
+    model: item.model || "",
+    seats: Number(item.seats || seed.seats),
+    color: item.color || seed.color,
+    driverId: item.driverId || "",
+    active: item.active ?? true,
+    notes: item.notes || "",
+    createdAt: item.createdAt || todayIso(),
+  };
+}
+
 function normalizeChild(item: Partial<ChildRecord>): ChildRecord {
   const now = todayIso();
   const status = normalizeAbsenceStatus(item.absenceStatus);
+  const shift = shifts.includes(item.shift as Shift) ? item.shift : undefined;
 
   return {
     id: item.id || makeId("child"),
     parentId: item.parentId || "",
+    driverId: item.driverId || "",
+    vanId: item.vanId || "",
+    shift,
     name: item.name || "Aluno",
     cpfHash: item.cpfHash || "",
     cpfLast4: item.cpfLast4 || "",
@@ -488,6 +590,7 @@ function normalizeVanQrCode(item?: Partial<VanQrCodeRecord>): VanQrCodeRecord {
 
   return {
     id: item?.id || seed.id,
+    vanId: item?.vanId || seed.vanId,
     token: item?.token || seed.token,
     label: item?.label || seed.label,
     active: item?.active ?? true,
@@ -500,6 +603,8 @@ function normalizeCheckin(item: Partial<CheckinRecord>): CheckinRecord {
     id: item.id || makeId("checkin"),
     parentId: item.parentId || "",
     childId: item.childId || "",
+    vanId: item.vanId || "",
+    driverId: item.driverId || "",
     type: item.type === "returning" ? "returning" : "boarding",
     scannedAt: item.scannedAt || todayIso(),
     latitude: item.latitude,
@@ -539,6 +644,9 @@ function normalizeLive(item: Partial<LiveTrackingState> | undefined, driverName:
   return {
     ...seed,
     ...item,
+    id: item?.id || seed.id || makeId("live"),
+    driverId: item?.driverId || seed.driverId,
+    vanId: item?.vanId || seed.vanId,
     driverName: item?.driverName || driverName,
     currentNeighborhood: item?.currentNeighborhood || seed.currentNeighborhood,
     nextStop: item?.nextStop || seed.nextStop,
@@ -612,14 +720,19 @@ export function mutateDb(mutator: (db: AppDatabase) => void) {
 
 export function getAdminPayload(): AdminPayload {
   const db = readDb();
+  const liveTrackings = db.liveTrackings.map(visibleLive);
   return {
     adminAccess: safeAdmin(db.admins[0]),
     settings: db.settings,
     theme: db.theme,
     schools: db.schools,
     neighborhoods: db.neighborhoods,
-    liveTracking: db.liveTracking,
+    liveTracking: liveTrackings[0] || visibleLive(db.liveTracking),
+    liveTrackings,
     vanQrCode: db.vanQrCode,
+    vanQrCodes: db.vanQrCodes,
+    drivers: db.drivers.map(safeDriver),
+    vans: db.vans,
     parents: db.parents.map(safeParent),
     children: db.children,
     checkins: db.checkins,
@@ -641,22 +754,35 @@ export function getParentDashboard(parentId: string): ParentDashboardPayload | n
   const db = readDb();
   const parent = db.parents.find((item) => item.id === parentId && item.active);
   if (!parent) return null;
+  const children = db.children.filter((child) => child.parentId === parent.id);
+  const childDriverIds = new Set(children.map((child) => child.driverId).filter(Boolean));
+  const childVanIds = new Set(children.map((child) => child.vanId).filter(Boolean));
+  const relatedLiveTrackings = db.liveTrackings
+    .map(visibleLive)
+    .filter((live) => (live.driverId && childDriverIds.has(live.driverId)) || (live.vanId && childVanIds.has(live.vanId)));
+  const liveTracking = relatedLiveTrackings[0] || visibleLive(db.liveTracking);
 
   return {
     settings: db.settings,
     theme: db.theme,
     schools: db.schools.filter((schoolItem) => schoolItem.active),
     neighborhoods: db.neighborhoods,
-    liveTracking: visibleLive(db.liveTracking),
+    liveTracking,
+    liveTrackings: relatedLiveTrackings,
     parent: safeParent(parent),
-    children: db.children.filter((child) => child.parentId === parent.id),
+    children,
     checkins: db.checkins.filter((checkin) => checkin.parentId === parent.id),
     payments: db.payments.filter((payment) => payment.parentId === parent.id),
   };
 }
 
-export function getLiveTracking() {
-  return visibleLive(readDb().liveTracking);
+export function getLiveTracking(driverId?: string) {
+  const db = readDb();
+  const live = driverId
+    ? db.liveTrackings.find((item) => item.driverId === driverId || item.id === driverId)
+    : db.liveTrackings[0] || db.liveTracking;
+
+  return visibleLive(live || db.liveTracking);
 }
 
 function safeParent(parent: ParentRecord) {
@@ -676,6 +802,19 @@ function safeAdmin(admin: AdminUser | undefined) {
     id: admin?.id || "admin_main",
     name: admin?.name || "Administrador",
     login: admin?.login || admin?.contact || DEFAULT_ADMIN_LOGIN,
+  };
+}
+
+function safeDriver(driver: DriverRecord) {
+  return {
+    id: driver.id,
+    name: driver.name,
+    contact: driver.contact,
+    cpfLast4: driver.cpfLast4,
+    license: driver.license,
+    vanId: driver.vanId,
+    active: driver.active,
+    createdAt: driver.createdAt,
   };
 }
 
@@ -714,6 +853,141 @@ export function updateAdminAccess(input: {
   });
 
   return { db, error, adminAccess: safeAdmin(db.admins[0]) };
+}
+
+export function upsertDriver(input: Partial<DriverRecord> & { name: string; contact: string; cpf?: string }) {
+  let error = "";
+  const db = mutateDb((draft) => {
+    const name = input.name.trim();
+    const contact = normalizeContact(input.contact || "");
+    const cpf = normalizeCpf(input.cpf || "");
+
+    if (!name || !contact) {
+      error = "Informe nome e contato do motorista.";
+      return;
+    }
+
+    if (!input.id && cpf.length !== 11) {
+      error = "Informe o CPF com 11 digitos para criar a senha do motorista.";
+      return;
+    }
+
+    const existing = input.id ? draft.drivers.find((item) => item.id === input.id) : null;
+    const driver: DriverRecord = existing || {
+      id: makeId("driver"),
+      name,
+      contact,
+      cpfHash: hashSecret(cpf),
+      cpfLast4: cpf.slice(-4),
+      license: "",
+      vanId: "",
+      active: true,
+      createdAt: todayIso(),
+    };
+
+    driver.name = name;
+    driver.contact = contact;
+    driver.license = input.license || "";
+    driver.vanId = input.vanId || "";
+    driver.active = input.active ?? true;
+
+    if (cpf) {
+      driver.cpfHash = hashSecret(cpf);
+      driver.cpfLast4 = cpf.slice(-4);
+    }
+
+    if (!existing) draft.drivers.push(driver);
+
+    draft.vans.forEach((van) => {
+      if (van.driverId === driver.id && van.id !== driver.vanId) van.driverId = "";
+      if (driver.vanId && van.id === driver.vanId) van.driverId = driver.id;
+    });
+  });
+
+  return { db, error };
+}
+
+export function upsertVan(input: Partial<VanRecord> & { label: string }) {
+  let error = "";
+  const db = mutateDb((draft) => {
+    const label = input.label.trim();
+    if (!label) {
+      error = "Informe o nome da van.";
+      return;
+    }
+
+    const existing = input.id ? draft.vans.find((item) => item.id === input.id) : null;
+    const van: VanRecord = existing || {
+      id: makeId("van"),
+      label,
+      plate: "",
+      model: "",
+      seats: 15,
+      color: "#facc15",
+      driverId: "",
+      active: true,
+      notes: "",
+      createdAt: todayIso(),
+    };
+
+    van.label = label;
+    van.plate = input.plate || "";
+    van.model = input.model || "";
+    van.seats = Math.max(1, Number(input.seats || 15));
+    van.color = input.color || "#facc15";
+    van.driverId = input.driverId || "";
+    van.active = input.active ?? true;
+    van.notes = input.notes || "";
+
+    if (!existing) {
+      draft.vans.push(van);
+      draft.vanQrCodes.push({
+        id: makeId("vanqr"),
+        vanId: van.id,
+        token: makeId("vanqr"),
+        label: van.label,
+        active: true,
+        generatedAt: todayIso(),
+      });
+    }
+
+    draft.drivers.forEach((driver) => {
+      if (driver.vanId === van.id && driver.id !== van.driverId) driver.vanId = "";
+      if (van.driverId && driver.id === van.driverId) driver.vanId = van.id;
+    });
+
+    draft.vanQrCodes.forEach((qr) => {
+      if (qr.vanId === van.id) qr.label = van.label;
+    });
+    draft.vanQrCode = draft.vanQrCodes[0] || draft.vanQrCode;
+  });
+
+  return { db, error };
+}
+
+export function assignChildTransport(input: {
+  childId: string;
+  driverId?: string;
+  vanId?: string;
+  shift?: Shift | "";
+}) {
+  let error = "";
+  const db = mutateDb((draft) => {
+    const child = draft.children.find((item) => item.id === input.childId);
+    if (!child) {
+      error = "Aluno nao encontrado.";
+      return;
+    }
+
+    const van = input.vanId ? draft.vans.find((item) => item.id === input.vanId) : null;
+    const driver = input.driverId ? draft.drivers.find((item) => item.id === input.driverId) : null;
+
+    child.vanId = van?.id || "";
+    child.driverId = driver?.id || van?.driverId || "";
+    child.shift = shifts.includes(input.shift as Shift) ? input.shift as Shift : undefined;
+  });
+
+  return { db, error };
 }
 
 export function createReceipt(
@@ -828,13 +1102,23 @@ export function updateChildAbsence(parentId: string, childId: string, status: Ch
   return { db, error };
 }
 
-export function regenerateVanQrCode() {
+export function regenerateVanQrCode(vanId = DEFAULT_VAN_ID) {
+  const targetVanId = vanId || DEFAULT_VAN_ID;
   return mutateDb((db) => {
-    db.vanQrCode = {
+    const van = db.vans.find((item) => item.id === targetVanId);
+    const nextQr = {
       ...defaultVanQrCode(),
-      label: db.vanQrCode?.label || "Van principal",
+      id: makeId("vanqr"),
+      vanId: targetVanId,
+      label: van?.label || db.vanQrCode?.label || "Van principal",
       generatedAt: todayIso(),
     };
+
+    db.vanQrCodes = [
+      nextQr,
+      ...db.vanQrCodes.filter((qr) => qr.vanId !== targetVanId),
+    ];
+    db.vanQrCode = db.vanQrCodes[0] || nextQr;
   });
 }
 
@@ -851,7 +1135,11 @@ export function createCheckin(input: {
   let checkin: CheckinRecord | null = null;
 
   const db = mutateDb((draft) => {
-    if (!draft.vanQrCode.active || draft.vanQrCode.token !== input.token) {
+    const qr =
+      draft.vanQrCodes.find((item) => item.active && item.token === input.token) ||
+      (draft.vanQrCode.active && draft.vanQrCode.token === input.token ? draft.vanQrCode : null);
+
+    if (!qr) {
       error = "QR Code invalido ou expirado.";
       return;
     }
@@ -870,6 +1158,8 @@ export function createCheckin(input: {
       id: makeId("checkin"),
       parentId: parent.id,
       childId: child.id,
+      vanId: qr.vanId || child.vanId || "",
+      driverId: child.driverId || draft.vans.find((van) => van.id === qr.vanId)?.driverId || "",
       type: input.type === "returning" ? "returning" : "boarding",
       scannedAt: todayIso(),
       latitude: input.latitude,
@@ -884,17 +1174,32 @@ export function createCheckin(input: {
   return { db, checkin, error };
 }
 
-export function getDriverRoutePayload() {
+export function getDriverRoutePayload(driverId?: string) {
   const db = readDb();
+  const driver = driverId ? db.drivers.find((item) => item.id === driverId && item.active) : null;
+  const driverVan = driver?.vanId
+    ? db.vans.find((van) => van.id === driver.vanId && van.active)
+    : null;
+  const children = db.children.filter((child) => {
+    if (!child.active) return false;
+    if (!driver) return true;
+    return child.driverId === driver.id || (!!driverVan && child.vanId === driverVan.id);
+  });
+  const childIds = new Set(children.map((child) => child.id));
+  const liveTracking = driver ? getLiveTracking(driver.id) : visibleLive(db.liveTracking);
 
   return {
     settings: db.settings,
-    liveTracking: visibleLive(db.liveTracking),
+    driver: driver ? safeDriver(driver) : null,
+    van: driverVan || null,
+    liveTracking,
     schools: db.schools.filter((schoolItem) => schoolItem.active),
     parents: db.parents.map(safeParent),
-    children: db.children.filter((child) => child.active),
-    checkins: db.checkins.slice(0, 80),
-    vanQrCode: db.vanQrCode,
+    children,
+    checkins: db.checkins.filter((checkin) => childIds.has(checkin.childId)).slice(0, 80),
+    vanQrCode: driverVan
+      ? db.vanQrCodes.find((qr) => qr.vanId === driverVan.id) || db.vanQrCode
+      : db.vanQrCode,
   };
 }
 
@@ -958,17 +1263,35 @@ export function bulkUpdateNeighborhoods(ids: string[], action: "serve" | "pause"
 export function updateLiveTracking(input: Partial<LiveTrackingState>) {
   return mutateDb((db) => {
     const now = todayIso();
-    db.liveTracking = {
-      ...db.liveTracking,
+    const driver = input.driverId
+      ? db.drivers.find((item) => item.id === input.driverId)
+      : db.drivers.find((item) => item.vanId === input.vanId) || db.drivers[0];
+    const vanId = input.vanId || driver?.vanId || db.vans[0]?.id || DEFAULT_VAN_ID;
+    const driverName = driver?.name || input.driverName || db.settings.driverName;
+    const current =
+      db.liveTrackings.find((item) => item.driverId === driver?.id || item.vanId === vanId) ||
+      db.liveTracking ||
+      defaultLiveTracking();
+    const updated: LiveTrackingState = {
+      ...current,
       ...input,
-      active: input.active ?? db.liveTracking.active,
-      driverName: input.driverName || db.settings.driverName,
-      startedAt: input.active && !db.liveTracking.active ? now : db.liveTracking.startedAt || now,
-      lastSeenAt: input.active === false ? db.liveTracking.lastSeenAt : now,
-      currentNeighborhood: input.currentNeighborhood || db.liveTracking.currentNeighborhood,
-      nextStop: input.nextStop || db.liveTracking.nextStop,
-      estimatedMinutes: Number(input.estimatedMinutes ?? db.liveTracking.estimatedMinutes ?? 0),
-      source: input.source || db.liveTracking.source || "gps",
+      id: current.id || makeId("live"),
+      driverId: driver?.id || input.driverId || current.driverId,
+      vanId,
+      active: input.active ?? current.active,
+      driverName,
+      startedAt: input.active && !current.active ? now : current.startedAt || now,
+      lastSeenAt: input.active === false ? current.lastSeenAt : now,
+      currentNeighborhood: input.currentNeighborhood || current.currentNeighborhood,
+      nextStop: input.nextStop || current.nextStop,
+      estimatedMinutes: Number(input.estimatedMinutes ?? current.estimatedMinutes ?? 0),
+      source: input.source || current.source || "gps",
     };
+
+    db.liveTrackings = [
+      updated,
+      ...db.liveTrackings.filter((item) => item.id !== updated.id && item.driverId !== updated.driverId && item.vanId !== updated.vanId),
+    ];
+    db.liveTracking = updated;
   });
 }
