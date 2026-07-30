@@ -5,7 +5,7 @@ import type { CompanySettings, ThemeSettings } from "@/lib/app-types";
 export async function POST(request: Request) {
   const body = await request.json().catch(() => null);
 
-  const { error } = upsertCompany({
+  const { error, companyId } = upsertCompany({
     id: String(body?.id || ""),
     name: String(body?.name || ""),
     document: String(body?.document || body?.settings?.document || ""),
@@ -20,5 +20,5 @@ export async function POST(request: Request) {
     return NextResponse.json({ error }, { status: 400 });
   }
 
-  return NextResponse.json(getAdminPayload());
+  return NextResponse.json(getAdminPayload(companyId || undefined));
 }

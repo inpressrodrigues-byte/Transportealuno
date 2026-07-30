@@ -2633,7 +2633,7 @@ function CheckinRow({
           </div>
         </div>
         <span className="rounded-full bg-ok/10 px-3 py-1 text-xs font-semibold text-ok">
-          {checkin.type === "returning" ? "Volta" : "Embarque"}
+          {checkin.type === "returning" ? "Check-out" : "Check-in"}
         </span>
       </div>
       {hasLocation ? (

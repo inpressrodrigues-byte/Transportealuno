@@ -64,6 +64,8 @@ const emptyLive: LiveTrackingState = {
 
 export default function DriverPage() {
   const watchId = useRef<number | null>(null);
+  const heartbeatId = useRef<number | null>(null);
+  const latestGps = useRef<Pick<LiveTrackingState, "latitude" | "longitude" | "accuracy" | "speed">>({});
   const [session, setSession] = useState<SessionUser | null>(null);
   const [live, setLive] = useState<LiveTrackingState>(emptyLive);
   const [routeState, setRouteState] = useState<DriverRoutePayload | null>(null);
@@ -137,6 +139,7 @@ export default function DriverPage() {
       window.clearTimeout(firstRouteStateTimer);
       window.clearInterval(timer);
       if (watchId.current !== null) navigator.geolocation.clearWatch(watchId.current);
+      if (heartbeatId.current !== null) window.clearInterval(heartbeatId.current);
     };
   }, [driverId, loadRouteState]);
 
@@ -202,6 +205,11 @@ export default function DriverPage() {
     setSaving("start");
     setMessage("");
 
+    if (heartbeatId.current !== null) {
+      window.clearInterval(heartbeatId.current);
+      heartbeatId.current = null;
+    }
+
     if (!navigator.geolocation) {
       await postLive({ active: true, source: "manual" });
       setMessage("Ao vivo ligado sem GPS. Atualize manualmente quando precisar.");
@@ -211,12 +219,15 @@ export default function DriverPage() {
 
     watchId.current = navigator.geolocation.watchPosition(
       async (position) => {
-        await postLive({
-          active: true,
+        latestGps.current = {
           latitude: position.coords.latitude,
           longitude: position.coords.longitude,
           accuracy: position.coords.accuracy,
           speed: position.coords.speed || undefined,
+        };
+        await postLive({
+          active: true,
+          ...latestGps.current,
           source: "gps",
         });
         setMessage("Localizacao enviada para os responsaveis.");
@@ -229,6 +240,14 @@ export default function DriverPage() {
       },
       { enableHighAccuracy: true, maximumAge: 5000, timeout: 12000 }
     );
+
+    heartbeatId.current = window.setInterval(() => {
+      void postLive({
+        active: true,
+        ...latestGps.current,
+        source: latestGps.current.latitude ? "gps" : "manual",
+      });
+    }, 15000);
   };
 
   const sendManualUpdate = async () => {
@@ -243,6 +262,10 @@ export default function DriverPage() {
     if (watchId.current !== null) {
       navigator.geolocation.clearWatch(watchId.current);
       watchId.current = null;
+    }
+    if (heartbeatId.current !== null) {
+      window.clearInterval(heartbeatId.current);
+      heartbeatId.current = null;
     }
     await postLive({ active: false, source: "manual" });
     setMessage("Ao vivo encerrado.");
@@ -364,6 +387,9 @@ export default function DriverPage() {
               <Power size={16} /> Encerrar rota
             </Button>
           </div>
+          <p className="mt-3 text-xs leading-relaxed text-white/45">
+            Depois de iniciar, o radar envia atualizacoes automaticas enquanto esta tela permanecer aberta com GPS permitido.
+          </p>
 
           {message && (
             <div className="mt-5 rounded-2xl border border-sun/30 bg-sun/10 px-4 py-3 text-sm font-semibold text-sun">
@@ -499,7 +525,7 @@ export default function DriverPage() {
                     </div>
                   </div>
                   <span className="rounded-full bg-ok/10 px-3 py-1 text-xs font-semibold text-ok">
-                    {checkin.type === "returning" ? "Volta" : "Embarque"}
+                    {checkin.type === "returning" ? "Check-out" : "Check-in"}
                   </span>
                 </div>
                 {typeof checkin.latitude === "number" && typeof checkin.longitude === "number" && (

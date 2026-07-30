@@ -22,9 +22,11 @@ import type {
   PaymentRecord,
   ReceiptRecord,
   RoutePlanRecord,
+  SafeChildRecord,
   SchoolCategory,
   SchoolRecord,
   Shift,
+  StudentDashboardPayload,
   ThemeSettings,
   VanQrCodeRecord,
   VanRecord,
@@ -980,6 +982,36 @@ export function getParentDashboard(parentId: string): ParentDashboardPayload | n
   };
 }
 
+export function getStudentDashboard(childId: string): StudentDashboardPayload | null {
+  const db = readDb();
+  const child = db.children.find((item) => item.id === childId && item.active);
+  if (!child) return null;
+
+  const parent = db.parents.find((item) => item.id === child.parentId && item.active);
+  if (!parent) return null;
+
+  const companyId = child.companyId || parent.companyId || DEFAULT_COMPANY_ID;
+  const relatedLiveTrackings = db.liveTrackings
+    .filter((live) => belongsToCompany(live, companyId))
+    .map(visibleLive)
+    .filter((live) => (child.driverId && live.driverId === child.driverId) || (child.vanId && live.vanId === child.vanId));
+  const liveTracking = relatedLiveTrackings[0] || visibleLive(ensureCompanyOnLive(db.liveTracking, companyId));
+
+  return {
+    settings: publicCompanySettings(companySettings(db, companyId)),
+    theme: companyTheme(db, companyId),
+    schools: db.schools.filter((schoolItem) => schoolItem.active),
+    neighborhoods: db.neighborhoods,
+    liveTracking,
+    liveTrackings: relatedLiveTrackings,
+    parent: safeParent(parent),
+    child: safeChild(child),
+    checkins: db.checkins.filter((checkin) => checkin.childId === child.id),
+    payments: db.payments.filter((payment) => payment.childId === child.id),
+    contracts: db.contracts.filter((contract) => contract.childId === child.id),
+  };
+}
+
 export function getLiveTracking(driverId?: string) {
   const db = readDb();
   const live = driverId
@@ -1021,6 +1053,12 @@ function safeDriver(driver: DriverRecord) {
     active: driver.active,
     createdAt: driver.createdAt,
   };
+}
+
+function safeChild(child: ChildRecord): SafeChildRecord {
+  const safe = { ...child };
+  delete (safe as Partial<ChildRecord>).cpfHash;
+  return safe as SafeChildRecord;
 }
 
 function safeCompany(company: CompanyRecord) {
@@ -1091,6 +1129,7 @@ export function upsertCompany(input: {
   contractTemplate?: string;
 }) {
   let error = "";
+  let companyId = "";
   const db = mutateDb((draft) => {
     const name = input.name.trim();
     const document = normalizeDigits(input.document || input.settings?.document || "");
@@ -1132,14 +1171,14 @@ export function upsertCompany(input: {
     company.theme = { ...company.theme, ...input.theme };
     company.contractTemplate = input.contractTemplate?.trim() || company.contractTemplate || defaultContractTemplate();
     if (password) company.passwordHash = hashSecret(password);
+    companyId = company.id;
 
     if (!existing) {
       draft.companies.push(company);
-      draft.currentCompanyId = company.id;
     }
   });
 
-  return { db, error };
+  return { db, error, companyId };
 }
 
 export function updateCompanyProfile(

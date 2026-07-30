@@ -1,4 +1,4 @@
-export type UserRole = "admin" | "company" | "parent" | "driver";
+export type UserRole = "admin" | "company" | "parent" | "child" | "driver";
 
 export type PaymentStatus =
   | "pending_proof"
@@ -157,6 +157,7 @@ export type DriverRecord = {
 };
 
 export type SafeDriverRecord = Omit<DriverRecord, "cpfHash">;
+export type SafeChildRecord = Omit<ChildRecord, "cpfHash">;
 
 export type VanRecord = {
   id: string;
@@ -343,6 +344,20 @@ export type ParentDashboardPayload = {
   liveTrackings: LiveTrackingState[];
   parent: SafeParentRecord;
   children: ChildRecord[];
+  checkins: CheckinRecord[];
+  payments: PaymentRecord[];
+  contracts: ContractRecord[];
+};
+
+export type StudentDashboardPayload = {
+  settings: Omit<CompanySettings, "routeApiKey">;
+  theme: ThemeSettings;
+  schools: SchoolRecord[];
+  neighborhoods: NeighborhoodRecord[];
+  liveTracking: LiveTrackingState;
+  liveTrackings: LiveTrackingState[];
+  parent: SafeParentRecord;
+  child: SafeChildRecord;
   checkins: CheckinRecord[];
   payments: PaymentRecord[];
   contracts: ContractRecord[];

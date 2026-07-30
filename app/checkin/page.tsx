@@ -5,7 +5,13 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { ArrowLeft, CheckCircle2, IdCard, Loader2, MapPin, Phone, QrCode } from "lucide-react";
 import { Button } from "@/components/ui/Button";
-import type { CheckinType, ParentDashboardPayload, SessionUser } from "@/lib/app-types";
+import type { CheckinRecord, CheckinType, SafeChildRecord, SafeParentRecord, SessionUser, StudentDashboardPayload } from "@/lib/app-types";
+
+type CheckinAccount = {
+  parent: SafeParentRecord;
+  children: SafeChildRecord[];
+  checkins: CheckinRecord[];
+};
 
 export default function CheckinPage() {
   return (
@@ -19,7 +25,7 @@ function CheckinContent() {
   const params = useSearchParams();
   const token = params.get("token") || "";
   const [session, setSession] = useState<SessionUser | null>(null);
-  const [data, setData] = useState<ParentDashboardPayload | null>(null);
+  const [data, setData] = useState<CheckinAccount | null>(null);
   const [selectedChild, setSelectedChild] = useState("");
   const [loginForm, setLoginForm] = useState({ contact: "", password: "" });
   const [loading, setLoading] = useState(true);
@@ -31,9 +37,25 @@ function CheckinContent() {
   const loadParent = async (parentId: string) => {
     const response = await fetch(`/api/parent/state?parentId=${parentId}`, { cache: "no-store" });
     if (!response.ok) throw new Error("Responsavel nao encontrado");
-    const payload = (await response.json()) as ParentDashboardPayload;
-    setData(payload);
+    const payload = await response.json() as CheckinAccount;
+    setData({
+      parent: payload.parent,
+      children: payload.children,
+      checkins: payload.checkins,
+    });
     setSelectedChild((current) => current || payload.children[0]?.id || "");
+  };
+
+  const loadStudent = async (childId: string) => {
+    const response = await fetch(`/api/student/state?childId=${childId}`, { cache: "no-store" });
+    if (!response.ok) throw new Error("Aluno nao encontrado");
+    const payload = (await response.json()) as StudentDashboardPayload;
+    setData({
+      parent: payload.parent,
+      children: [payload.child],
+      checkins: payload.checkins,
+    });
+    setSelectedChild(payload.child.id);
   };
 
   useEffect(() => {
@@ -45,6 +67,9 @@ function CheckinContent() {
       if (parsed?.role === "parent") {
         if (alive) setSession(parsed);
         await loadParent(parsed.id);
+      } else if (parsed?.role === "child") {
+        if (alive) setSession(parsed);
+        await loadStudent(parsed.id);
       }
       if (alive) setLoading(false);
     };
@@ -71,14 +96,18 @@ function CheckinContent() {
       });
       const payload = (await response.json()) as { user?: SessionUser; error?: string };
 
-      if (!response.ok || !payload.user || payload.user.role !== "parent") {
-        setMessage(payload.error || "Acesso dos responsaveis nao encontrado.");
+      if (!response.ok || !payload.user || (payload.user.role !== "parent" && payload.user.role !== "child")) {
+        setMessage(payload.error || "Acesso nao encontrado.");
         return;
       }
 
       localStorage.setItem("rota-segura-session", JSON.stringify(payload.user));
       setSession(payload.user);
-      await loadParent(payload.user.id);
+      if (payload.user.role === "parent") {
+        await loadParent(payload.user.id);
+      } else {
+        await loadStudent(payload.user.id);
+      }
       setMessage("Acesso confirmado. Agora registre o check-in.");
     } catch {
       setMessage("Falha ao conectar com o sistema.");
@@ -88,18 +117,19 @@ function CheckinContent() {
   };
 
   const submitCheckin = async (type: CheckinType) => {
-    if (!session || !selectedChild || !token) return;
+    if (!session || !selectedChild || !token || !data) return;
 
     setSaving(type);
     setMessage("Registrando check-in...");
 
     const location = await getLocation().catch(() => null);
+    const child = data.children.find((item) => item.id === selectedChild);
     const response = await fetch("/api/checkin", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         token,
-        parentId: session.id,
+        parentId: child?.parentId || session.id,
         childId: selectedChild,
         type,
         latitude: location?.latitude,
@@ -110,7 +140,11 @@ function CheckinContent() {
     const payload = (await response.json().catch(() => null)) as { error?: string } | null;
 
     if (response.ok) {
-      await loadParent(session.id);
+      if (session.role === "child") {
+        await loadStudent(session.id);
+      } else {
+        await loadParent(session.id);
+      }
       setMessage(location ? "Check-in registrado com horario e localizacao." : "Check-in registrado sem localizacao.");
     } else {
       setMessage(payload?.error || "Nao foi possivel registrar o check-in.");
@@ -157,7 +191,7 @@ function CheckinContent() {
           {!session || !data ? (
             <form onSubmit={loginParent} className="mt-6 space-y-4">
               <label>
-                <span className="text-xs font-semibold uppercase tracking-wide text-white/55">Contato do responsavel</span>
+                <span className="text-xs font-semibold uppercase tracking-wide text-white/55">WhatsApp do responsavel ou CPF do aluno</span>
                 <div className="mt-2 flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-3 focus-within:border-sun/50">
                   <Phone size={16} className="text-white/40" />
                   <input
@@ -171,7 +205,7 @@ function CheckinContent() {
                 </div>
               </label>
               <label>
-                <span className="text-xs font-semibold uppercase tracking-wide text-white/55">CPF senha</span>
+                <span className="text-xs font-semibold uppercase tracking-wide text-white/55">CPF do responsavel ou nascimento do aluno</span>
                 <div className="mt-2 flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-3 focus-within:border-sun/50">
                   <IdCard size={16} className="text-white/40" />
                   <input
@@ -179,7 +213,7 @@ function CheckinContent() {
                     type="password"
                     value={loginForm.password}
                     onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
-                    placeholder="000.000.000-00"
+                    placeholder="CPF ou data"
                     className="w-full bg-transparent text-sm text-white placeholder:text-white/30 outline-none"
                   />
                 </div>
@@ -207,10 +241,10 @@ function CheckinContent() {
 
                 <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <Button type="button" onClick={() => submitCheckin("boarding")} disabled={!token || saving === "boarding"}>
-                    <MapPin size={16} /> Entrei na van
+                    <MapPin size={16} /> Check-in
                   </Button>
                   <Button type="button" variant="outline" onClick={() => submitCheckin("returning")} disabled={!token || saving === "returning"}>
-                    <CheckCircle2 size={16} /> Voltei para casa
+                    <CheckCircle2 size={16} /> Check-out
                   </Button>
                 </div>
               </div>

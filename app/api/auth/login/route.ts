@@ -76,6 +76,28 @@ export async function POST(request: Request) {
     return NextResponse.json({ user });
   }
 
+  const childCpf = normalizeDigits(rawLogin).slice(0, 11);
+  const child = db.children.find(
+    (item) =>
+      item.active &&
+      Boolean(childCpf) &&
+      item.cpfHash === hashSecret(childCpf) &&
+      birthDateMatches(item.birthDate, password)
+  );
+
+  if (child) {
+    const parent = db.parents.find((item) => item.id === child.parentId);
+    const user: SessionUser = {
+      id: child.id,
+      role: "child",
+      name: child.name,
+      contact: parent?.contact || child.responsiblePhone,
+      companyId: child.companyId || parent?.companyId,
+    };
+
+    return NextResponse.json({ user });
+  }
+
   const parent = db.parents.find(
     (item) =>
       item.active &&
@@ -97,4 +119,14 @@ export async function POST(request: Request) {
   };
 
   return NextResponse.json({ user });
+}
+
+function birthDateMatches(stored: string, password: string) {
+  const raw = password.trim();
+  const digits = normalizeDigits(raw);
+  const storedDigits = normalizeDigits(stored);
+  const ddmmyyyy = digits.length === 8 ? `${digits.slice(4)}-${digits.slice(2, 4)}-${digits.slice(0, 2)}` : "";
+  const yyyymmdd = digits.length === 8 ? `${digits.slice(0, 4)}-${digits.slice(4, 6)}-${digits.slice(6, 8)}` : "";
+
+  return Boolean(stored && (raw === stored || digits === storedDigits || ddmmyyyy === stored || yyyymmdd === stored));
 }

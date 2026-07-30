@@ -164,6 +164,9 @@ export default function LoginPage() {
           <p className="mt-5 text-sm leading-relaxed text-white/55">
             Ainda nao tem acesso? Peca para a empresa cadastrar seu responsavel no painel administrativo.
           </p>
+          <Link href="/student" className="mt-4 inline-flex text-sm font-semibold text-sun hover:underline">
+            Sou aluno, quero entrar
+          </Link>
         </section>
       </div>
     </main>
