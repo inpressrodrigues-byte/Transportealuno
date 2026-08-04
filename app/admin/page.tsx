@@ -15,6 +15,8 @@ import {
   Copy,
   DatabaseBackup,
   Download,
+  Eye,
+  EyeOff,
   FileSignature,
   Fuel,
   Gauge,
@@ -3527,6 +3529,8 @@ function AdminLogin({
   onChange: (form: { contact: string; password: string }) => void;
   onSubmit: (e: React.FormEvent) => void;
 }) {
+  const [showPassword, setShowPassword] = useState(false);
+
   return (
     <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#0b1220] px-4 py-10 text-white">
       <div
@@ -3560,6 +3564,9 @@ function AdminLogin({
                 value={form.contact}
                 onChange={(e) => onChange({ ...form, contact: e.target.value })}
                 placeholder="InpresS ou CNPJ"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
                 className="w-full bg-transparent text-sm text-white placeholder:text-white/30 outline-none"
               />
             </div>
@@ -3571,12 +3578,25 @@ function AdminLogin({
               <Lock size={16} className="text-white/40" />
               <input
                 required
-                type="password"
+                type={showPassword ? "text" : "password"}
                 value={form.password}
                 onChange={(e) => onChange({ ...form, password: e.target.value })}
                 placeholder="Senha administrativa"
+                autoComplete="current-password"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
                 className="w-full bg-transparent text-sm text-white placeholder:text-white/30 outline-none"
               />
+              <button
+                type="button"
+                onClick={() => setShowPassword((visible) => !visible)}
+                className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-white/45 transition hover:bg-white/10 hover:text-white"
+                aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
+                title={showPassword ? "Ocultar senha" : "Mostrar senha"}
+              >
+                {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
+              </button>
             </div>
           </label>
 
