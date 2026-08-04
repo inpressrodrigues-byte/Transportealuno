@@ -1112,11 +1112,17 @@ function storageProvider(): AdminPayload["storage"]["provider"] {
 
 function supabaseHeaders() {
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
-  return {
+  const headers: Record<string, string> = {
     apikey: key,
-    Authorization: `Bearer ${key}`,
     "Content-Type": "application/json",
   };
+
+  // Supabase secret keys are not JWTs and must not be sent as bearer tokens.
+  if (!key.startsWith("sb_secret_")) {
+    headers.Authorization = `Bearer ${key}`;
+  }
+
+  return headers;
 }
 
 async function readSupabaseDb() {
