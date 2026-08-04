@@ -50,14 +50,14 @@ Acesse `http://localhost:3000`.
 Para usar Supabase, execute, nesta ordem:
 
 1. `supabase/migrations/001_app_state.sql`
-2. `supabase/migrations/002_app_state_backups.sql`
 
 Depois configure `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, um
 `CRON_SECRET` forte e, de preferencia, um `AUTH_SECRET` diferente no Vercel.
 A chave de service role nunca deve ser exposta no navegador. O agendamento em
 `vercel.json` executa o backup e a geracao de mensalidades todos os dias as
-03:00 no horario de Brasilia. Sem Supabase ou Blob, o painel avisa que a
-persistencia esta em modo temporario.
+03:00 no horario de Brasilia. Os snapshots ficam em linhas separadas da tabela
+`app_state`. Sem Supabase ou Blob, o painel avisa que a persistencia esta em
+modo temporario.
 
 ## Validacao
 

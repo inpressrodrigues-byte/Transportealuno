@@ -1160,7 +1160,7 @@ export function storageErrorMessage(error: unknown) {
     return "O Supabase recusou a chave de acesso. Confira SUPABASE_SERVICE_ROLE_KEY na Vercel.";
   }
   if (message.includes("404") || message.includes("PGRST205")) {
-    return "A tabela do Supabase nao foi encontrada. Execute as migracoes 001 e 002 no SQL Editor.";
+    return "A tabela do Supabase nao foi encontrada. Execute a migracao 001 no SQL Editor.";
   }
   return "Nao foi possivel gravar no Supabase. Confira a URL, a chave e as permissoes da tabela.";
 }
@@ -1257,9 +1257,13 @@ export async function createSupabaseBackup(reason: "daily" | "manual" | "before_
 
   const baseUrl = supabaseBaseUrl();
   const backupDate = todayIso().slice(0, 10);
+  const uniqueSuffix = reason === "daily"
+    ? backupDate
+    : todayIso().replace(/[^0-9]/g, "");
+  const backupId = `rota-segura-backup-${reason}-${uniqueSuffix}`;
   if (!force) {
     const existingResponse = await fetch(
-      `${baseUrl}/rest/v1/app_state_backups?state_id=eq.rota-segura&reason=eq.${reason}&backup_date=eq.${backupDate}&select=id&limit=1`,
+      `${baseUrl}/rest/v1/app_state?id=eq.${backupId}&select=id&limit=1`,
       { headers: supabaseHeaders(), cache: "no-store" }
     );
     if (!existingResponse.ok) throw await supabaseFailure("backup check", existingResponse);
@@ -1267,23 +1271,28 @@ export async function createSupabaseBackup(reason: "daily" | "manual" | "before_
     if (existing.length > 0) return { created: false, backupDate };
   }
 
-  const response = await fetch(`${baseUrl}/rest/v1/app_state_backups`, {
+  const response = await fetch(`${baseUrl}/rest/v1/app_state?on_conflict=id`, {
     method: "POST",
     headers: {
       ...supabaseHeaders(),
-      Prefer: "return=minimal",
+      Prefer: "resolution=merge-duplicates,return=minimal",
     },
     body: JSON.stringify({
-      state_id: "rota-segura",
-      payload: readDb(),
-      reason,
-      backup_date: backupDate,
-      created_at: todayIso(),
+      id: backupId,
+      payload: {
+        backup: {
+          reason,
+          backupDate,
+          createdAt: todayIso(),
+        },
+        state: readDb(),
+      },
+      updated_at: todayIso(),
     }),
     cache: "no-store",
   });
   if (!response.ok) throw await supabaseFailure("backup", response);
-  return { created: true, backupDate };
+  return { created: true, backupDate, backupId };
 }
 
 export function writeDb(db: AppDatabase) {
