@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createReceipt, mutateDb, persistDb, prepareDb } from "@/lib/server/app-db";
 import type { PaymentStatus } from "@/lib/app-types";
+import { makeId, todayIso } from "@/lib/app-utils";
 
 const statuses: PaymentStatus[] = ["pending_proof", "proof_received", "approved", "rejected"];
 
@@ -41,6 +42,29 @@ export async function PUT(
         payment.receipt = createReceipt(payment, parent, child, company?.settings || draft.settings);
       }
     }
+
+    const child = draft.children.find((item) => item.id === payment.childId);
+    const labels: Record<PaymentStatus, string> = {
+      pending_proof: "aguardando comprovante",
+      proof_received: "comprovante recebido",
+      approved: "pagamento aprovado e recibo liberado",
+      rejected: "comprovante recusado",
+    };
+    draft.notifications = [
+      {
+        id: makeId("notification"),
+        companyId: payment.companyId,
+        parentId: payment.parentId,
+        childId: payment.childId,
+        driverId: child?.driverId,
+        type: "payment" as const,
+        title: "Mensalidade atualizada",
+        message: `${payment.month}: ${labels[status]}.`,
+        createdAt: todayIso(),
+        readAt: "",
+      },
+      ...draft.notifications,
+    ].slice(0, 1200);
   });
 
   if (error) {

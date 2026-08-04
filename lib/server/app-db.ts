@@ -8,6 +8,7 @@ import type {
   AdminPayload,
   AdminUser,
   AppDatabase,
+  AuditLogRecord,
   CheckinRecord,
   CheckinType,
   ChildAbsenceStatus,
@@ -16,8 +17,13 @@ import type {
   CompanySettings,
   ContractRecord,
   DriverRecord,
+  DriverDocumentRecord,
+  DriverOccurrenceRecord,
+  ExpenseRecord,
+  FuelRecord,
   LiveTrackingState,
   NeighborhoodRecord,
+  NotificationRecord,
   ParentDashboardPayload,
   ParentRecord,
   PaymentRecord,
@@ -29,8 +35,10 @@ import type {
   Shift,
   StudentDashboardPayload,
   ThemeSettings,
+  TrackingPointRecord,
   VanQrCodeRecord,
   VanRecord,
+  VehicleMaintenanceRecord,
 } from "@/lib/app-types";
 import { makeId, normalizeContact, normalizeCpf, normalizeDigits, shifts, todayIso } from "@/lib/app-utils";
 
@@ -442,6 +450,8 @@ function createInitialDb(): AppDatabase {
         month: "Agosto/2026",
         dueDate: "2026-08-05",
         amount: 220,
+        paymentMethod: "pix",
+        externalReference: "",
         status: "pending_proof",
         createdAt: now,
       },
@@ -453,7 +463,15 @@ function createInitialDb(): AppDatabase {
         month: "Julho/2026",
         dueDate: "2026-07-05",
         amount: 220,
+        paymentMethod: "pix",
+        externalReference: "",
         status: "approved",
+        proof: {
+          fileName: "comprovante-julho.png",
+          fileType: "image/png",
+          fileData: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
+          uploadedAt: "2026-07-05T11:55:00.000Z",
+        },
         receipt: {
           number: "RS-202607-0001",
           generatedAt: "2026-07-05T12:00:00.000Z",
@@ -470,6 +488,14 @@ function createInitialDb(): AppDatabase {
     ],
     contracts: [],
     routePlans: [],
+    driverDocuments: [],
+    driverOccurrences: [],
+    vehicleMaintenances: [],
+    fuelRecords: [],
+    expenses: [],
+    trackingPoints: [],
+    notifications: [],
+    auditLogs: [],
   };
 }
 
@@ -548,7 +574,7 @@ function normalizeDb(input: Partial<AppDatabase>): AppDatabase {
       companyId: checkin.companyId || currentCompanyId,
     })),
     payments: (Array.isArray(input.payments) ? input.payments : seed.payments).map((payment) => ({
-      ...payment,
+      ...normalizePayment(payment),
       companyId: payment.companyId || currentCompanyId,
     })),
     contracts: (Array.isArray(input.contracts) ? input.contracts.map(normalizeContract) : seed.contracts).map((contract) => ({
@@ -558,6 +584,38 @@ function normalizeDb(input: Partial<AppDatabase>): AppDatabase {
     routePlans: (Array.isArray(input.routePlans) ? input.routePlans.map(normalizeRoutePlan) : seed.routePlans).map((plan) => ({
       ...plan,
       companyId: plan.companyId || currentCompanyId,
+    })),
+    driverDocuments: (Array.isArray(input.driverDocuments) ? input.driverDocuments : []).map((item) => ({
+      ...normalizeDriverDocument(item),
+      companyId: item.companyId || currentCompanyId,
+    })),
+    driverOccurrences: (Array.isArray(input.driverOccurrences) ? input.driverOccurrences : []).map((item) => ({
+      ...normalizeDriverOccurrence(item),
+      companyId: item.companyId || currentCompanyId,
+    })),
+    vehicleMaintenances: (Array.isArray(input.vehicleMaintenances) ? input.vehicleMaintenances : []).map((item) => ({
+      ...normalizeVehicleMaintenance(item),
+      companyId: item.companyId || currentCompanyId,
+    })),
+    fuelRecords: (Array.isArray(input.fuelRecords) ? input.fuelRecords : []).map((item) => ({
+      ...normalizeFuelRecord(item),
+      companyId: item.companyId || currentCompanyId,
+    })),
+    expenses: (Array.isArray(input.expenses) ? input.expenses : []).map((item) => ({
+      ...normalizeExpense(item),
+      companyId: item.companyId || currentCompanyId,
+    })),
+    trackingPoints: (Array.isArray(input.trackingPoints) ? input.trackingPoints : []).map((item) => ({
+      ...normalizeTrackingPoint(item),
+      companyId: item.companyId || currentCompanyId,
+    })),
+    notifications: (Array.isArray(input.notifications) ? input.notifications : []).map((item) => ({
+      ...normalizeNotification(item),
+      companyId: item.companyId || currentCompanyId,
+    })),
+    auditLogs: (Array.isArray(input.auditLogs) ? input.auditLogs : []).map((item) => ({
+      ...normalizeAuditLog(item),
+      companyId: item.companyId || currentCompanyId,
     })),
   };
 }
@@ -625,6 +683,145 @@ function normalizeRoutePlan(item: Partial<RoutePlanRecord>): RoutePlanRecord {
     totalEstimatedMinutes: Number(item.totalEstimatedMinutes || 0),
     generatedAt: item.generatedAt || todayIso(),
     stops: Array.isArray(item.stops) ? item.stops : [],
+  };
+}
+
+function normalizeDriverDocument(item: Partial<DriverDocumentRecord>): DriverDocumentRecord {
+  const now = todayIso();
+  const allowedTypes = ["cnh", "curso", "exame", "outro"] as const;
+  return {
+    id: item.id || makeId("driverdoc"),
+    companyId: item.companyId || DEFAULT_COMPANY_ID,
+    driverId: item.driverId || "",
+    type: allowedTypes.includes(item.type as (typeof allowedTypes)[number]) ? item.type as DriverDocumentRecord["type"] : "outro",
+    label: item.label || "Documento",
+    documentNumber: item.documentNumber || "",
+    issuedAt: item.issuedAt || "",
+    expiresAt: item.expiresAt || "",
+    notes: item.notes || "",
+    active: item.active ?? true,
+    createdAt: item.createdAt || now,
+    updatedAt: item.updatedAt || item.createdAt || now,
+  };
+}
+
+function normalizeDriverOccurrence(item: Partial<DriverOccurrenceRecord>): DriverOccurrenceRecord {
+  const now = todayIso();
+  return {
+    id: item.id || makeId("occurrence"),
+    companyId: item.companyId || DEFAULT_COMPANY_ID,
+    driverId: item.driverId || "",
+    childId: item.childId || "",
+    occurredAt: item.occurredAt || now.slice(0, 16),
+    severity: item.severity === "high" || item.severity === "medium" ? item.severity : "low",
+    title: item.title || "Ocorrencia",
+    description: item.description || "",
+    resolved: item.resolved ?? false,
+    resolution: item.resolution || "",
+    createdAt: item.createdAt || now,
+    updatedAt: item.updatedAt || item.createdAt || now,
+  };
+}
+
+function normalizeVehicleMaintenance(item: Partial<VehicleMaintenanceRecord>): VehicleMaintenanceRecord {
+  const now = todayIso();
+  const allowedTypes = ["maintenance", "ipva", "insurance", "revision", "tires", "other"] as const;
+  return {
+    id: item.id || makeId("maintenance"),
+    companyId: item.companyId || DEFAULT_COMPANY_ID,
+    vanId: item.vanId || "",
+    type: allowedTypes.includes(item.type as (typeof allowedTypes)[number]) ? item.type as VehicleMaintenanceRecord["type"] : "other",
+    title: item.title || "Manutencao",
+    dueDate: item.dueDate || "",
+    completedAt: item.completedAt || "",
+    odometer: Number(item.odometer || 0),
+    cost: Number(item.cost || 0),
+    status: item.status === "completed" ? "completed" : "pending",
+    notes: item.notes || "",
+    createdAt: item.createdAt || now,
+    updatedAt: item.updatedAt || item.createdAt || now,
+  };
+}
+
+function normalizeFuelRecord(item: Partial<FuelRecord>): FuelRecord {
+  const now = todayIso();
+  return {
+    id: item.id || makeId("fuel"),
+    companyId: item.companyId || DEFAULT_COMPANY_ID,
+    vanId: item.vanId || "",
+    filledAt: item.filledAt || now.slice(0, 10),
+    liters: Number(item.liters || 0),
+    amount: Number(item.amount || 0),
+    odometer: Number(item.odometer || 0),
+    station: item.station || "",
+    notes: item.notes || "",
+    createdAt: item.createdAt || now,
+    updatedAt: item.updatedAt || item.createdAt || now,
+  };
+}
+
+function normalizeExpense(item: Partial<ExpenseRecord>): ExpenseRecord {
+  const now = todayIso();
+  const allowedCategories = ["fuel", "maintenance", "tax", "insurance", "payroll", "other"] as const;
+  return {
+    id: item.id || makeId("expense"),
+    companyId: item.companyId || DEFAULT_COMPANY_ID,
+    category: allowedCategories.includes(item.category as (typeof allowedCategories)[number]) ? item.category as ExpenseRecord["category"] : "other",
+    description: item.description || "Despesa",
+    amount: Number(item.amount || 0),
+    dueDate: item.dueDate || "",
+    paidAt: item.paidAt || "",
+    status: item.status === "paid" ? "paid" : "pending",
+    notes: item.notes || "",
+    createdAt: item.createdAt || now,
+    updatedAt: item.updatedAt || item.createdAt || now,
+  };
+}
+
+function normalizeTrackingPoint(item: Partial<TrackingPointRecord>): TrackingPointRecord {
+  return {
+    id: item.id || makeId("tracking"),
+    companyId: item.companyId || DEFAULT_COMPANY_ID,
+    liveTrackingId: item.liveTrackingId || "",
+    driverId: item.driverId || "",
+    vanId: item.vanId || "",
+    latitude: Number(item.latitude || 0),
+    longitude: Number(item.longitude || 0),
+    accuracy: item.accuracy,
+    speed: item.speed,
+    neighborhood: item.neighborhood || "",
+    recordedAt: item.recordedAt || todayIso(),
+  };
+}
+
+function normalizeNotification(item: Partial<NotificationRecord>): NotificationRecord {
+  const allowedTypes = ["checkin", "checkout", "absence", "payment", "route", "alert"] as const;
+  return {
+    id: item.id || makeId("notification"),
+    companyId: item.companyId || DEFAULT_COMPANY_ID,
+    parentId: item.parentId || "",
+    childId: item.childId || "",
+    driverId: item.driverId || "",
+    type: allowedTypes.includes(item.type as (typeof allowedTypes)[number]) ? item.type as NotificationRecord["type"] : "alert",
+    title: item.title || "Aviso",
+    message: item.message || "",
+    createdAt: item.createdAt || todayIso(),
+    readAt: item.readAt || "",
+  };
+}
+
+function normalizeAuditLog(item: Partial<AuditLogRecord>): AuditLogRecord {
+  const action = item.action === "created" || item.action === "deleted" ? item.action : "updated";
+  return {
+    id: item.id || makeId("audit"),
+    companyId: item.companyId || DEFAULT_COMPANY_ID,
+    actorRole: item.actorRole || "system",
+    actorName: item.actorName || "Sistema",
+    action,
+    entityType: item.entityType || "dados",
+    entityId: item.entityId || "",
+    summary: item.summary || "Dados atualizados",
+    createdAt: item.createdAt || todayIso(),
   };
 }
 
@@ -778,6 +975,31 @@ function normalizeCheckin(item: Partial<CheckinRecord>): CheckinRecord {
   };
 }
 
+function normalizePayment(item: Partial<PaymentRecord>): PaymentRecord {
+  const proof = item.proof?.fileName && item.proof?.fileData ? item.proof : undefined;
+  const allowedStatuses: PaymentRecord["status"][] = ["pending_proof", "proof_received", "approved", "rejected"];
+  let status = allowedStatuses.includes(item.status as PaymentRecord["status"])
+    ? item.status as PaymentRecord["status"]
+    : "pending_proof";
+  if (!proof && (status === "approved" || status === "proof_received")) status = "pending_proof";
+
+  return {
+    id: item.id || makeId("payment"),
+    companyId: item.companyId || DEFAULT_COMPANY_ID,
+    parentId: item.parentId || "",
+    childId: item.childId || "",
+    month: item.month || "Mensalidade",
+    dueDate: item.dueDate || "",
+    amount: Number(item.amount || 0),
+    paymentMethod: item.paymentMethod === "boleto" || item.paymentMethod === "card" || item.paymentMethod === "cash" ? item.paymentMethod : "pix",
+    externalReference: item.externalReference || "",
+    status,
+    proof,
+    receipt: proof ? item.receipt : undefined,
+    createdAt: item.createdAt || todayIso(),
+  };
+}
+
 function normalizeAdmin(item: Partial<AdminUser>): AdminUser {
   const oldDefault =
     item.id === "admin_main" &&
@@ -864,15 +1086,80 @@ export function readDb() {
   return ensureDb();
 }
 
-function hasDurableStorage() {
+function hasSupabaseStorage() {
+  return Boolean(
+    (process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL) &&
+      process.env.SUPABASE_SERVICE_ROLE_KEY
+  );
+}
+
+function hasBlobStorage() {
   return Boolean(
     process.env.BLOB_READ_WRITE_TOKEN ||
       (process.env.BLOB_STORE_ID && process.env.VERCEL_OIDC_TOKEN)
   );
 }
 
+function hasDurableStorage() {
+  return hasSupabaseStorage() || hasBlobStorage();
+}
+
+function storageProvider(): AdminPayload["storage"]["provider"] {
+  if (hasSupabaseStorage()) return "supabase";
+  if (hasBlobStorage()) return "vercel-blob";
+  return "temporary";
+}
+
+function supabaseHeaders() {
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
+  return {
+    apikey: key,
+    Authorization: `Bearer ${key}`,
+    "Content-Type": "application/json",
+  };
+}
+
+async function readSupabaseDb() {
+  const baseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+  const response = await fetch(`${baseUrl}/rest/v1/app_state?id=eq.rota-segura&select=payload`, {
+    headers: supabaseHeaders(),
+    cache: "no-store",
+  });
+  if (!response.ok) throw new Error(`Supabase read failed: ${response.status}`);
+  const rows = await response.json() as Array<{ payload?: Partial<AppDatabase> }>;
+  return rows[0]?.payload ? normalizeDb(rows[0].payload) : null;
+}
+
+async function writeSupabaseDb(db: AppDatabase) {
+  const baseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+  const response = await fetch(`${baseUrl}/rest/v1/app_state?on_conflict=id`, {
+    method: "POST",
+    headers: {
+      ...supabaseHeaders(),
+      Prefer: "resolution=merge-duplicates,return=minimal",
+    },
+    body: JSON.stringify({ id: "rota-segura", payload: db, updated_at: todayIso() }),
+    cache: "no-store",
+  });
+  if (!response.ok) throw new Error(`Supabase write failed: ${response.status}`);
+}
+
 export async function prepareDb() {
   if (!hasDurableStorage()) return readDb();
+
+  if (hasSupabaseStorage()) {
+    try {
+      const remoteDb = await readSupabaseDb();
+      if (remoteDb) {
+        writeDb(remoteDb);
+      } else {
+        await writeSupabaseDb(readDb());
+      }
+      return readDb();
+    } catch {
+      if (!hasBlobStorage()) return readDb();
+    }
+  }
 
   try {
     const result = await get(BLOB_DB_PATH, { access: "private", useCache: false });
@@ -892,6 +1179,15 @@ export async function prepareDb() {
 
 export async function persistDb() {
   if (!hasDurableStorage()) return false;
+
+  if (hasSupabaseStorage()) {
+    try {
+      await writeSupabaseDb(readDb());
+      return true;
+    } catch (error) {
+      if (!hasBlobStorage()) throw error;
+    }
+  }
 
   await put(BLOB_DB_PATH, JSON.stringify(readDb()), {
     access: "private",
@@ -919,7 +1215,82 @@ export function writeDb(db: AppDatabase) {
 
 export function mutateDb(mutator: (db: AppDatabase) => void) {
   const db = structuredClone(readDb()) as AppDatabase;
+  const collections = [
+    "companies",
+    "schools",
+    "neighborhoods",
+    "drivers",
+    "vans",
+    "parents",
+    "children",
+    "checkins",
+    "payments",
+    "contracts",
+    "routePlans",
+    "driverDocuments",
+    "driverOccurrences",
+    "vehicleMaintenances",
+    "fuelRecords",
+    "expenses",
+  ] as const;
+  const before = new Map<string, Array<{ id: string; companyId?: string }>>(
+    collections.map((name) => [name, structuredClone(db[name]) as Array<{ id: string; companyId?: string }>])
+  );
   mutator(db);
+
+  for (const name of collections) {
+    const previous = before.get(name) || [];
+    const current = db[name] as Array<{ id: string; companyId?: string }>;
+    if (JSON.stringify(previous) === JSON.stringify(current)) continue;
+
+    const previousById = new Map(previous.map((item) => [item.id, item]));
+    const currentById = new Map(current.map((item) => [item.id, item]));
+    const created = current.find((item) => !previousById.has(item.id));
+    const deleted = previous.find((item) => !currentById.has(item.id));
+    const updated = current.find((item) => {
+      const old = previousById.get(item.id);
+      return old && JSON.stringify(old) !== JSON.stringify(item);
+    });
+    const target = created || deleted || updated;
+    const action: AuditLogRecord["action"] = created ? "created" : deleted ? "deleted" : "updated";
+    const labels: Record<typeof name, string> = {
+      companies: "empresa",
+      schools: "escola",
+      neighborhoods: "bairro",
+      drivers: "motorista",
+      vans: "veiculo",
+      parents: "responsavel",
+      children: "aluno",
+      checkins: "check-in",
+      payments: "mensalidade",
+      contracts: "contrato",
+      routePlans: "rota",
+      driverDocuments: "documento do motorista",
+      driverOccurrences: "ocorrencia",
+      vehicleMaintenances: "manutencao",
+      fuelRecords: "abastecimento",
+      expenses: "despesa",
+    };
+    const verbs: Record<AuditLogRecord["action"], string> = {
+      created: "criado",
+      updated: "atualizado",
+      deleted: "excluido",
+    };
+    db.auditLogs = [
+      {
+        id: makeId("audit"),
+        companyId: target?.companyId || db.currentCompanyId || DEFAULT_COMPANY_ID,
+        actorRole: "system" as const,
+        actorName: "Sistema",
+        action,
+        entityType: name,
+        entityId: target?.id || "",
+        summary: `${labels[name]} ${verbs[action]}`,
+        createdAt: todayIso(),
+      },
+      ...db.auditLogs,
+    ].slice(0, 800);
+  }
   return writeDb(db);
 }
 
@@ -960,6 +1331,14 @@ export function getAdminPayload(companyId?: string): AdminPayload {
   const payments = db.payments.filter((item) => belongsToCompany(item, currentCompanyId));
   const contracts = db.contracts.filter((item) => belongsToCompany(item, currentCompanyId));
   const routePlans = db.routePlans.filter((item) => belongsToCompany(item, currentCompanyId));
+  const driverDocuments = db.driverDocuments.filter((item) => belongsToCompany(item, currentCompanyId));
+  const driverOccurrences = db.driverOccurrences.filter((item) => belongsToCompany(item, currentCompanyId));
+  const vehicleMaintenances = db.vehicleMaintenances.filter((item) => belongsToCompany(item, currentCompanyId));
+  const fuelRecords = db.fuelRecords.filter((item) => belongsToCompany(item, currentCompanyId));
+  const expenses = db.expenses.filter((item) => belongsToCompany(item, currentCompanyId));
+  const trackingPoints = db.trackingPoints.filter((item) => belongsToCompany(item, currentCompanyId));
+  const notifications = db.notifications.filter((item) => belongsToCompany(item, currentCompanyId));
+  const auditLogs = db.auditLogs.filter((item) => belongsToCompany(item, currentCompanyId));
   const liveTrackings = db.liveTrackings
     .filter((item) => belongsToCompany(item, currentCompanyId))
     .map(visibleLive);
@@ -968,7 +1347,7 @@ export function getAdminPayload(companyId?: string): AdminPayload {
   return {
     storage: {
       durable: hasDurableStorage(),
-      provider: hasDurableStorage() ? "vercel-blob" : "temporary",
+      provider: storageProvider(),
     },
     adminAccess: safeAdmin(db.admins[0]),
     currentCompany: safeCompany(currentCompany),
@@ -989,6 +1368,14 @@ export function getAdminPayload(companyId?: string): AdminPayload {
     payments,
     contracts,
     routePlans,
+    driverDocuments,
+    driverOccurrences,
+    vehicleMaintenances,
+    fuelRecords,
+    expenses,
+    trackingPoints,
+    notifications,
+    auditLogs,
   };
 }
 
@@ -1031,6 +1418,10 @@ export function getParentDashboard(parentId: string): ParentDashboardPayload | n
     checkins: db.checkins.filter((checkin) => checkin.parentId === parent.id),
     payments: db.payments.filter((payment) => payment.parentId === parent.id),
     contracts: db.contracts.filter((contract) => contract.parentId === parent.id),
+    trackingHistory: db.trackingPoints
+      .filter((point) => belongsToCompany(point, parentCompanyId) && ((point.driverId && childDriverIds.has(point.driverId)) || (point.vanId && childVanIds.has(point.vanId))))
+      .slice(0, 200),
+    notifications: db.notifications.filter((notification) => notification.parentId === parent.id).slice(0, 100),
   };
 }
 
@@ -1061,6 +1452,10 @@ export function getStudentDashboard(childId: string): StudentDashboardPayload | 
     checkins: db.checkins.filter((checkin) => checkin.childId === child.id),
     payments: db.payments.filter((payment) => payment.childId === child.id),
     contracts: db.contracts.filter((contract) => contract.childId === child.id),
+    trackingHistory: db.trackingPoints
+      .filter((point) => belongsToCompany(point, companyId) && ((child.driverId && point.driverId === child.driverId) || (child.vanId && point.vanId === child.vanId)))
+      .slice(0, 200),
+    notifications: db.notifications.filter((notification) => notification.childId === child.id).slice(0, 100),
   };
 }
 
@@ -1394,6 +1789,7 @@ export function deleteParent(id: string, companyId?: string) {
     draft.checkins = draft.checkins.filter((checkin) => checkin.parentId !== id);
     draft.payments = draft.payments.filter((payment) => payment.parentId !== id);
     draft.contracts = draft.contracts.filter((contract) => contract.parentId !== id);
+    draft.notifications = draft.notifications.filter((notification) => notification.parentId !== id);
     draft.routePlans = draft.routePlans.filter(
       (plan) => !plan.stops.some((stop) => childIds.has(stop.childId))
     );
@@ -1557,6 +1953,7 @@ export function deleteChild(id: string, companyId?: string, parentId?: string) {
     draft.checkins = draft.checkins.filter((checkin) => checkin.childId !== id);
     draft.payments = draft.payments.filter((payment) => payment.childId !== id);
     draft.contracts = draft.contracts.filter((contract) => contract.childId !== id);
+    draft.notifications = draft.notifications.filter((notification) => notification.childId !== id);
     draft.routePlans = draft.routePlans.filter(
       (plan) => !plan.stops.some((stop) => stop.childId === id)
     );
@@ -1671,6 +2068,10 @@ export function deleteDriver(id: string, companyId?: string) {
     });
     draft.liveTrackings = draft.liveTrackings.filter((live) => live.driverId !== id);
     draft.routePlans = draft.routePlans.filter((plan) => plan.driverId !== id);
+    draft.driverDocuments = draft.driverDocuments.filter((document) => document.driverId !== id);
+    draft.driverOccurrences = draft.driverOccurrences.filter((occurrence) => occurrence.driverId !== id);
+    draft.trackingPoints = draft.trackingPoints.filter((point) => point.driverId !== id);
+    draft.notifications = draft.notifications.filter((notification) => notification.driverId !== id);
     if (draft.liveTracking.driverId === id) draft.liveTracking = defaultLiveTracking();
   });
 
@@ -1761,10 +2162,200 @@ export function deleteVan(id: string, companyId?: string) {
     });
     draft.liveTrackings = draft.liveTrackings.filter((live) => live.vanId !== id);
     draft.routePlans = draft.routePlans.filter((plan) => plan.vanId !== id);
+    draft.vehicleMaintenances = draft.vehicleMaintenances.filter((maintenance) => maintenance.vanId !== id);
+    draft.fuelRecords = draft.fuelRecords.filter((fuel) => fuel.vanId !== id);
+    draft.trackingPoints = draft.trackingPoints.filter((point) => point.vanId !== id);
     draft.vanQrCode = draft.vanQrCodes.find((qr) => belongsToCompany(qr, activeCompanyId)) || defaultVanQrCode();
     if (draft.liveTracking.vanId === id) draft.liveTracking = defaultLiveTracking();
   });
 
+  return { db, error };
+}
+
+export function upsertDriverDocument(input: Partial<DriverDocumentRecord> & { driverId: string; label: string; companyId?: string }) {
+  let error = "";
+  const db = mutateDb((draft) => {
+    const companyId = resolveCompany(draft, input.companyId).id;
+    const driver = draft.drivers.find((item) => item.id === input.driverId && belongsToCompany(item, companyId));
+    const existing = input.id
+      ? draft.driverDocuments.find((item) => item.id === input.id && belongsToCompany(item, companyId))
+      : undefined;
+    if (!driver || !input.label.trim()) {
+      error = "Informe motorista e nome do documento.";
+      return;
+    }
+    if (input.id && !existing) {
+      error = "Documento nao encontrado.";
+      return;
+    }
+    const now = todayIso();
+    const record = normalizeDriverDocument({
+      ...existing,
+      ...input,
+      companyId,
+      driverId: driver.id,
+      label: input.label.trim(),
+      createdAt: existing?.createdAt || now,
+      updatedAt: now,
+    });
+    if (existing) Object.assign(existing, record);
+    else draft.driverDocuments.unshift(record);
+  });
+  return { db, error };
+}
+
+export function upsertDriverOccurrence(input: Partial<DriverOccurrenceRecord> & { driverId: string; title: string; companyId?: string }) {
+  let error = "";
+  const db = mutateDb((draft) => {
+    const companyId = resolveCompany(draft, input.companyId).id;
+    const driver = draft.drivers.find((item) => item.id === input.driverId && belongsToCompany(item, companyId));
+    const existing = input.id
+      ? draft.driverOccurrences.find((item) => item.id === input.id && belongsToCompany(item, companyId))
+      : undefined;
+    if (!driver || !input.title.trim()) {
+      error = "Informe motorista e titulo da ocorrencia.";
+      return;
+    }
+    if (input.id && !existing) {
+      error = "Ocorrencia nao encontrada.";
+      return;
+    }
+    if (input.childId && !draft.children.some((child) => child.id === input.childId && belongsToCompany(child, companyId))) {
+      error = "Aluno selecionado nao pertence a esta empresa.";
+      return;
+    }
+    const now = todayIso();
+    const record = normalizeDriverOccurrence({
+      ...existing,
+      ...input,
+      companyId,
+      driverId: driver.id,
+      title: input.title.trim(),
+      createdAt: existing?.createdAt || now,
+      updatedAt: now,
+    });
+    if (existing) Object.assign(existing, record);
+    else draft.driverOccurrences.unshift(record);
+  });
+  return { db, error };
+}
+
+export function upsertVehicleMaintenance(input: Partial<VehicleMaintenanceRecord> & { vanId: string; title: string; companyId?: string }) {
+  let error = "";
+  const db = mutateDb((draft) => {
+    const companyId = resolveCompany(draft, input.companyId).id;
+    const van = draft.vans.find((item) => item.id === input.vanId && belongsToCompany(item, companyId));
+    const existing = input.id
+      ? draft.vehicleMaintenances.find((item) => item.id === input.id && belongsToCompany(item, companyId))
+      : undefined;
+    if (!van || !input.title.trim()) {
+      error = "Informe veiculo e descricao da manutencao.";
+      return;
+    }
+    if (input.id && !existing) {
+      error = "Manutencao nao encontrada.";
+      return;
+    }
+    const now = todayIso();
+    const record = normalizeVehicleMaintenance({
+      ...existing,
+      ...input,
+      companyId,
+      vanId: van.id,
+      title: input.title.trim(),
+      completedAt: input.status === "completed" ? input.completedAt || now.slice(0, 10) : "",
+      createdAt: existing?.createdAt || now,
+      updatedAt: now,
+    });
+    if (existing) Object.assign(existing, record);
+    else draft.vehicleMaintenances.unshift(record);
+  });
+  return { db, error };
+}
+
+export function upsertFuelRecord(input: Partial<FuelRecord> & { vanId: string; companyId?: string }) {
+  let error = "";
+  const db = mutateDb((draft) => {
+    const companyId = resolveCompany(draft, input.companyId).id;
+    const van = draft.vans.find((item) => item.id === input.vanId && belongsToCompany(item, companyId));
+    const existing = input.id
+      ? draft.fuelRecords.find((item) => item.id === input.id && belongsToCompany(item, companyId))
+      : undefined;
+    if (!van || Number(input.liters || 0) <= 0 || Number(input.amount || 0) <= 0) {
+      error = "Informe veiculo, litros e valor do abastecimento.";
+      return;
+    }
+    if (input.id && !existing) {
+      error = "Abastecimento nao encontrado.";
+      return;
+    }
+    const now = todayIso();
+    const record = normalizeFuelRecord({
+      ...existing,
+      ...input,
+      companyId,
+      vanId: van.id,
+      createdAt: existing?.createdAt || now,
+      updatedAt: now,
+    });
+    if (existing) Object.assign(existing, record);
+    else draft.fuelRecords.unshift(record);
+  });
+  return { db, error };
+}
+
+export function upsertExpense(input: Partial<ExpenseRecord> & { description: string; companyId?: string }) {
+  let error = "";
+  const db = mutateDb((draft) => {
+    const companyId = resolveCompany(draft, input.companyId).id;
+    const existing = input.id
+      ? draft.expenses.find((item) => item.id === input.id && belongsToCompany(item, companyId))
+      : undefined;
+    if (!input.description.trim() || Number(input.amount || 0) <= 0) {
+      error = "Informe descricao e valor da despesa.";
+      return;
+    }
+    if (input.id && !existing) {
+      error = "Despesa nao encontrada.";
+      return;
+    }
+    const now = todayIso();
+    const record = normalizeExpense({
+      ...existing,
+      ...input,
+      companyId,
+      description: input.description.trim(),
+      paidAt: input.status === "paid" ? input.paidAt || now.slice(0, 10) : "",
+      createdAt: existing?.createdAt || now,
+      updatedAt: now,
+    });
+    if (existing) Object.assign(existing, record);
+    else draft.expenses.unshift(record);
+  });
+  return { db, error };
+}
+
+export function deleteOperationRecord(
+  entity: "driverDocument" | "driverOccurrence" | "maintenance" | "fuel" | "expense",
+  id: string,
+  companyId?: string
+) {
+  let error = "";
+  const db = mutateDb((draft) => {
+    const activeCompanyId = resolveCompany(draft, companyId).id;
+    const remove = <T extends { id: string; companyId?: string }>(items: T[]) => {
+      if (!items.some((item) => item.id === id && belongsToCompany(item, activeCompanyId))) {
+        error = "Registro nao encontrado.";
+        return items;
+      }
+      return items.filter((item) => item.id !== id);
+    };
+    if (entity === "driverDocument") draft.driverDocuments = remove(draft.driverDocuments);
+    if (entity === "driverOccurrence") draft.driverOccurrences = remove(draft.driverOccurrences);
+    if (entity === "maintenance") draft.vehicleMaintenances = remove(draft.vehicleMaintenances);
+    if (entity === "fuel") draft.fuelRecords = remove(draft.fuelRecords);
+    if (entity === "expense") draft.expenses = remove(draft.expenses);
+  });
   return { db, error };
 }
 
@@ -1902,6 +2493,26 @@ export function updateChildAbsence(parentId: string, childId: string, status: Ch
     child.absenceStatus = normalizeAbsenceStatus(status);
     child.absenceDate = todayIso().slice(0, 10);
     child.absenceUpdatedAt = todayIso();
+    const labels: Record<ChildAbsenceStatus, string> = {
+      going: "vai normalmente",
+      not_going: "nao vai hoje",
+      not_returning: "nao volta hoje",
+    };
+    draft.notifications = [
+      {
+        id: makeId("notification"),
+        companyId: child.companyId || DEFAULT_COMPANY_ID,
+        parentId: child.parentId,
+        childId: child.id,
+        driverId: child.driverId,
+        type: "absence" as const,
+        title: "Situacao do transporte atualizada",
+        message: `${child.name} ${labels[child.absenceStatus]}.`,
+        createdAt: todayIso(),
+        readAt: "",
+      },
+      ...draft.notifications,
+    ].slice(0, 1200);
   });
 
   return { db, error };
@@ -1977,6 +2588,22 @@ export function createCheckin(input: {
     };
 
     draft.checkins = [checkin, ...draft.checkins].slice(0, 600);
+    const eventLabel = checkin.type === "returning" ? "desembarque" : "embarque";
+    draft.notifications = [
+      {
+        id: makeId("notification"),
+        companyId: checkin.companyId,
+        parentId: parent.id,
+        childId: child.id,
+        driverId: checkin.driverId,
+        type: (checkin.type === "returning" ? "checkout" : "checkin") as NotificationRecord["type"],
+        title: `${eventLabel === "embarque" ? "Embarque" : "Desembarque"} confirmado`,
+        message: `${child.name}: ${eventLabel} registrado as ${new Date(checkin.scannedAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}.`,
+        createdAt: checkin.scannedAt,
+        readAt: "",
+      },
+      ...draft.notifications,
+    ].slice(0, 1200);
   });
 
   return { db, checkin, error };
@@ -2015,6 +2642,15 @@ export function getDriverRoutePayload(driverId?: string) {
       ? db.vanQrCodes.find((qr) => qr.vanId === driverVan.id && belongsToCompany(qr, companyId)) || ensureCompanyOnQr(db.vanQrCode, companyId)
       : ensureCompanyOnQr(db.vanQrCode, companyId),
     routePlan,
+    documents: driver
+      ? db.driverDocuments.filter((document) => document.driverId === driver.id && document.active)
+      : [],
+    occurrences: driver
+      ? db.driverOccurrences.filter((occurrence) => occurrence.driverId === driver.id).slice(0, 50)
+      : [],
+    notifications: driver
+      ? db.notifications.filter((notification) => notification.driverId === driver.id).slice(0, 100)
+      : [],
   };
 }
 
@@ -2110,6 +2746,40 @@ export function updateLiveTracking(input: Partial<LiveTrackingState>) {
       ...db.liveTrackings.filter((item) => item.id !== updated.id && item.driverId !== updated.driverId && item.vanId !== updated.vanId),
     ];
     db.liveTracking = updated;
+
+    if (
+      updated.active &&
+      typeof updated.latitude === "number" &&
+      typeof updated.longitude === "number"
+    ) {
+      const previousPoint = db.trackingPoints.find(
+        (point) => point.liveTrackingId === updated.id || (updated.driverId && point.driverId === updated.driverId)
+      );
+      const ageSeconds = previousPoint
+        ? (Date.now() - new Date(previousPoint.recordedAt).getTime()) / 1000
+        : Number.POSITIVE_INFINITY;
+      const moved = previousPoint
+        ? Math.hypot(previousPoint.latitude - updated.latitude, previousPoint.longitude - updated.longitude)
+        : Number.POSITIVE_INFINITY;
+      if (ageSeconds >= 20 || moved >= 0.00008) {
+        db.trackingPoints = [
+          {
+            id: makeId("tracking"),
+            companyId,
+            liveTrackingId: updated.id,
+            driverId: updated.driverId,
+            vanId: updated.vanId,
+            latitude: updated.latitude,
+            longitude: updated.longitude,
+            accuracy: updated.accuracy,
+            speed: updated.speed,
+            neighborhood: updated.currentNeighborhood,
+            recordedAt: now,
+          },
+          ...db.trackingPoints,
+        ].slice(0, 5000);
+      }
+    }
   });
 }
 

@@ -4,10 +4,13 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import {
   ArrowLeft,
+  AlertTriangle,
+  Bell,
   Bus,
   CalendarClock,
   CheckCircle2,
   IdCard,
+  FileText,
   Loader2,
   LogOut,
   MapPin,
@@ -26,7 +29,10 @@ import type {
   ChildAbsenceStatus,
   SafeChildRecord,
   CompanySettings,
+  DriverDocumentRecord,
+  DriverOccurrenceRecord,
   LiveTrackingState,
+  NotificationRecord,
   RoutePlanRecord,
   SafeDriverRecord,
   SafeParentRecord,
@@ -48,6 +54,9 @@ type DriverRoutePayload = {
   checkins: CheckinRecord[];
   vanQrCode: VanQrCodeRecord;
   routePlan: RoutePlanRecord | null;
+  documents: DriverDocumentRecord[];
+  occurrences: DriverOccurrenceRecord[];
+  notifications: NotificationRecord[];
 };
 
 const emptyLive: LiveTrackingState = {
@@ -75,6 +84,13 @@ export default function DriverPage() {
   const [message, setMessage] = useState("");
   const [loginError, setLoginError] = useState("");
   const [loginForm, setLoginForm] = useState({ contact: "", password: "" });
+  const [documentDates] = useState(() => {
+    const now = new Date();
+    return {
+      today: now.toISOString().slice(0, 10),
+      warning: new Date(now.getTime() + 30 * 86400000).toISOString().slice(0, 10),
+    };
+  });
   const [manual, setManual] = useState({
     currentNeighborhood: "Centro",
     nextStop: "Primeiro embarque",
@@ -444,6 +460,64 @@ export default function DriverPage() {
             </div>
           )}
         </section>
+
+        <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-2">
+          <section className="rounded-3xl border border-white/10 bg-white/[0.04] p-6 shadow-2xl">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-sm font-semibold uppercase tracking-[0.18em] text-sun">Documentos</p>
+                <h2 className="mt-2 text-2xl font-semibold">Validades</h2>
+              </div>
+              <FileText className="text-sun" size={22} />
+            </div>
+            <div className="mt-5 space-y-3">
+              {routeState?.documents.map((document) => {
+                const expired = Boolean(document.expiresAt && document.expiresAt < documentDates.today);
+                const warning = Boolean(document.expiresAt && document.expiresAt <= documentDates.warning);
+                return (
+                  <div key={document.id} className="rounded-2xl bg-white/10 p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <div className="font-semibold">{document.label}</div>
+                        <div className="mt-1 text-sm text-white/55">{document.expiresAt ? `Vence em ${document.expiresAt}` : "Sem vencimento"}</div>
+                      </div>
+                      <span className={expired ? "text-red-300" : warning ? "text-sun" : "text-ok"}>
+                        {warning ? <AlertTriangle size={18} /> : <CheckCircle2 size={18} />}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+              {!routeState?.documents.length && <EmptyState text="Nenhum documento cadastrado pela empresa." />}
+            </div>
+          </section>
+
+          <section className="rounded-3xl border border-white/10 bg-white/[0.04] p-6 shadow-2xl">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-sm font-semibold uppercase tracking-[0.18em] text-sun">Comunicacoes</p>
+                <h2 className="mt-2 text-2xl font-semibold">Avisos recentes</h2>
+              </div>
+              <Bell className="text-sun" size={22} />
+            </div>
+            <div className="mt-5 space-y-3">
+              {routeState?.notifications.slice(0, 8).map((notification) => (
+                <div key={notification.id} className="rounded-2xl bg-white/10 p-4">
+                  <div className="font-semibold">{notification.title}</div>
+                  <div className="mt-1 text-sm text-white/55">{notification.message}</div>
+                  <div className="mt-2 text-xs text-white/35">{new Date(notification.createdAt).toLocaleString("pt-BR")}</div>
+                </div>
+              ))}
+              {routeState?.occurrences.filter((occurrence) => !occurrence.resolved).slice(0, 5).map((occurrence) => (
+                <div key={occurrence.id} className="rounded-2xl border border-red-300/20 bg-red-400/10 p-4">
+                  <div className="flex items-center gap-2 font-semibold text-red-100"><AlertTriangle size={15} /> {occurrence.title}</div>
+                  <div className="mt-1 text-sm text-white/55">{occurrence.description || "Ocorrencia aguardando resolucao."}</div>
+                </div>
+              ))}
+              {!routeState?.notifications.length && !routeState?.occurrences.some((occurrence) => !occurrence.resolved) && <EmptyState text="Nenhuma comunicacao nova." />}
+            </div>
+          </section>
+        </div>
 
         <section className="mt-5 rounded-3xl border border-white/10 bg-white/[0.04] p-6 shadow-2xl">
           <div className="flex items-center justify-between gap-3">

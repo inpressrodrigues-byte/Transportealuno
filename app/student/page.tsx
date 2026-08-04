@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   ArrowLeft,
+  Bell,
   Bus,
   CalendarClock,
   CheckCircle2,
@@ -192,7 +193,7 @@ export default function StudentPage() {
             <div>
               <p className="text-sm font-semibold uppercase tracking-[0.2em] text-sun">Area do aluno</p>
               <h1 className="mt-2 text-3xl font-semibold">Ola, {data.child.name.split(" ")[0]}</h1>
-              <p className="mt-2 text-sm text-white/60">{schoolName} · {data.child.grade || "Turma nao informada"}</p>
+              <p className="mt-2 text-sm text-white/60">{schoolName} - {data.child.grade || "Turma nao informada"}</p>
             </div>
             <AbsenceBadge status={data.child.absenceStatus} />
           </div>
@@ -240,6 +241,22 @@ export default function StudentPage() {
           </h2>
           <div className="mt-5">
             <LiveRouteMap live={data.liveTracking} compact />
+          </div>
+        </section>
+
+        <section className="mt-5 rounded-3xl border border-white/10 bg-white/[0.05] p-6">
+          <div className="flex items-center gap-2 text-sm font-semibold text-sun">
+            <Bell size={16} /> Notificacoes
+          </div>
+          <div className="mt-5 space-y-3">
+            {data.notifications.slice(0, 8).map((notification) => (
+              <div key={notification.id} className="rounded-2xl bg-white/10 p-4 text-sm">
+                <div className="font-semibold">{notification.title}</div>
+                <div className="mt-1 text-white/60">{notification.message}</div>
+                <div className="mt-2 text-xs text-white/40">{new Date(notification.createdAt).toLocaleString("pt-BR")}</div>
+              </div>
+            ))}
+            {!data.notifications.length && <p className="text-sm text-white/55">Nenhuma notificacao recebida ainda.</p>}
           </div>
         </section>
 

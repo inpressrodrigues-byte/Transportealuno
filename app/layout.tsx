@@ -1,11 +1,14 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { ThemeRuntime } from "@/components/system/ThemeRuntime";
+import { PwaRuntime } from "@/components/system/PwaRuntime";
 
 export const metadata: Metadata = {
-  title: "Rota Segura — Transporte Escolar",
+  title: "Rota Segura - Transporte Escolar",
   description:
-    "Transporte escolar com segurança e pontualidade. Acompanhe a rota, converse com o motorista e tenha tranquilidade todos os dias.",
+    "Transporte escolar com seguranca e pontualidade. Acompanhe a rota, converse com o motorista e tenha tranquilidade todos os dias.",
+  manifest: "/manifest.webmanifest",
+  icons: { icon: "/app-icon.svg", apple: "/app-icon.svg" },
 };
 
 export default function RootLayout({
@@ -34,6 +37,7 @@ export default function RootLayout({
       </head>
       <body className="min-h-full flex flex-col bg-cloud text-ink font-body">
         <ThemeRuntime />
+        <PwaRuntime />
         {children}
       </body>
     </html>

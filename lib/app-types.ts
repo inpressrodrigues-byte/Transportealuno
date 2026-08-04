@@ -260,6 +260,8 @@ export type PaymentRecord = {
   month: string;
   dueDate: string;
   amount: number;
+  paymentMethod: "pix" | "boleto" | "card" | "cash";
+  externalReference: string;
   status: PaymentStatus;
   proof?: PaymentProof;
   receipt?: ReceiptRecord;
@@ -303,6 +305,119 @@ export type RoutePlanRecord = {
   stops: RoutePlanStop[];
 };
 
+export type DriverDocumentRecord = {
+  id: string;
+  companyId?: string;
+  driverId: string;
+  type: "cnh" | "curso" | "exame" | "outro";
+  label: string;
+  documentNumber: string;
+  issuedAt: string;
+  expiresAt: string;
+  notes: string;
+  active: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type DriverOccurrenceRecord = {
+  id: string;
+  companyId?: string;
+  driverId: string;
+  childId?: string;
+  occurredAt: string;
+  severity: "low" | "medium" | "high";
+  title: string;
+  description: string;
+  resolved: boolean;
+  resolution: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type VehicleMaintenanceRecord = {
+  id: string;
+  companyId?: string;
+  vanId: string;
+  type: "maintenance" | "ipva" | "insurance" | "revision" | "tires" | "other";
+  title: string;
+  dueDate: string;
+  completedAt: string;
+  odometer: number;
+  cost: number;
+  status: "pending" | "completed";
+  notes: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type FuelRecord = {
+  id: string;
+  companyId?: string;
+  vanId: string;
+  filledAt: string;
+  liters: number;
+  amount: number;
+  odometer: number;
+  station: string;
+  notes: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ExpenseRecord = {
+  id: string;
+  companyId?: string;
+  category: "fuel" | "maintenance" | "tax" | "insurance" | "payroll" | "other";
+  description: string;
+  amount: number;
+  dueDate: string;
+  paidAt: string;
+  status: "pending" | "paid";
+  notes: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type TrackingPointRecord = {
+  id: string;
+  companyId?: string;
+  liveTrackingId: string;
+  driverId?: string;
+  vanId?: string;
+  latitude: number;
+  longitude: number;
+  accuracy?: number;
+  speed?: number;
+  neighborhood: string;
+  recordedAt: string;
+};
+
+export type NotificationRecord = {
+  id: string;
+  companyId?: string;
+  parentId?: string;
+  childId?: string;
+  driverId?: string;
+  type: "checkin" | "checkout" | "absence" | "payment" | "route" | "alert";
+  title: string;
+  message: string;
+  createdAt: string;
+  readAt: string;
+};
+
+export type AuditLogRecord = {
+  id: string;
+  companyId?: string;
+  actorRole: UserRole | "system";
+  actorName: string;
+  action: "created" | "updated" | "deleted";
+  entityType: string;
+  entityId: string;
+  summary: string;
+  createdAt: string;
+};
+
 export type AppDatabase = {
   settings: CompanySettings;
   theme: ThemeSettings;
@@ -325,6 +440,14 @@ export type AppDatabase = {
   payments: PaymentRecord[];
   contracts: ContractRecord[];
   routePlans: RoutePlanRecord[];
+  driverDocuments: DriverDocumentRecord[];
+  driverOccurrences: DriverOccurrenceRecord[];
+  vehicleMaintenances: VehicleMaintenanceRecord[];
+  fuelRecords: FuelRecord[];
+  expenses: ExpenseRecord[];
+  trackingPoints: TrackingPointRecord[];
+  notifications: NotificationRecord[];
+  auditLogs: AuditLogRecord[];
 };
 
 export type SessionUser = {
@@ -347,6 +470,8 @@ export type ParentDashboardPayload = {
   checkins: CheckinRecord[];
   payments: PaymentRecord[];
   contracts: ContractRecord[];
+  trackingHistory: TrackingPointRecord[];
+  notifications: NotificationRecord[];
 };
 
 export type StudentDashboardPayload = {
@@ -361,12 +486,14 @@ export type StudentDashboardPayload = {
   checkins: CheckinRecord[];
   payments: PaymentRecord[];
   contracts: ContractRecord[];
+  trackingHistory: TrackingPointRecord[];
+  notifications: NotificationRecord[];
 };
 
 export type AdminPayload = {
   storage: {
     durable: boolean;
-    provider: "vercel-blob" | "temporary";
+    provider: "supabase" | "vercel-blob" | "temporary";
   };
   adminAccess: AdminAccessRecord;
   currentCompany?: SafeCompanyRecord;
@@ -387,4 +514,12 @@ export type AdminPayload = {
   payments: PaymentRecord[];
   contracts: ContractRecord[];
   routePlans: RoutePlanRecord[];
+  driverDocuments: DriverDocumentRecord[];
+  driverOccurrences: DriverOccurrenceRecord[];
+  vehicleMaintenances: VehicleMaintenanceRecord[];
+  fuelRecords: FuelRecord[];
+  expenses: ExpenseRecord[];
+  trackingPoints: TrackingPointRecord[];
+  notifications: NotificationRecord[];
+  auditLogs: AuditLogRecord[];
 };

@@ -5,12 +5,14 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   Banknote,
+  Bell,
   Bus,
   CalendarClock,
   CheckCircle2,
   Clock,
   FileUp,
   Home,
+  History,
   Loader2,
   LogOut,
   MapPin,
@@ -455,12 +457,47 @@ export default function DashboardPage() {
                   <PixBox settings={data.settings} />
                 </Panel>
 
+                <Panel title="Notificacoes recentes" subtitle="Embarques, desembarques, pagamentos e avisos dos alunos.">
+                  <div className="space-y-3">
+                    {data.notifications.slice(0, 6).map((notification) => (
+                      <div key={notification.id} className="flex gap-3 rounded-2xl border border-line p-4 dark:border-white/10">
+                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-sun/15 text-sun-2"><Bell size={16} /></span>
+                        <div>
+                          <div className="text-sm font-semibold text-navy dark:text-white">{notification.title}</div>
+                          <div className="mt-1 text-sm text-mute dark:text-white/55">{notification.message}</div>
+                          <div className="mt-2 text-xs text-mute dark:text-white/40">{new Date(notification.createdAt).toLocaleString("pt-BR")}</div>
+                        </div>
+                      </div>
+                    ))}
+                    {!data.notifications.length && <EmptyState text="Nenhuma notificacao recebida ainda." />}
+                  </div>
+                </Panel>
+
                 <LivePanel initialLive={data.liveTracking} />
               </div>
             )}
 
             {active === "ao-vivo" && (
-              <LivePanel initialLive={data.liveTracking} expanded />
+              <div className="space-y-5">
+                <LivePanel initialLive={data.liveTracking} expanded />
+                <Panel title="Historico recente" subtitle="Ultimos sinais recebidos durante as rotas da familia.">
+                  <div className="space-y-3">
+                    {data.trackingHistory.slice(0, 20).map((point) => (
+                      <div key={point.id} className="flex items-center justify-between gap-3 rounded-2xl border border-line p-4 dark:border-white/10">
+                        <div className="flex min-w-0 items-center gap-3">
+                          <History size={16} className="shrink-0 text-sun-2" />
+                          <div className="min-w-0">
+                            <div className="truncate text-sm font-semibold text-navy dark:text-white">{point.neighborhood || "Em deslocamento"}</div>
+                            <div className="mt-1 text-xs text-mute dark:text-white/50">Precisao {Math.round(point.accuracy || 0)} m{typeof point.speed === "number" ? ` - ${Math.round(point.speed * 3.6)} km/h` : ""}</div>
+                          </div>
+                        </div>
+                        <div className="shrink-0 text-xs text-mute dark:text-white/45">{new Date(point.recordedAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</div>
+                      </div>
+                    ))}
+                    {!data.trackingHistory.length && <EmptyState text="O historico aparece quando o motorista inicia uma rota com GPS." />}
+                  </div>
+                </Panel>
+              </div>
             )}
 
             {active === "alunos" && (

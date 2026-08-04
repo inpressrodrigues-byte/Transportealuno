@@ -12,25 +12,6 @@ npm run dev
 
 Acesse `http://localhost:3000`.
 
-## Acessos de teste
-
-Admin:
-
-- contato: `(45) 99999-9999`
-- senha: `000.000.000-00`
-- rota: `/admin`
-
-Responsavel:
-
-- contato: `(45) 98888-0001`
-- senha/CPF: `123.456.789-10`
-- rota: `/dashboard`
-
-Motorista:
-
-- rota: `/driver`
-- usar pelo celular com permissao de GPS liberada no navegador
-
 ## Funcionalidades atuais
 
 - Landing page institucional.
@@ -51,14 +32,20 @@ Motorista:
   usando GPS do celular quando permitido.
 - Recibo liberado somente depois do comprovante anexado.
 - APIs internas em `/api/*`.
-- Persistencia local em `data/app-db.json`.
+- Multiempresa com perfis de administrador, empresa, motorista, responsavel e aluno.
+- Dashboard com receita, inadimplencia, motoristas online, fluxo de caixa e alertas.
+- Documentos dos motoristas, ocorrencias, manutencoes, IPVA, seguro, pneus e abastecimentos.
+- Historico de GPS, notificacoes de embarque/desembarque e trilha de auditoria.
+- Relatorios financeiros, alunos, frota e presenca em CSV/Excel e impressao em PDF.
+- PWA instalavel no celular, com shell offline e APIs sempre consultadas em tempo real.
+- Persistencia preferencial no Supabase/PostgreSQL, com Vercel Blob e arquivo local como fallback.
 
 ## Observacao de producao
 
-O backend atual usa arquivo local para acelerar o desenvolvimento do mid-end e
-do fluxo funcional. Para publicar de forma definitiva no Vercel, troque essa
-persistencia por um banco real e armazenamento de arquivos, como Supabase,
-Vercel Postgres/Blob ou outro servico equivalente.
+Para usar Supabase, execute `supabase/migrations/001_app_state.sql` e configure
+`SUPABASE_URL` e `SUPABASE_SERVICE_ROLE_KEY` no Vercel. A chave de service role
+nunca deve ser exposta no navegador. Sem Supabase ou Blob, o painel avisa que a
+persistencia esta em modo temporario.
 
 ## Validacao
 

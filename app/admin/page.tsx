@@ -4,13 +4,19 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
+  Activity,
+  AlertTriangle,
+  BarChart3,
   Banknote,
   Building2,
   Bus,
   CalendarClock,
   CheckCircle2,
   Copy,
+  Download,
   FileSignature,
+  Fuel,
+  Gauge,
   GraduationCap,
   Home,
   IdCard,
@@ -28,9 +34,11 @@ import {
   School,
   Settings,
   ShieldCheck,
+  ShieldAlert,
   Trash2,
   UsersRound,
   Wallet,
+  Wrench,
   XCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
@@ -64,13 +72,16 @@ type AdminTab =
   | "company"
   | "drivers"
   | "vans"
+  | "operations"
   | "schools"
   | "neighborhoods"
   | "parents"
   | "payments"
+  | "reports"
   | "live"
   | "checkin"
   | "contracts"
+  | "audit"
   | "theme";
 
 const tabs = [
@@ -79,13 +90,16 @@ const tabs = [
   { id: "company" as AdminTab, label: "Empresa e Pix", icon: Settings },
   { id: "drivers" as AdminTab, label: "Motoristas", icon: UsersRound },
   { id: "vans" as AdminTab, label: "Vans", icon: Bus },
+  { id: "operations" as AdminTab, label: "Operacao e frota", icon: Wrench },
   { id: "schools" as AdminTab, label: "Escolas", icon: School },
   { id: "neighborhoods" as AdminTab, label: "Bairros", icon: MapPinned },
   { id: "parents" as AdminTab, label: "Responsaveis", icon: UsersRound },
   { id: "payments" as AdminTab, label: "Pagamentos", icon: Wallet },
+  { id: "reports" as AdminTab, label: "Relatorios", icon: BarChart3 },
   { id: "live" as AdminTab, label: "Ao vivo", icon: Navigation },
   { id: "checkin" as AdminTab, label: "QR e check-in", icon: QrCode },
   { id: "contracts" as AdminTab, label: "Contratos", icon: FileSignature },
+  { id: "audit" as AdminTab, label: "Auditoria", icon: ShieldAlert },
   { id: "theme" as AdminTab, label: "Cores", icon: Palette },
 ];
 
@@ -203,6 +217,65 @@ const emptyChildForm = {
   active: true,
 };
 
+const emptyDriverDocumentForm = {
+  id: "",
+  driverId: "",
+  type: "cnh" as "cnh" | "curso" | "exame" | "outro",
+  label: "CNH",
+  documentNumber: "",
+  issuedAt: "",
+  expiresAt: "",
+  notes: "",
+  active: true,
+};
+
+const emptyOccurrenceForm = {
+  id: "",
+  driverId: "",
+  childId: "",
+  occurredAt: "",
+  severity: "low" as "low" | "medium" | "high",
+  title: "",
+  description: "",
+  resolved: false,
+  resolution: "",
+};
+
+const emptyMaintenanceForm = {
+  id: "",
+  vanId: "",
+  type: "revision" as "maintenance" | "ipva" | "insurance" | "revision" | "tires" | "other",
+  title: "",
+  dueDate: "",
+  completedAt: "",
+  odometer: "",
+  cost: "",
+  status: "pending" as "pending" | "completed",
+  notes: "",
+};
+
+const emptyFuelForm = {
+  id: "",
+  vanId: "",
+  filledAt: "",
+  liters: "",
+  amount: "",
+  odometer: "",
+  station: "",
+  notes: "",
+};
+
+const emptyExpenseForm = {
+  id: "",
+  category: "other" as "fuel" | "maintenance" | "tax" | "insurance" | "payroll" | "other",
+  description: "",
+  amount: "",
+  dueDate: "",
+  paidAt: "",
+  status: "pending" as "pending" | "paid",
+  notes: "",
+};
+
 export default function AdminPage() {
   const router = useRouter();
   const [session, setSession] = useState<SessionUser | null>(null);
@@ -231,12 +304,27 @@ export default function AdminPage() {
   const [vanForm, setVanForm] = useState(emptyVanForm);
   const [parentForm, setParentForm] = useState(emptyParentForm);
   const [childForm, setChildForm] = useState(emptyChildForm);
+  const [driverDocumentForm, setDriverDocumentForm] = useState(emptyDriverDocumentForm);
+  const [occurrenceForm, setOccurrenceForm] = useState(emptyOccurrenceForm);
+  const [maintenanceForm, setMaintenanceForm] = useState(emptyMaintenanceForm);
+  const [fuelForm, setFuelForm] = useState(emptyFuelForm);
+  const [expenseForm, setExpenseForm] = useState(emptyExpenseForm);
+  const [dashboardDates] = useState(() => {
+    const now = new Date();
+    return {
+      today: now.toISOString().slice(0, 10),
+      warning: new Date(now.getTime() + 30 * 86400000).toISOString().slice(0, 10),
+    };
+  });
   const [paymentForm, setPaymentForm] = useState({
+    id: "",
     parentId: "",
     childId: "",
     month: "",
     dueDate: "",
     amount: "220",
+    paymentMethod: "pix" as "pix" | "boleto" | "card" | "cash",
+    externalReference: "",
   });
 
   const activeCompanyId =
@@ -374,6 +462,43 @@ export default function AdminPage() {
   const openPayments = data?.payments.filter((payment) => payment.status !== "approved") ?? [];
   const approvedAmount = approvedPayments.reduce((total, payment) => total + payment.amount, 0);
   const openAmount = openPayments.reduce((total, payment) => total + payment.amount, 0);
+  const activeChildren = data?.children.filter((child) => child.active) ?? [];
+  const onlineDrivers = data?.liveTrackings.filter((tracking) => tracking.active).length ?? 0;
+  const paidExpenses = data?.expenses.filter((expense) => expense.status === "paid") ?? [];
+  const pendingExpenses = data?.expenses.filter((expense) => expense.status === "pending") ?? [];
+  const paidExpenseAmount = paidExpenses.reduce((total, expense) => total + expense.amount, 0);
+  const pendingExpenseAmount = pendingExpenses.reduce((total, expense) => total + expense.amount, 0);
+  const estimatedProfit = approvedAmount - paidExpenseAmount;
+  const todayKey = dashboardDates.today;
+  const warningLimit = dashboardDates.warning;
+  const overduePayments = openPayments.filter((payment) => payment.dueDate && payment.dueDate < todayKey);
+  const expiringDocuments = data?.driverDocuments.filter(
+    (document) => document.active && document.expiresAt && document.expiresAt <= warningLimit
+  ) ?? [];
+  const upcomingMaintenances = data?.vehicleMaintenances.filter(
+    (maintenance) => maintenance.status === "pending" && maintenance.dueDate && maintenance.dueDate <= warningLimit
+  ) ?? [];
+  const unassignedVans = data?.vans.filter((van) => van.active && !van.driverId) ?? [];
+  const intelligentAlerts = [
+    overduePayments.length
+      ? { severity: "high", title: "Cobrancas atrasadas", text: `${overduePayments.length} mensalidade(s) passaram do vencimento.` }
+      : null,
+    expiringDocuments.length
+      ? { severity: "medium", title: "Documentos proximos do vencimento", text: `${expiringDocuments.length} documento(s) vencem em ate 30 dias.` }
+      : null,
+    upcomingMaintenances.length
+      ? { severity: "medium", title: "Frota exige atencao", text: `${upcomingMaintenances.length} compromisso(s) de manutencao estao proximos.` }
+      : null,
+    unassignedVans.length
+      ? { severity: "low", title: "Veiculos sem motorista", text: `${unassignedVans.length} van(s) ativa(s) ainda nao possuem motorista.` }
+      : null,
+    (data?.children.filter((child) => child.absenceStatus !== "going").length || 0) > 0
+      ? { severity: "low", title: "Rota pode ser otimizada", text: "Ha ausencias informadas hoje. Gere novamente a rota para evitar paradas desnecessarias." }
+      : null,
+    data?.liveTrackings.some((tracking) => tracking.active && tracking.estimatedMinutes >= 15)
+      ? { severity: "medium", title: "Possivel atraso", text: "Uma rota ao vivo possui previsao acima de 15 minutos para a proxima parada." }
+      : null,
+  ].filter((alert): alert is { severity: string; title: string; text: string } => Boolean(alert));
   const todayNotices = data?.children.filter((child) => child.absenceStatus !== "going") ?? [];
   const recentCheckins = data?.checkins.slice(0, 12) ?? [];
   const logout = () => {
@@ -1046,6 +1171,51 @@ export default function AdminPage() {
     setSaving("");
   };
 
+  type OperationEntity = "driverDocument" | "driverOccurrence" | "maintenance" | "fuel" | "expense";
+
+  const saveOperation = async (
+    entity: OperationEntity,
+    record: Record<string, unknown>,
+    reset: () => void,
+    label: string
+  ) => {
+    setSaving(`operation-${entity}`);
+    setMessage("");
+    const response = await fetch("/api/admin/operations", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ entity, companyId: activeCompanyId, record }),
+    });
+    const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+    if (response.ok) {
+      await load();
+      reset();
+      setMessage(`${label} salvo.`);
+    } else {
+      setMessage(payload?.error || `Nao foi possivel salvar ${label.toLowerCase()}.`);
+    }
+    setSaving("");
+  };
+
+  const removeOperation = async (entity: OperationEntity, id: string, label: string) => {
+    if (!window.confirm(`Excluir ${label.toLowerCase()}?`)) return;
+    setSaving(`operation-delete-${id}`);
+    setMessage("");
+    const response = await fetch("/api/admin/operations", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ entity, id, companyId: activeCompanyId }),
+    });
+    const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+    if (response.ok) {
+      await load();
+      setMessage(`${label} excluido.`);
+    } else {
+      setMessage(payload?.error || `Nao foi possivel excluir ${label.toLowerCase()}.`);
+    }
+    setSaving("");
+  };
+
   const createPayment = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving("payment");
@@ -1061,8 +1231,8 @@ export default function AdminPage() {
     });
     if (response.ok) {
       await load();
-      setPaymentForm({ parentId: "", childId: "", month: "", dueDate: "", amount: "220" });
-      setMessage("Mensalidade criada.");
+      setPaymentForm({ id: "", parentId: "", childId: "", month: "", dueDate: "", amount: "220", paymentMethod: "pix", externalReference: "" });
+      setMessage(paymentForm.id ? "Mensalidade atualizada." : "Mensalidade criada.");
     }
     setSaving("");
   };
@@ -1081,6 +1251,39 @@ export default function AdminPage() {
       setMessage("Pagamento atualizado.");
     } else {
       setMessage(payload.error || "Nao foi possivel atualizar.");
+    }
+    setSaving("");
+  };
+
+  const editPayment = (payment: AdminPayload["payments"][number]) => {
+    setPaymentForm({
+      id: payment.id,
+      parentId: payment.parentId,
+      childId: payment.childId,
+      month: payment.month,
+      dueDate: payment.dueDate,
+      amount: String(payment.amount),
+      paymentMethod: payment.paymentMethod,
+      externalReference: payment.externalReference,
+    });
+    setActive("payments");
+  };
+
+  const removePayment = async (payment: AdminPayload["payments"][number]) => {
+    if (!window.confirm(`Excluir a mensalidade ${payment.month}?`)) return;
+    setSaving(`payment-delete-${payment.id}`);
+    const response = await fetch("/api/admin/payments", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: payment.id, companyId: activeCompanyId }),
+    });
+    const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+    if (response.ok) {
+      await load();
+      if (paymentForm.id === payment.id) setPaymentForm({ id: "", parentId: "", childId: "", month: "", dueDate: "", amount: "220", paymentMethod: "pix", externalReference: "" });
+      setMessage("Mensalidade excluida.");
+    } else {
+      setMessage(payload?.error || "Nao foi possivel excluir a mensalidade.");
     }
     setSaving("");
   };
@@ -1171,7 +1374,7 @@ export default function AdminPage() {
 
   return (
     <div className="min-h-screen bg-mist dark:bg-[#0b1220]">
-      <aside className="fixed inset-y-0 left-0 hidden w-72 border-r border-line bg-white p-5 dark:border-white/10 dark:bg-navy lg:block">
+      <aside className="fixed inset-y-0 left-0 hidden w-72 flex-col overflow-hidden border-r border-line bg-white p-5 dark:border-white/10 dark:bg-navy lg:flex">
         <Link href="/" className="flex items-center gap-3">
           <span className="flex h-10 w-10 items-center justify-center rounded-full bg-sun text-navy">
             <Bus size={18} strokeWidth={2.5} />
@@ -1182,7 +1385,7 @@ export default function AdminPage() {
           </div>
         </Link>
 
-        <nav className="mt-8 space-y-1">
+        <nav className="mt-8 flex-1 space-y-1 overflow-y-auto pr-1">
           {visibleTabs.map((tab) => {
             const Icon = tab.icon;
             return (
@@ -1204,7 +1407,7 @@ export default function AdminPage() {
 
         <button
           onClick={logout}
-          className="absolute bottom-5 left-5 right-5 flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold text-mute hover:bg-mist dark:text-white/60 dark:hover:bg-white/5"
+          className="mt-3 flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold text-mute hover:bg-mist dark:text-white/60 dark:hover:bg-white/5"
         >
           <LogOut size={16} /> Sair
         </button>
@@ -1280,12 +1483,44 @@ export default function AdminPage() {
           {active === "overview" && (
             <div className="space-y-6">
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
-                <Metric icon={School} label="Escolas atendidas" value={servedSchools.length.toString()} />
-                <Metric icon={MapPinned} label="Bairros atendidos" value={servedNeighborhoods.length.toString()} />
-                <Metric icon={GraduationCap} label="Alunos" value={data.children.length.toString()} />
-                <Metric icon={UsersRound} label="Motoristas" value={activeDrivers.length.toString()} />
-                <Metric icon={Bus} label="Vans ativas" value={activeVans.length.toString()} />
-                <Metric icon={ReceiptText} label="Em aberto" value={openPayments.length.toString()} />
+                <Metric icon={Banknote} label="Receita aprovada" value={formatCurrency(approvedAmount)} />
+                <Metric icon={GraduationCap} label="Alunos ativos" value={activeChildren.length.toString()} />
+                <Metric icon={Navigation} label="Vans em rota" value={onlineDrivers.toString()} />
+                <Metric icon={AlertTriangle} label="Inadimplencia" value={overduePayments.length.toString()} />
+                <Metric icon={Activity} label="Motoristas online" value={`${onlineDrivers}/${activeDrivers.length}`} />
+                <Metric icon={Gauge} label="Resultado" value={formatCurrency(estimatedProfit)} />
+              </div>
+
+              <div className="grid grid-cols-1 gap-5 xl:grid-cols-[1.15fr_0.85fr]">
+                <Panel title="Desempenho financeiro" subtitle="Receita, despesas pagas e valores em aberto">
+                  <div className="space-y-4">
+                    <FinanceBar label="Receita" value={approvedAmount} maximum={Math.max(approvedAmount, paidExpenseAmount, openAmount, 1)} color="bg-ok" />
+                    <FinanceBar label="Despesas" value={paidExpenseAmount} maximum={Math.max(approvedAmount, paidExpenseAmount, openAmount, 1)} color="bg-red-400" />
+                    <FinanceBar label="A receber" value={openAmount} maximum={Math.max(approvedAmount, paidExpenseAmount, openAmount, 1)} color="bg-sun" />
+                  </div>
+                  <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                    <ProfileLine label="Escolas" value={servedSchools.length.toString()} />
+                    <ProfileLine label="Bairros" value={servedNeighborhoods.length.toString()} />
+                    <ProfileLine label="Vans" value={activeVans.length.toString()} />
+                    <ProfileLine label="Pendencias" value={pendingExpenses.length.toString()} />
+                  </div>
+                </Panel>
+
+                <Panel title="Alertas inteligentes" subtitle="Analise automatica dos dados da empresa">
+                  <div className="space-y-3">
+                    {intelligentAlerts.length ? intelligentAlerts.map((alert) => (
+                      <div key={alert.title} className="flex gap-3 rounded-xl border border-line p-4 dark:border-white/10">
+                        <AlertTriangle className={alert.severity === "high" ? "text-red-400" : alert.severity === "medium" ? "text-sun" : "text-sky-400"} size={18} />
+                        <div>
+                          <div className="text-sm font-semibold text-navy dark:text-white">{alert.title}</div>
+                          <div className="mt-1 text-xs leading-5 text-mute dark:text-white/55">{alert.text}</div>
+                        </div>
+                      </div>
+                    )) : (
+                      <div className="rounded-xl bg-ok/10 p-4 text-sm font-semibold text-ok">Nenhum alerta critico encontrado.</div>
+                    )}
+                  </div>
+                </Panel>
               </div>
 
               <div className="grid grid-cols-1 gap-5 xl:grid-cols-[1fr_360px]">
@@ -1297,6 +1532,8 @@ export default function AdminPage() {
                     saving={saving}
                     onStatus={updatePaymentStatus}
                     messageHref={paymentMessageHref}
+                    onEdit={editPayment}
+                    onDelete={removePayment}
                   />
                 </Panel>
 
@@ -1734,6 +1971,188 @@ export default function AdminPage() {
                   })}
                 </div>
               </Panel>
+            </div>
+          )}
+
+          {active === "operations" && (
+            <div className="space-y-5">
+              <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
+                <Panel title="Documentos dos motoristas" subtitle="CNH, cursos, exames e vencimentos com alerta automatico.">
+                  <form
+                    onSubmit={(event) => {
+                      event.preventDefault();
+                      saveOperation("driverDocument", driverDocumentForm, () => setDriverDocumentForm(emptyDriverDocumentForm), "Documento");
+                    }}
+                    className="grid grid-cols-1 gap-4 sm:grid-cols-2"
+                  >
+                    <SelectField
+                      label="Motorista"
+                      value={driverDocumentForm.driverId}
+                      onChange={(value) => setDriverDocumentForm({ ...driverDocumentForm, driverId: value })}
+                      options={[{ value: "", label: "Selecione" }, ...data.drivers.map((driver) => ({ value: driver.id, label: driver.name }))]}
+                    />
+                    <SelectField
+                      label="Tipo"
+                      value={driverDocumentForm.type}
+                      onChange={(value) => setDriverDocumentForm({ ...driverDocumentForm, type: value as typeof driverDocumentForm.type })}
+                      options={[
+                        { value: "cnh", label: "CNH" },
+                        { value: "curso", label: "Curso" },
+                        { value: "exame", label: "Exame" },
+                        { value: "outro", label: "Outro" },
+                      ]}
+                    />
+                    <Field label="Nome do documento" value={driverDocumentForm.label} onChange={(value) => setDriverDocumentForm({ ...driverDocumentForm, label: value })} />
+                    <Field label="Numero" value={driverDocumentForm.documentNumber} onChange={(value) => setDriverDocumentForm({ ...driverDocumentForm, documentNumber: value })} />
+                    <Field label="Emissao" type="date" value={driverDocumentForm.issuedAt} onChange={(value) => setDriverDocumentForm({ ...driverDocumentForm, issuedAt: value })} />
+                    <Field label="Vencimento" type="date" value={driverDocumentForm.expiresAt} onChange={(value) => setDriverDocumentForm({ ...driverDocumentForm, expiresAt: value })} />
+                    <div className="sm:col-span-2">
+                      <Field label="Observacoes" value={driverDocumentForm.notes} onChange={(value) => setDriverDocumentForm({ ...driverDocumentForm, notes: value })} />
+                    </div>
+                    <label className="flex items-center gap-3 rounded-xl border border-line px-4 py-3 text-sm font-semibold text-navy dark:border-white/10 dark:text-white">
+                      <input type="checkbox" checked={driverDocumentForm.active} onChange={(event) => setDriverDocumentForm({ ...driverDocumentForm, active: event.target.checked })} className="h-4 w-4 accent-sun" />
+                      Documento ativo
+                    </label>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Button type="submit" disabled={saving === "operation-driverDocument"}><Save size={15} /> Salvar</Button>
+                      {driverDocumentForm.id && <Button type="button" variant="outlineDark" onClick={() => setDriverDocumentForm(emptyDriverDocumentForm)}>Cancelar</Button>}
+                    </div>
+                  </form>
+                  <div className="mt-6 space-y-3">
+                    {data.driverDocuments.map((document) => (
+                      <OperationRow
+                        key={document.id}
+                        title={`${document.label} - ${driverName(document.driverId)}`}
+                        subtitle={`${document.documentNumber || "Sem numero"}${document.expiresAt ? ` - vence ${document.expiresAt}` : " - sem vencimento"}`}
+                        status={!document.active ? "Inativo" : document.expiresAt && document.expiresAt < todayKey ? "Vencido" : document.expiresAt && document.expiresAt <= warningLimit ? "Vence em breve" : "Regular"}
+                        tone={!document.active ? "muted" : document.expiresAt && document.expiresAt < todayKey ? "danger" : document.expiresAt && document.expiresAt <= warningLimit ? "warning" : "success"}
+                        onEdit={() => setDriverDocumentForm({ ...document })}
+                        onDelete={() => removeOperation("driverDocument", document.id, "Documento")}
+                        deleting={saving === `operation-delete-${document.id}`}
+                      />
+                    ))}
+                    {!data.driverDocuments.length && <EmptyState text="Nenhum documento cadastrado." />}
+                  </div>
+                </Panel>
+
+                <Panel title="Ocorrencias" subtitle="Registre fatos da rota, alunos envolvidos e resolucao.">
+                  <form
+                    onSubmit={(event) => {
+                      event.preventDefault();
+                      saveOperation("driverOccurrence", occurrenceForm, () => setOccurrenceForm(emptyOccurrenceForm), "Ocorrencia");
+                    }}
+                    className="grid grid-cols-1 gap-4 sm:grid-cols-2"
+                  >
+                    <SelectField label="Motorista" value={occurrenceForm.driverId} onChange={(value) => setOccurrenceForm({ ...occurrenceForm, driverId: value })} options={[{ value: "", label: "Selecione" }, ...data.drivers.map((driver) => ({ value: driver.id, label: driver.name }))]} />
+                    <SelectField label="Aluno relacionado" value={occurrenceForm.childId} onChange={(value) => setOccurrenceForm({ ...occurrenceForm, childId: value })} options={[{ value: "", label: "Nenhum" }, ...data.children.map((child) => ({ value: child.id, label: child.name }))]} />
+                    <Field label="Data e hora" type="datetime-local" value={occurrenceForm.occurredAt} onChange={(value) => setOccurrenceForm({ ...occurrenceForm, occurredAt: value })} />
+                    <SelectField label="Gravidade" value={occurrenceForm.severity} onChange={(value) => setOccurrenceForm({ ...occurrenceForm, severity: value as typeof occurrenceForm.severity })} options={[{ value: "low", label: "Baixa" }, { value: "medium", label: "Media" }, { value: "high", label: "Alta" }]} />
+                    <div className="sm:col-span-2"><Field label="Titulo" value={occurrenceForm.title} onChange={(value) => setOccurrenceForm({ ...occurrenceForm, title: value })} /></div>
+                    <div className="sm:col-span-2"><Field label="Descricao" value={occurrenceForm.description} onChange={(value) => setOccurrenceForm({ ...occurrenceForm, description: value })} /></div>
+                    <label className="flex items-center gap-3 rounded-xl border border-line px-4 py-3 text-sm font-semibold text-navy dark:border-white/10 dark:text-white">
+                      <input type="checkbox" checked={occurrenceForm.resolved} onChange={(event) => setOccurrenceForm({ ...occurrenceForm, resolved: event.target.checked })} className="h-4 w-4 accent-sun" />
+                      Resolvida
+                    </label>
+                    <Field label="Resolucao" value={occurrenceForm.resolution} onChange={(value) => setOccurrenceForm({ ...occurrenceForm, resolution: value })} />
+                    <div className="flex flex-wrap gap-2 sm:col-span-2">
+                      <Button type="submit" disabled={saving === "operation-driverOccurrence"}><Save size={15} /> Salvar</Button>
+                      {occurrenceForm.id && <Button type="button" variant="outlineDark" onClick={() => setOccurrenceForm(emptyOccurrenceForm)}>Cancelar</Button>}
+                    </div>
+                  </form>
+                  <div className="mt-6 space-y-3">
+                    {data.driverOccurrences.map((occurrence) => (
+                      <OperationRow
+                        key={occurrence.id}
+                        title={`${occurrence.title} - ${driverName(occurrence.driverId)}`}
+                        subtitle={`${occurrence.occurredAt || "Sem data"}${occurrence.childId ? ` - ${childName(occurrence.childId)}` : ""}`}
+                        status={occurrence.resolved ? "Resolvida" : occurrence.severity === "high" ? "Alta" : occurrence.severity === "medium" ? "Media" : "Baixa"}
+                        tone={occurrence.resolved ? "success" : occurrence.severity === "high" ? "danger" : occurrence.severity === "medium" ? "warning" : "muted"}
+                        onEdit={() => setOccurrenceForm({ ...occurrence, childId: occurrence.childId || "" })}
+                        onDelete={() => removeOperation("driverOccurrence", occurrence.id, "Ocorrencia")}
+                        deleting={saving === `operation-delete-${occurrence.id}`}
+                      />
+                    ))}
+                    {!data.driverOccurrences.length && <EmptyState text="Nenhuma ocorrencia registrada." />}
+                  </div>
+                </Panel>
+              </div>
+
+              <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
+                <Panel title="Manutencoes e documentos da frota" subtitle="Revisoes, pneus, IPVA e seguro com datas e custos.">
+                  <form
+                    onSubmit={(event) => {
+                      event.preventDefault();
+                      saveOperation("maintenance", { ...maintenanceForm, odometer: Number(maintenanceForm.odometer), cost: Number(maintenanceForm.cost.replace(",", ".")) }, () => setMaintenanceForm(emptyMaintenanceForm), "Manutencao");
+                    }}
+                    className="grid grid-cols-1 gap-4 sm:grid-cols-2"
+                  >
+                    <SelectField label="Veiculo" value={maintenanceForm.vanId} onChange={(value) => setMaintenanceForm({ ...maintenanceForm, vanId: value })} options={[{ value: "", label: "Selecione" }, ...data.vans.map((van) => ({ value: van.id, label: van.label }))]} />
+                    <SelectField label="Tipo" value={maintenanceForm.type} onChange={(value) => setMaintenanceForm({ ...maintenanceForm, type: value as typeof maintenanceForm.type })} options={[{ value: "revision", label: "Revisao" }, { value: "maintenance", label: "Manutencao" }, { value: "tires", label: "Pneus" }, { value: "ipva", label: "IPVA" }, { value: "insurance", label: "Seguro" }, { value: "other", label: "Outro" }]} />
+                    <div className="sm:col-span-2"><Field label="Descricao" value={maintenanceForm.title} onChange={(value) => setMaintenanceForm({ ...maintenanceForm, title: value })} /></div>
+                    <Field label="Vencimento" type="date" value={maintenanceForm.dueDate} onChange={(value) => setMaintenanceForm({ ...maintenanceForm, dueDate: value })} />
+                    <SelectField label="Situacao" value={maintenanceForm.status} onChange={(value) => setMaintenanceForm({ ...maintenanceForm, status: value as typeof maintenanceForm.status })} options={[{ value: "pending", label: "Pendente" }, { value: "completed", label: "Concluida" }]} />
+                    <Field label="Quilometragem" type="number" value={maintenanceForm.odometer} onChange={(value) => setMaintenanceForm({ ...maintenanceForm, odometer: value })} />
+                    <Field label="Custo" type="number" value={maintenanceForm.cost} onChange={(value) => setMaintenanceForm({ ...maintenanceForm, cost: value })} />
+                    <div className="sm:col-span-2"><Field label="Observacoes" value={maintenanceForm.notes} onChange={(value) => setMaintenanceForm({ ...maintenanceForm, notes: value })} /></div>
+                    <div className="flex flex-wrap gap-2 sm:col-span-2">
+                      <Button type="submit" disabled={saving === "operation-maintenance"}><Wrench size={15} /> Salvar</Button>
+                      {maintenanceForm.id && <Button type="button" variant="outlineDark" onClick={() => setMaintenanceForm(emptyMaintenanceForm)}>Cancelar</Button>}
+                    </div>
+                  </form>
+                  <div className="mt-6 space-y-3">
+                    {data.vehicleMaintenances.map((maintenance) => (
+                      <OperationRow
+                        key={maintenance.id}
+                        title={`${maintenance.title} - ${vanName(maintenance.vanId)}`}
+                        subtitle={`${maintenance.dueDate || "Sem vencimento"} - ${formatCurrency(maintenance.cost)}`}
+                        status={maintenance.status === "completed" ? "Concluida" : maintenance.dueDate && maintenance.dueDate < todayKey ? "Atrasada" : "Pendente"}
+                        tone={maintenance.status === "completed" ? "success" : maintenance.dueDate && maintenance.dueDate < todayKey ? "danger" : "warning"}
+                        onEdit={() => setMaintenanceForm({ ...maintenance, odometer: String(maintenance.odometer || ""), cost: String(maintenance.cost || "") })}
+                        onDelete={() => removeOperation("maintenance", maintenance.id, "Manutencao")}
+                        deleting={saving === `operation-delete-${maintenance.id}`}
+                      />
+                    ))}
+                    {!data.vehicleMaintenances.length && <EmptyState text="Nenhuma manutencao cadastrada." />}
+                  </div>
+                </Panel>
+
+                <Panel title="Abastecimentos" subtitle="Custos, litros e quilometragem por veiculo.">
+                  <form
+                    onSubmit={(event) => {
+                      event.preventDefault();
+                      saveOperation("fuel", { ...fuelForm, liters: Number(fuelForm.liters.replace(",", ".")), amount: Number(fuelForm.amount.replace(",", ".")), odometer: Number(fuelForm.odometer) }, () => setFuelForm(emptyFuelForm), "Abastecimento");
+                    }}
+                    className="grid grid-cols-1 gap-4 sm:grid-cols-2"
+                  >
+                    <SelectField label="Veiculo" value={fuelForm.vanId} onChange={(value) => setFuelForm({ ...fuelForm, vanId: value })} options={[{ value: "", label: "Selecione" }, ...data.vans.map((van) => ({ value: van.id, label: van.label }))]} />
+                    <Field label="Data" type="date" value={fuelForm.filledAt} onChange={(value) => setFuelForm({ ...fuelForm, filledAt: value })} />
+                    <Field label="Litros" type="number" value={fuelForm.liters} onChange={(value) => setFuelForm({ ...fuelForm, liters: value })} />
+                    <Field label="Valor" type="number" value={fuelForm.amount} onChange={(value) => setFuelForm({ ...fuelForm, amount: value })} />
+                    <Field label="Quilometragem" type="number" value={fuelForm.odometer} onChange={(value) => setFuelForm({ ...fuelForm, odometer: value })} />
+                    <Field label="Posto" value={fuelForm.station} onChange={(value) => setFuelForm({ ...fuelForm, station: value })} />
+                    <div className="sm:col-span-2"><Field label="Observacoes" value={fuelForm.notes} onChange={(value) => setFuelForm({ ...fuelForm, notes: value })} /></div>
+                    <div className="flex flex-wrap gap-2 sm:col-span-2">
+                      <Button type="submit" disabled={saving === "operation-fuel"}><Fuel size={15} /> Salvar</Button>
+                      {fuelForm.id && <Button type="button" variant="outlineDark" onClick={() => setFuelForm(emptyFuelForm)}>Cancelar</Button>}
+                    </div>
+                  </form>
+                  <div className="mt-6 space-y-3">
+                    {data.fuelRecords.map((fuel) => (
+                      <OperationRow
+                        key={fuel.id}
+                        title={`${vanName(fuel.vanId)} - ${formatCurrency(fuel.amount)}`}
+                        subtitle={`${fuel.filledAt || "Sem data"} - ${fuel.liters.toLocaleString("pt-BR")} L - ${fuel.odometer ? `${fuel.odometer.toLocaleString("pt-BR")} km` : "km nao informado"}`}
+                        status={fuel.liters > 0 ? `${formatCurrency(fuel.amount / fuel.liters)}/L` : "Registrado"}
+                        tone="muted"
+                        onEdit={() => setFuelForm({ ...fuel, liters: String(fuel.liters), amount: String(fuel.amount), odometer: String(fuel.odometer || "") })}
+                        onDelete={() => removeOperation("fuel", fuel.id, "Abastecimento")}
+                        deleting={saving === `operation-delete-${fuel.id}`}
+                      />
+                    ))}
+                    {!data.fuelRecords.length && <EmptyState text="Nenhum abastecimento registrado." />}
+                  </div>
+                </Panel>
+              </div>
             </div>
           )}
 
@@ -2316,7 +2735,7 @@ export default function AdminPage() {
 
           {active === "payments" && (
             <div className="grid grid-cols-1 gap-5 xl:grid-cols-[380px_1fr]">
-              <Panel title="Criar mensalidade" subtitle="O recibo so libera depois do comprovante anexado.">
+              <Panel title={paymentForm.id ? "Editar mensalidade" : "Criar mensalidade"} subtitle="O recibo so libera depois do comprovante anexado.">
                 <form onSubmit={createPayment} className="space-y-4">
                   <label>
                     <span className="text-xs font-semibold uppercase tracking-wide text-mute dark:text-white/50">Responsavel</span>
@@ -2349,9 +2768,16 @@ export default function AdminPage() {
                   <Field label="Mes de referencia" value={paymentForm.month} onChange={(v) => setPaymentForm({ ...paymentForm, month: v })} placeholder="Setembro/2026" />
                   <Field label="Vencimento" value={paymentForm.dueDate} onChange={(v) => setPaymentForm({ ...paymentForm, dueDate: v })} type="date" />
                   <Field label="Valor" value={paymentForm.amount} onChange={(v) => setPaymentForm({ ...paymentForm, amount: v })} />
-                  <Button type="submit" disabled={saving === "payment"}>
-                    <Banknote size={16} /> Criar mensalidade
-                  </Button>
+                  <SelectField label="Forma de pagamento" value={paymentForm.paymentMethod} onChange={(value) => setPaymentForm({ ...paymentForm, paymentMethod: value as typeof paymentForm.paymentMethod })} options={[{ value: "pix", label: "Pix" }, { value: "boleto", label: "Boleto" }, { value: "card", label: "Cartao" }, { value: "cash", label: "Dinheiro" }]} />
+                  <Field label="Referencia externa" value={paymentForm.externalReference} onChange={(value) => setPaymentForm({ ...paymentForm, externalReference: value })} placeholder="Codigo do boleto ou transacao" />
+                  <div className="flex flex-wrap gap-2">
+                    <Button type="submit" disabled={saving === "payment"}>
+                      <Banknote size={16} /> {paymentForm.id ? "Salvar mensalidade" : "Criar mensalidade"}
+                    </Button>
+                    {paymentForm.id && (
+                      <Button type="button" variant="outlineDark" onClick={() => setPaymentForm({ id: "", parentId: "", childId: "", month: "", dueDate: "", amount: "220", paymentMethod: "pix", externalReference: "" })}>Cancelar</Button>
+                    )}
+                  </div>
                 </form>
               </Panel>
 
@@ -2368,7 +2794,117 @@ export default function AdminPage() {
                   saving={saving}
                   onStatus={updatePaymentStatus}
                   messageHref={paymentMessageHref}
+                  onEdit={editPayment}
+                  onDelete={removePayment}
                 />
+              </Panel>
+            </div>
+          )}
+
+          {active === "payments" && (
+            <div className="mt-5 grid grid-cols-1 gap-5 xl:grid-cols-[380px_1fr]">
+              <Panel title={expenseForm.id ? "Editar despesa" : "Registrar despesa"} subtitle="Controle combustivel, manutencao, impostos, seguros e folha.">
+                <form
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    saveOperation("expense", { ...expenseForm, amount: Number(expenseForm.amount.replace(",", ".")) }, () => setExpenseForm(emptyExpenseForm), "Despesa");
+                  }}
+                  className="space-y-4"
+                >
+                  <SelectField label="Categoria" value={expenseForm.category} onChange={(value) => setExpenseForm({ ...expenseForm, category: value as typeof expenseForm.category })} options={[{ value: "fuel", label: "Combustivel" }, { value: "maintenance", label: "Manutencao" }, { value: "tax", label: "Impostos" }, { value: "insurance", label: "Seguro" }, { value: "payroll", label: "Folha" }, { value: "other", label: "Outros" }]} />
+                  <Field label="Descricao" value={expenseForm.description} onChange={(value) => setExpenseForm({ ...expenseForm, description: value })} />
+                  <Field label="Valor" type="number" value={expenseForm.amount} onChange={(value) => setExpenseForm({ ...expenseForm, amount: value })} />
+                  <Field label="Vencimento" type="date" value={expenseForm.dueDate} onChange={(value) => setExpenseForm({ ...expenseForm, dueDate: value })} />
+                  <SelectField label="Situacao" value={expenseForm.status} onChange={(value) => setExpenseForm({ ...expenseForm, status: value as typeof expenseForm.status })} options={[{ value: "pending", label: "Pendente" }, { value: "paid", label: "Paga" }]} />
+                  <Field label="Observacoes" value={expenseForm.notes} onChange={(value) => setExpenseForm({ ...expenseForm, notes: value })} />
+                  <div className="flex flex-wrap gap-2">
+                    <Button type="submit" disabled={saving === "operation-expense"}><Banknote size={15} /> Salvar</Button>
+                    {expenseForm.id && <Button type="button" variant="outlineDark" onClick={() => setExpenseForm(emptyExpenseForm)}>Cancelar</Button>}
+                  </div>
+                </form>
+              </Panel>
+
+              <Panel title="Fluxo de caixa" subtitle="Resultado estimado com mensalidades aprovadas e despesas pagas.">
+                <div className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                  <ProfileLine label="Receita" value={formatCurrency(approvedAmount)} />
+                  <ProfileLine label="Despesas pagas" value={formatCurrency(paidExpenseAmount)} />
+                  <ProfileLine label="Despesas pendentes" value={formatCurrency(pendingExpenseAmount)} />
+                  <ProfileLine label="Resultado" value={formatCurrency(estimatedProfit)} />
+                </div>
+                <div className="space-y-3">
+                  {data.expenses.map((expense) => (
+                    <OperationRow
+                      key={expense.id}
+                      title={expense.description}
+                      subtitle={`${expense.dueDate || "Sem vencimento"} - ${formatCurrency(expense.amount)}`}
+                      status={expense.status === "paid" ? "Paga" : expense.dueDate && expense.dueDate < todayKey ? "Atrasada" : "Pendente"}
+                      tone={expense.status === "paid" ? "success" : expense.dueDate && expense.dueDate < todayKey ? "danger" : "warning"}
+                      onEdit={() => setExpenseForm({ ...expense, amount: String(expense.amount) })}
+                      onDelete={() => removeOperation("expense", expense.id, "Despesa")}
+                      deleting={saving === `operation-delete-${expense.id}`}
+                    />
+                  ))}
+                  {!data.expenses.length && <EmptyState text="Nenhuma despesa registrada." />}
+                </div>
+              </Panel>
+            </div>
+          )}
+
+          {active === "reports" && (
+            <div className="space-y-5 print:bg-white print:text-black">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                <Metric icon={Banknote} label="Receita" value={formatCurrency(approvedAmount)} />
+                <Metric icon={Wallet} label="Despesas" value={formatCurrency(paidExpenseAmount)} />
+                <Metric icon={GraduationCap} label="Alunos ativos" value={activeChildren.length.toString()} />
+                <Metric icon={CheckCircle2} label="Check-ins" value={data.checkins.length.toString()} />
+              </div>
+
+              <Panel title="Exportar relatorios" subtitle="Arquivos CSV abrem normalmente no Excel; a impressao pode ser salva em PDF.">
+                <div className="flex flex-wrap gap-3 print:hidden">
+                  {[
+                    { type: "financial", label: "Financeiro" },
+                    { type: "students", label: "Alunos" },
+                    { type: "fleet", label: "Frota" },
+                    { type: "attendance", label: "Presenca" },
+                  ].map((report) => (
+                    <a key={report.type} href={`/api/admin/reports?companyId=${encodeURIComponent(activeCompanyId)}&type=${report.type}`} className="inline-flex items-center justify-center gap-2 rounded-full border border-line px-5 py-3 text-sm font-semibold text-navy transition hover:border-sun dark:border-white/10 dark:text-white">
+                      <Download size={16} /> {report.label}
+                    </a>
+                  ))}
+                  <Button type="button" onClick={() => window.print()}><ReceiptText size={16} /> Salvar em PDF</Button>
+                </div>
+              </Panel>
+
+              <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
+                <Panel title="Ranking de alunos" subtitle="Quantidade de registros de embarque e desembarque.">
+                  <div className="space-y-3">
+                    {[...data.children]
+                      .map((child) => ({ child, count: data.checkins.filter((checkin) => checkin.childId === child.id).length }))
+                      .sort((left, right) => right.count - left.count)
+                      .slice(0, 10)
+                      .map(({ child, count }, index) => (
+                        <ProfileLine key={child.id} label={`${index + 1}. ${child.name}`} value={`${count} registro(s)`} />
+                      ))}
+                  </div>
+                </Panel>
+                <Panel title="Ranking de motoristas" subtitle="Alunos atualmente vinculados a cada motorista.">
+                  <div className="space-y-3">
+                    {[...data.drivers]
+                      .map((driver) => ({ driver, count: data.children.filter((child) => child.driverId === driver.id).length }))
+                      .sort((left, right) => right.count - left.count)
+                      .map(({ driver, count }, index) => (
+                        <ProfileLine key={driver.id} label={`${index + 1}. ${driver.name}`} value={`${count} aluno(s)`} />
+                      ))}
+                  </div>
+                </Panel>
+              </div>
+
+              <Panel title="Historico de rotas" subtitle="Planos gerados e pontos de GPS preservados para consulta.">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                  <ProfileLine label="Rotas geradas" value={data.routePlans.length.toString()} />
+                  <ProfileLine label="Pontos de GPS" value={data.trackingPoints.length.toString()} />
+                  <ProfileLine label="Ocorrencias" value={data.driverOccurrences.length.toString()} />
+                </div>
               </Panel>
             </div>
           )}
@@ -2633,6 +3169,42 @@ export default function AdminPage() {
             </div>
           )}
 
+          {active === "audit" && (
+            <div className="space-y-5">
+              <Panel title="Permissoes por perfil" subtitle="Cada acesso recebe somente as funcoes necessarias para sua rotina.">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
+                  <ProfileLine label="Administrador" value="Todas as empresas e configuracoes" />
+                  <ProfileLine label="Empresa" value="Somente seus dados e equipe" />
+                  <ProfileLine label="Motorista" value="Sua rota, alunos e ocorrencias" />
+                  <ProfileLine label="Responsavel" value="Filhos, pagamentos e localizacao" />
+                  <ProfileLine label="Aluno" value="Check-in e avisos pessoais" />
+                </div>
+              </Panel>
+
+              <Panel title="Trilha de auditoria" subtitle="Historico automatico de criacoes, alteracoes e exclusoes.">
+                <div className="space-y-3">
+                  {data.auditLogs.slice(0, 150).map((log) => (
+                    <div key={log.id} className="flex flex-col gap-3 rounded-2xl border border-line p-4 dark:border-white/10 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="flex min-w-0 items-start gap-3">
+                        <span className={cn("mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl", log.action === "deleted" ? "bg-red-500/10 text-red-500" : log.action === "created" ? "bg-ok/10 text-ok" : "bg-sun/15 text-sun-2")}>
+                          {log.action === "deleted" ? <Trash2 size={16} /> : log.action === "created" ? <CheckCircle2 size={16} /> : <Pencil size={16} />}
+                        </span>
+                        <div className="min-w-0">
+                          <div className="font-semibold capitalize text-navy dark:text-white">{log.summary}</div>
+                          <div className="mt-1 truncate text-sm text-mute dark:text-white/55">{log.actorName} - {log.entityType}</div>
+                        </div>
+                      </div>
+                      <div className="text-xs text-mute dark:text-white/45">
+                        {new Date(log.createdAt).toLocaleString("pt-BR")}
+                      </div>
+                    </div>
+                  ))}
+                  {!data.auditLogs.length && <EmptyState text="A trilha comeca a ser preenchida na proxima alteracao." />}
+                </div>
+              </Panel>
+            </div>
+          )}
+
           {active === "theme" && (
             <Panel title="Cores do sistema" subtitle="Muda a paleta usada no site, admin e area dos pais.">
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -2769,6 +3341,73 @@ function Metric({ icon: Icon, label, value }: { icon: React.ElementType; label: 
   );
 }
 
+function FinanceBar({
+  label,
+  value,
+  maximum,
+  color,
+}: {
+  label: string;
+  value: number;
+  maximum: number;
+  color: string;
+}) {
+  const width = Math.max(3, Math.min(100, (value / maximum) * 100));
+  return (
+    <div>
+      <div className="mb-2 flex items-center justify-between gap-3 text-sm">
+        <span className="font-semibold text-navy dark:text-white">{label}</span>
+        <span className="tabular-nums text-mute dark:text-white/55">{formatCurrency(value)}</span>
+      </div>
+      <div className="h-2.5 overflow-hidden rounded-full bg-mist dark:bg-white/10">
+        <div className={cn("h-full rounded-full", color)} style={{ width: `${width}%` }} />
+      </div>
+    </div>
+  );
+}
+
+function OperationRow({
+  title,
+  subtitle,
+  status,
+  tone,
+  onEdit,
+  onDelete,
+  deleting,
+}: {
+  title: string;
+  subtitle: string;
+  status: string;
+  tone: "success" | "warning" | "danger" | "muted";
+  onEdit: () => void;
+  onDelete: () => void;
+  deleting?: boolean;
+}) {
+  return (
+    <div className="flex flex-col gap-3 rounded-2xl border border-line p-4 dark:border-white/10 sm:flex-row sm:items-center sm:justify-between">
+      <div className="min-w-0">
+        <div className="truncate font-semibold text-navy dark:text-white">{title}</div>
+        <div className="mt-1 text-sm text-mute dark:text-white/55">{subtitle}</div>
+      </div>
+      <div className="flex shrink-0 items-center gap-2">
+        <span className={cn(
+          "rounded-full px-3 py-1 text-xs font-semibold",
+          tone === "success" && "bg-ok/10 text-ok",
+          tone === "warning" && "bg-sun/15 text-sun-2",
+          tone === "danger" && "bg-red-500/10 text-red-500",
+          tone === "muted" && "bg-mist text-mute dark:bg-white/5 dark:text-white/55"
+        )}>{status}</span>
+        <button type="button" onClick={onEdit} className="rounded-lg p-2 text-mute transition hover:bg-mist hover:text-navy dark:hover:bg-white/10 dark:hover:text-white" title="Editar" aria-label={`Editar ${title}`}>
+          <Pencil size={16} />
+        </button>
+        <button type="button" onClick={onDelete} disabled={deleting} className="rounded-lg p-2 text-red-500 transition hover:bg-red-500/10 disabled:opacity-50" title="Excluir" aria-label={`Excluir ${title}`}>
+          <Trash2 size={16} />
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function Panel({
   title,
   subtitle,
@@ -2850,6 +3489,8 @@ function PaymentList({
   saving,
   onStatus,
   messageHref,
+  onEdit,
+  onDelete,
 }: {
   payments: AdminPayload["payments"];
   parentName: (id: string) => string;
@@ -2857,6 +3498,8 @@ function PaymentList({
   saving: string;
   onStatus: (paymentId: string, status: PaymentStatus) => void;
   messageHref: (payment: AdminPayload["payments"][number]) => string;
+  onEdit: (payment: AdminPayload["payments"][number]) => void;
+  onDelete: (payment: AdminPayload["payments"][number]) => void;
 }) {
   if (payments.length === 0) {
     return (
@@ -2876,7 +3519,7 @@ function PaymentList({
                 {payment.month} - {childName(payment.childId)}
               </div>
               <div className="mt-1 text-sm text-mute dark:text-white/55">
-                {parentName(payment.parentId)} - {formatCurrency(payment.amount)} - vence {payment.dueDate}
+                {parentName(payment.parentId)} - {formatCurrency(payment.amount)} - vence {payment.dueDate} - {payment.paymentMethod === "pix" ? "Pix" : payment.paymentMethod === "boleto" ? "Boleto" : payment.paymentMethod === "card" ? "Cartao" : "Dinheiro"}
               </div>
             </div>
             <span
@@ -2895,6 +3538,12 @@ function PaymentList({
           </div>
 
           <div className="mt-4 flex flex-wrap gap-2">
+            <Button type="button" variant="outlineDark" size="sm" onClick={() => onEdit(payment)}>
+              <Pencil size={14} /> Editar
+            </Button>
+            <Button type="button" variant="outlineDark" size="sm" onClick={() => onDelete(payment)} disabled={saving === `payment-delete-${payment.id}`}>
+              <Trash2 size={14} /> Excluir
+            </Button>
             <Button
               type="button"
               variant="outlineDark"

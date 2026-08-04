@@ -5,11 +5,16 @@ import { makeId, todayIso } from "@/lib/app-utils";
 export async function POST(request: Request) {
   await prepareDb();
   const body = await request.json().catch(() => null);
+  const id = String(body?.id || "");
   const parentId = String(body?.parentId || "");
   const childId = String(body?.childId || "");
   const month = String(body?.month || "").trim();
   const dueDate = String(body?.dueDate || "").trim();
   const amount = Number(body?.amount || 0);
+  const paymentMethod = ["pix", "boleto", "card", "cash"].includes(String(body?.paymentMethod || ""))
+    ? String(body.paymentMethod) as "pix" | "boleto" | "card" | "cash"
+    : "pix";
+  const externalReference = String(body?.externalReference || "").trim();
   const requestedCompanyId = String(body?.companyId || "");
   const currentDb = readDb();
   const activeCompanyId =
@@ -24,13 +29,42 @@ export async function POST(request: Request) {
     );
   }
 
+  let error = "";
   mutateDb((draft) => {
     const companyId = activeCompanyId || draft.currentCompanyId || draft.companies[0]?.id;
     const parent = draft.parents.find((item) => item.id === parentId && (item.companyId || companyId) === companyId);
     const child = draft.children.find(
       (item) => item.id === childId && item.parentId === parentId && (item.companyId || companyId) === companyId
     );
-    if (!parent || !child) return;
+    if (!parent || !child) {
+      error = "Responsavel ou aluno nao encontrado.";
+      return;
+    }
+
+    const existing = id
+      ? draft.payments.find((payment) => payment.id === id && (payment.companyId || companyId) === companyId)
+      : undefined;
+    if (id && !existing) {
+      error = "Mensalidade nao encontrada.";
+      return;
+    }
+
+    if (existing) {
+      existing.parentId = parentId;
+      existing.childId = childId;
+      existing.month = month;
+      existing.dueDate = dueDate;
+      existing.amount = amount;
+      existing.paymentMethod = paymentMethod;
+      existing.externalReference = externalReference;
+      if (existing.receipt) {
+        existing.receipt.amount = amount;
+        existing.receipt.month = month;
+        existing.receipt.payerName = parent.name;
+        existing.receipt.childName = child.name;
+      }
+      return;
+    }
 
     draft.payments.push({
       id: makeId("pay"),
@@ -40,11 +74,46 @@ export async function POST(request: Request) {
       month,
       dueDate,
       amount,
+      paymentMethod,
+      externalReference,
       status: "pending_proof",
       createdAt: todayIso(),
     });
   });
 
+  if (error) return NextResponse.json({ error }, { status: 400 });
+
   await persistDb();
   return NextResponse.json(getAdminPayload(activeCompanyId));
+}
+
+export async function DELETE(request: Request) {
+  await prepareDb();
+  const body = await request.json().catch(() => null);
+  const id = String(body?.id || "");
+  const companyId = String(body?.companyId || "");
+  if (!id) return NextResponse.json({ error: "Informe a mensalidade." }, { status: 400 });
+
+  let error = "";
+  mutateDb((draft) => {
+    const activeCompanyId =
+      draft.companies.find((company) => company.id === companyId)?.id ||
+      draft.currentCompanyId ||
+      draft.companies[0]?.id;
+    const found = draft.payments.find(
+      (payment) => payment.id === id && (payment.companyId || activeCompanyId) === activeCompanyId
+    );
+    if (!found) {
+      error = "Mensalidade nao encontrada.";
+      return;
+    }
+    draft.payments = draft.payments.filter((payment) => payment.id !== id);
+    draft.notifications = draft.notifications.filter(
+      (notification) => !(notification.type === "payment" && notification.parentId === found.parentId && notification.childId === found.childId)
+    );
+  });
+
+  if (error) return NextResponse.json({ error }, { status: 400 });
+  await persistDb();
+  return NextResponse.json(getAdminPayload(companyId || undefined));
 }
