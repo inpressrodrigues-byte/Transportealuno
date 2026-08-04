@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createContract, getAdminPayload, persistDb, prepareDb, updateContractTemplate } from "@/lib/server/app-db";
+import { createContract, getAdminPayload, persistDb, prepareDb, storageErrorMessage, updateContractTemplate } from "@/lib/server/app-db";
 
 export async function PUT(request: Request) {
   await prepareDb();
@@ -11,7 +11,11 @@ export async function PUT(request: Request) {
     return NextResponse.json({ error }, { status: 400 });
   }
 
-  await persistDb();
+  try {
+    await persistDb();
+  } catch (error) {
+    return NextResponse.json({ error: storageErrorMessage(error) }, { status: 503 });
+  }
   return NextResponse.json(getAdminPayload(companyId || undefined));
 }
 
@@ -30,6 +34,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: error || "Nao foi possivel gerar o contrato." }, { status: 400 });
   }
 
-  await persistDb();
+  try {
+    await persistDb();
+  } catch (error) {
+    return NextResponse.json({ error: storageErrorMessage(error) }, { status: 503 });
+  }
   return NextResponse.json({ ...getAdminPayload(companyId || undefined), contract });
 }

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { assignChildTransport, getAdminPayload, persistDb, prepareDb } from "@/lib/server/app-db";
+import { assignChildTransport, getAdminPayload, persistDb, prepareDb, storageErrorMessage } from "@/lib/server/app-db";
 import type { Shift } from "@/lib/app-types";
 
 export async function PATCH(request: Request) {
@@ -18,6 +18,10 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error }, { status: 400 });
   }
 
-  await persistDb();
+  try {
+    await persistDb();
+  } catch (error) {
+    return NextResponse.json({ error: storageErrorMessage(error) }, { status: 503 });
+  }
   return NextResponse.json(getAdminPayload(String(body?.companyId || "") || undefined));
 }

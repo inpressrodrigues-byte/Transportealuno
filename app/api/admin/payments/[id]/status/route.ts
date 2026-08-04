@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createReceipt, mutateDb, persistDb, prepareDb } from "@/lib/server/app-db";
+import { createReceipt, mutateDb, persistDb, prepareDb, storageErrorMessage } from "@/lib/server/app-db";
 import type { PaymentStatus } from "@/lib/app-types";
 import { makeId, todayIso } from "@/lib/app-utils";
 
@@ -71,6 +71,10 @@ export async function PUT(
     return NextResponse.json({ error }, { status: 400 });
   }
 
-  await persistDb();
+  try {
+    await persistDb();
+  } catch (storageError) {
+    return NextResponse.json({ error: storageErrorMessage(storageError) }, { status: 503 });
+  }
   return NextResponse.json({ payments: db.payments });
 }

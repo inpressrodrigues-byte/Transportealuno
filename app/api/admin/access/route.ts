@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getAdminPayload, persistDb, prepareDb, updateAdminAccess } from "@/lib/server/app-db";
+import { getAdminPayload, persistDb, prepareDb, storageErrorMessage, updateAdminAccess } from "@/lib/server/app-db";
 
 export async function GET() {
   await prepareDb();
@@ -20,6 +20,10 @@ export async function PUT(request: Request) {
     return NextResponse.json({ error }, { status: 400 });
   }
 
-  await persistDb();
+  try {
+    await persistDb();
+  } catch (error) {
+    return NextResponse.json({ error: storageErrorMessage(error) }, { status: 503 });
+  }
   return NextResponse.json({ adminAccess });
 }

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { bulkUpdateNeighborhoods, persistDb, prepareDb, upsertNeighborhood } from "@/lib/server/app-db";
+import { bulkUpdateNeighborhoods, persistDb, prepareDb, storageErrorMessage, upsertNeighborhood } from "@/lib/server/app-db";
 
 export async function POST(request: Request) {
   await prepareDb();
@@ -22,7 +22,11 @@ export async function POST(request: Request) {
     },
   });
 
-  await persistDb();
+  try {
+    await persistDb();
+  } catch (error) {
+    return NextResponse.json({ error: storageErrorMessage(error) }, { status: 503 });
+  }
   return NextResponse.json({ neighborhoods: db.neighborhoods });
 }
 
@@ -41,6 +45,10 @@ export async function PATCH(request: Request) {
   }
 
   const db = bulkUpdateNeighborhoods(ids, action as "serve" | "pause" | "delete");
-  await persistDb();
+  try {
+    await persistDb();
+  } catch (error) {
+    return NextResponse.json({ error: storageErrorMessage(error) }, { status: 503 });
+  }
   return NextResponse.json({ neighborhoods: db.neighborhoods });
 }

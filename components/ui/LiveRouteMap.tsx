@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { MapPin, Navigation } from "lucide-react";
+import { Clock3, MapPin, Navigation, Sparkles } from "lucide-react";
 import type { LiveTrackingState } from "@/lib/app-types";
 import { cn } from "@/lib/utils";
 import { loadLeaflet, type LeafletMapInstance, type LeafletMarker } from "@/components/ui/ToledoLuxuryMap";
@@ -89,8 +89,8 @@ export function LiveRouteMap({
           icon: L.divIcon({
             className: "live-route-marker",
             html: `<span class="live-route-pulse"></span><span class="live-route-pin">${vanIcon()}</span>`,
-            iconSize: [58, 58],
-            iconAnchor: [29, 29],
+            iconSize: [72, 60],
+            iconAnchor: [36, 30],
           }),
           keyboard: false,
         })
@@ -118,6 +118,9 @@ export function LiveRouteMap({
   const mapsHref = hasGps
     ? `https://www.google.com/maps?q=${live.latitude},${live.longitude}`
     : "https://www.google.com/maps/search/?api=1&query=Toledo%20PR";
+  const arrivalTime = live.estimatedArrivalAt
+    ? new Date(live.estimatedArrivalAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })
+    : "";
 
   return (
     <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-white shadow-sm">
@@ -142,8 +145,13 @@ export function LiveRouteMap({
             : "A localizacao aparece quando a rota iniciar"}
         </div>
         {live.active && (
-          <div className="mt-1 text-xs text-mute">
-            Chegada estimada: {live.estimatedMinutes || 0} min
+          <div className="mt-2 space-y-1 text-xs text-mute">
+            <div className="flex items-center gap-1.5">
+              <Clock3 size={12} /> Chegada em {live.estimatedMinutes || 0} min{arrivalTime ? `, por volta de ${arrivalTime}` : ""}
+            </div>
+            <div className="flex items-center gap-1.5 font-semibold text-navy/70">
+              <Sparkles size={12} /> {live.estimateSource === "smart" ? "Previsao inteligente por GPS" : "Previsao informada pelo motorista"}
+            </div>
           </div>
         )}
       </div>
@@ -161,7 +169,16 @@ export function LiveRouteMap({
 }
 
 function vanIcon() {
-  return "van";
+  return [
+    '<span class="live-route-vehicle" aria-hidden="true">',
+    '<span class="live-route-vehicle-window is-front"></span>',
+    '<span class="live-route-vehicle-window is-back"></span>',
+    '<span class="live-route-vehicle-door"></span>',
+    '<span class="live-route-vehicle-light"></span>',
+    '<span class="live-route-vehicle-wheel is-front"></span>',
+    '<span class="live-route-vehicle-wheel is-back"></span>',
+    "</span>",
+  ].join("");
 }
 
 function escapeHtml(value: string) {

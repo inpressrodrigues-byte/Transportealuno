@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { generateRoutePlan, persistDb, prepareDb } from "@/lib/server/app-db";
+import { generateRoutePlan, persistDb, prepareDb, storageErrorMessage } from "@/lib/server/app-db";
 
 export async function POST(request: Request) {
   await prepareDb();
@@ -13,6 +13,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: error || "Nao foi possivel gerar a rota." }, { status: 400 });
   }
 
-  await persistDb();
+  try {
+    await persistDb();
+  } catch (error) {
+    return NextResponse.json({ error: storageErrorMessage(error) }, { status: 503 });
+  }
   return NextResponse.json({ routePlan });
 }

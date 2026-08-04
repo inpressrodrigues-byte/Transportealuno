@@ -4,6 +4,7 @@ import {
   getAdminPayload,
   persistDb,
   prepareDb,
+  storageErrorMessage,
   upsertChild,
 } from "@/lib/server/app-db";
 import type { Shift } from "@/lib/app-types";
@@ -34,7 +35,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ error }, { status: 400 });
   }
 
-  await persistDb();
+  try {
+    await persistDb();
+  } catch (error) {
+    return NextResponse.json({ error: storageErrorMessage(error) }, { status: 503 });
+  }
   return NextResponse.json(getAdminPayload(companyId));
 }
 
@@ -48,6 +53,10 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ error }, { status: 400 });
   }
 
-  await persistDb();
+  try {
+    await persistDb();
+  } catch (error) {
+    return NextResponse.json({ error: storageErrorMessage(error) }, { status: 503 });
+  }
   return NextResponse.json(getAdminPayload(companyId));
 }

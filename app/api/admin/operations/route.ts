@@ -11,6 +11,7 @@ import {
   getAdminPayload,
   persistDb,
   prepareDb,
+  storageErrorMessage,
   upsertDriverDocument,
   upsertDriverOccurrence,
   upsertExpense,
@@ -46,7 +47,11 @@ export async function POST(request: Request) {
   }
 
   if (result.error) return NextResponse.json({ error: result.error }, { status: 400 });
-  await persistDb();
+  try {
+    await persistDb();
+  } catch (error) {
+    return NextResponse.json({ error: storageErrorMessage(error) }, { status: 503 });
+  }
   return NextResponse.json(getAdminPayload(companyId));
 }
 
@@ -61,6 +66,10 @@ export async function DELETE(request: Request) {
 
   const result = deleteOperationRecord(entity, id, companyId);
   if (result.error) return NextResponse.json({ error: result.error }, { status: 400 });
-  await persistDb();
+  try {
+    await persistDb();
+  } catch (error) {
+    return NextResponse.json({ error: storageErrorMessage(error) }, { status: 503 });
+  }
   return NextResponse.json(getAdminPayload(companyId));
 }

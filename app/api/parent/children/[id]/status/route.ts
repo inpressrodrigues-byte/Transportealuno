@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { persistDb, prepareDb, updateChildAbsence } from "@/lib/server/app-db";
+import { persistDb, prepareDb, storageErrorMessage, updateChildAbsence } from "@/lib/server/app-db";
 import type { ChildAbsenceStatus } from "@/lib/app-types";
 
 const statuses: ChildAbsenceStatus[] = ["going", "not_going", "not_returning"];
@@ -24,7 +24,11 @@ export async function PUT(
     return NextResponse.json({ error }, { status: 400 });
   }
 
-  await persistDb();
+  try {
+    await persistDb();
+  } catch (error) {
+    return NextResponse.json({ error: storageErrorMessage(error) }, { status: 503 });
+  }
   return NextResponse.json({
     children: db.children.filter((child) => child.parentId === parentId),
     checkins: db.checkins.filter((checkin) => checkin.parentId === parentId),

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { deleteVan, getAdminPayload, persistDb, prepareDb, upsertVan } from "@/lib/server/app-db";
+import { deleteVan, getAdminPayload, persistDb, prepareDb, storageErrorMessage, upsertVan } from "@/lib/server/app-db";
 
 export async function POST(request: Request) {
   await prepareDb();
@@ -22,7 +22,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ error }, { status: 400 });
   }
 
-  await persistDb();
+  try {
+    await persistDb();
+  } catch (error) {
+    return NextResponse.json({ error: storageErrorMessage(error) }, { status: 503 });
+  }
   return NextResponse.json(getAdminPayload(String(body?.companyId || "") || undefined));
 }
 
@@ -36,6 +40,10 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ error }, { status: 400 });
   }
 
-  await persistDb();
+  try {
+    await persistDb();
+  } catch (error) {
+    return NextResponse.json({ error: storageErrorMessage(error) }, { status: 503 });
+  }
   return NextResponse.json(getAdminPayload(companyId || undefined));
 }

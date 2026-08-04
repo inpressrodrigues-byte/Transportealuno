@@ -136,7 +136,8 @@ export default function DashboardPage() {
   }, [router]);
 
   const nextPayment = useMemo(() => {
-    return data?.payments.find((payment) => payment.status !== "approved") || data?.payments[0];
+    const chargeable = data?.payments.filter((payment) => payment.chargeEnabled) ?? [];
+    return chargeable.find((payment) => payment.status !== "approved") || chargeable[0];
   }, [data]);
 
   const activeNotices = data?.children.filter((child) => child.absenceStatus !== "going") ?? [];
@@ -632,35 +633,43 @@ export default function DashboardPage() {
                               {payment.month} - {childName(payment.childId)}
                             </div>
                             <div className="mt-1 text-sm text-mute dark:text-white/55">
-                              {formatCurrency(payment.amount)} · vencimento {payment.dueDate}
+                              {payment.chargeEnabled
+                                ? `${formatCurrency(payment.amount)} - vencimento ${payment.dueDate}`
+                                : "Mensalidade sem cobranca neste mes"}
                             </div>
                           </div>
                           <PaymentBadge payment={payment} />
                         </div>
 
                         <div className="mt-4 flex flex-wrap gap-2">
-                          <label className={cn(
-                            "inline-flex cursor-pointer items-center justify-center gap-2 rounded-full bg-navy px-4 py-2 text-sm font-semibold text-white transition hover:bg-navy-2",
-                            saving === payment.id && "pointer-events-none opacity-50"
-                          )}>
-                            <FileUp size={15} />
-                            {payment.proof ? "Trocar comprovante" : "Anexar comprovante"}
-                            <input
-                              type="file"
-                              accept="image/*,.pdf"
-                              className="sr-only"
-                              onChange={(e) => uploadProof(payment, e.target.files?.[0])}
-                            />
-                          </label>
-                          {payment.receipt ? (
+                          {payment.chargeEnabled ? (
+                            <label className={cn(
+                              "inline-flex cursor-pointer items-center justify-center gap-2 rounded-full bg-navy px-4 py-2 text-sm font-semibold text-white transition hover:bg-navy-2",
+                              saving === payment.id && "pointer-events-none opacity-50"
+                            )}>
+                              <FileUp size={15} />
+                              {payment.proof ? "Trocar comprovante" : "Anexar comprovante"}
+                              <input
+                                type="file"
+                                accept="image/*,.pdf"
+                                className="sr-only"
+                                onChange={(e) => uploadProof(payment, e.target.files?.[0])}
+                              />
+                            </label>
+                          ) : (
+                            <span className="inline-flex items-center gap-2 rounded-full bg-mist px-3 py-2 text-xs font-semibold text-mute dark:bg-white/5 dark:text-white/55">
+                              Nenhum pagamento necessario
+                            </span>
+                          )}
+                          {payment.chargeEnabled && payment.receipt ? (
                             <Button type="button" variant="outlineDark" size="sm" onClick={() => setOpenReceipt(payment.receipt || null)}>
                               <ReceiptText size={15} /> Ver recibo
                             </Button>
-                          ) : (
+                          ) : payment.chargeEnabled ? (
                             <span className="inline-flex items-center gap-2 rounded-full bg-mist px-3 py-2 text-xs font-semibold text-mute dark:bg-white/5 dark:text-white/55">
                               Sem comprovante, sem recibo
                             </span>
-                          )}
+                          ) : null}
                         </div>
                       </div>
                     ))}
@@ -977,6 +986,15 @@ function StatusButton({
 }
 
 function PaymentBadge({ payment }: { payment: PaymentRecord }) {
+  if (!payment.chargeEnabled) {
+    return (
+      <span className="inline-flex w-fit items-center gap-2 rounded-full bg-mist px-3 py-1 text-xs font-semibold text-mute dark:bg-white/5 dark:text-white/55">
+        <CheckCircle2 size={13} />
+        Nao cobrar
+      </span>
+    );
+  }
+
   return (
     <span
       className={cn(

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getContract, persistDb, prepareDb, signContract } from "@/lib/server/app-db";
+import { getContract, persistDb, prepareDb, signContract, storageErrorMessage } from "@/lib/server/app-db";
 
 export async function GET(
   _request: Request,
@@ -33,6 +33,10 @@ export async function POST(
     return NextResponse.json({ error: error || "Nao foi possivel assinar." }, { status: 400 });
   }
 
-  await persistDb();
+  try {
+    await persistDb();
+  } catch (error) {
+    return NextResponse.json({ error: storageErrorMessage(error) }, { status: 503 });
+  }
   return NextResponse.json({ contract });
 }

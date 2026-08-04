@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getAdminPayload, persistDb, prepareDb, regenerateVanQrCode } from "@/lib/server/app-db";
+import { getAdminPayload, persistDb, prepareDb, regenerateVanQrCode, storageErrorMessage } from "@/lib/server/app-db";
 
 export async function GET(request: Request) {
   await prepareDb();
@@ -18,6 +18,10 @@ export async function POST(request: Request) {
   const companyId = String(body?.companyId || "");
   regenerateVanQrCode(String(body?.vanId || ""), companyId || undefined);
   const payload = getAdminPayload(companyId || undefined);
-  await persistDb();
+  try {
+    await persistDb();
+  } catch (error) {
+    return NextResponse.json({ error: storageErrorMessage(error) }, { status: 503 });
+  }
   return NextResponse.json({ vanQrCode: payload.vanQrCode, vanQrCodes: payload.vanQrCodes });
 }

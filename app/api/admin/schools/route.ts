@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { bulkUpdateSchools, deleteSchool, persistDb, prepareDb, upsertSchool } from "@/lib/server/app-db";
+import { bulkUpdateSchools, deleteSchool, persistDb, prepareDb, storageErrorMessage, upsertSchool } from "@/lib/server/app-db";
 import { schoolCategories, shifts } from "@/lib/app-utils";
 import type { SchoolCategory, Shift } from "@/lib/app-types";
 
@@ -25,7 +25,11 @@ export async function POST(request: Request) {
     active: body.active ?? true,
   });
 
-  await persistDb();
+  try {
+    await persistDb();
+  } catch (error) {
+    return NextResponse.json({ error: storageErrorMessage(error) }, { status: 503 });
+  }
   return NextResponse.json({ schools: db.schools });
 }
 
@@ -39,7 +43,11 @@ export async function DELETE(request: Request) {
   }
 
   const db = deleteSchool(id);
-  await persistDb();
+  try {
+    await persistDb();
+  } catch (error) {
+    return NextResponse.json({ error: storageErrorMessage(error) }, { status: 503 });
+  }
   return NextResponse.json({ schools: db.schools });
 }
 
@@ -58,6 +66,10 @@ export async function PATCH(request: Request) {
   }
 
   const db = bulkUpdateSchools(ids, action as "serve" | "pause" | "delete");
-  await persistDb();
+  try {
+    await persistDb();
+  } catch (error) {
+    return NextResponse.json({ error: storageErrorMessage(error) }, { status: 503 });
+  }
   return NextResponse.json({ schools: db.schools });
 }

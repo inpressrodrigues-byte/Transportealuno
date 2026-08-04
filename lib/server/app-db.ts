@@ -47,14 +47,16 @@ const DB_PATH = path.join(DATA_DIR, "app-db.json");
 const BLOB_DB_PATH = "rota-segura/app-db.json";
 const LIVE_MAX_AGE_MINUTES = 45;
 const DEFAULT_ADMIN_LOGIN = "InpresS";
-const DEFAULT_ADMIN_PASSWORD = "GuGalex2011@.";
+const DEFAULT_ADMIN_PASSWORD_HASH = "cc264108cb93692694163832b63f30dd764913eb4c39a4dfe96d014a2c404d08";
 const DEFAULT_COMPANY_ID = "company_oziel";
-const DEFAULT_COMPANY_PASSWORD = "Oziel@2026";
-const DEFAULT_DRIVER_CPF = "12345678910";
+const DEFAULT_COMPANY_PASSWORD_HASH = "685178e4354e8a4759ab5862eeea866d16dbf390870e204ce7a3f828e0ceddcf";
+const DEFAULT_DRIVER_CPF_HASH = "1720e5e1d37bc7647158a92e1d96724bb97a378d9a55def8961a22089cf16474";
+const DEFAULT_DRIVER_CPF_LAST4 = "8910";
 const DEFAULT_DRIVER_ID = "driver_oziel";
 const DEFAULT_VAN_ID = "van_principal";
 
 let memoryDb: AppDatabase | null = null;
+let lastStorageError = "";
 
 export function hashSecret(value: string) {
   const normalized = normalizeCpf(value) || normalizeContact(value) || value.trim();
@@ -96,6 +98,9 @@ function defaultSettings(): CompanySettings {
     pixBank: "Sicoob",
     receiptText:
       "Recibo gerado automaticamente apos o envio do comprovante. A confirmacao definitiva depende da conciliacao bancaria.",
+    monthlyFeeDefault: 220,
+    monthlyDueDay: 5,
+    automaticMonthlyBilling: true,
     routeApiProvider: "local-ai",
     routeApiKey: "",
   };
@@ -127,7 +132,7 @@ function defaultCompany(): CompanyRecord {
     document,
     documentHash: hashSecret(document),
     documentLast4: document.slice(-4),
-    passwordHash: hashPassword(DEFAULT_COMPANY_PASSWORD),
+    passwordHash: DEFAULT_COMPANY_PASSWORD_HASH,
     active: true,
     settings,
     theme: defaultTheme(),
@@ -149,6 +154,9 @@ function defaultLiveTracking(): LiveTrackingState {
     currentNeighborhood: "Centro",
     nextStop: "Primeiro embarque",
     estimatedMinutes: 0,
+    estimatedArrivalAt: "",
+    estimateSource: "manual",
+    distanceToNextStopKm: 0,
     source: "manual",
   };
 }
@@ -173,8 +181,8 @@ function defaultDriver(): DriverRecord {
     companyId: DEFAULT_COMPANY_ID,
     name: "Oziel Galtaroza Rodrigues",
     contact: "45999340446",
-    cpfHash: hashSecret(DEFAULT_DRIVER_CPF),
-    cpfLast4: DEFAULT_DRIVER_CPF.slice(-4),
+    cpfHash: DEFAULT_DRIVER_CPF_HASH,
+    cpfLast4: DEFAULT_DRIVER_CPF_LAST4,
     license: "CNH profissional",
     vanId: DEFAULT_VAN_ID,
     active: true,
@@ -389,7 +397,7 @@ function createInitialDb(): AppDatabase {
         name: "Administrador",
         login: DEFAULT_ADMIN_LOGIN,
         contact: DEFAULT_ADMIN_LOGIN,
-        passwordHash: hashPassword(DEFAULT_ADMIN_PASSWORD),
+        passwordHash: DEFAULT_ADMIN_PASSWORD_HASH,
         createdAt: now,
       },
     ],
@@ -450,6 +458,8 @@ function createInitialDb(): AppDatabase {
         month: "Agosto/2026",
         dueDate: "2026-08-05",
         amount: 220,
+        chargeEnabled: true,
+        automatic: false,
         paymentMethod: "pix",
         externalReference: "",
         status: "pending_proof",
@@ -463,6 +473,8 @@ function createInitialDb(): AppDatabase {
         month: "Julho/2026",
         dueDate: "2026-07-05",
         amount: 220,
+        chargeEnabled: true,
+        automatic: false,
         paymentMethod: "pix",
         externalReference: "",
         status: "approved",
@@ -632,7 +644,7 @@ function normalizeCompany(item: Partial<CompanyRecord>): CompanyRecord {
     ...item.settings,
   };
   const document = normalizeDigits(String(item.document || settings.document || seed.document));
-  const passwordHash = item.passwordHash || hashSecret(DEFAULT_COMPANY_PASSWORD);
+  const passwordHash = item.passwordHash || DEFAULT_COMPANY_PASSWORD_HASH;
 
   return {
     id: item.id || makeId("company"),
@@ -991,6 +1003,8 @@ function normalizePayment(item: Partial<PaymentRecord>): PaymentRecord {
     month: item.month || "Mensalidade",
     dueDate: item.dueDate || "",
     amount: Number(item.amount || 0),
+    chargeEnabled: item.chargeEnabled ?? true,
+    automatic: item.automatic ?? false,
     paymentMethod: item.paymentMethod === "boleto" || item.paymentMethod === "card" || item.paymentMethod === "cash" ? item.paymentMethod : "pix",
     externalReference: item.externalReference || "",
     status,
@@ -1014,7 +1028,7 @@ function normalizeAdmin(item: Partial<AdminUser>): AdminUser {
     name: item.name || "Administrador",
     login,
     contact: login,
-    passwordHash: oldDefault ? hashPassword(DEFAULT_ADMIN_PASSWORD) : item.passwordHash || hashPassword(DEFAULT_ADMIN_PASSWORD),
+    passwordHash: oldDefault ? DEFAULT_ADMIN_PASSWORD_HASH : item.passwordHash || DEFAULT_ADMIN_PASSWORD_HASH,
     createdAt: item.createdAt || todayIso(),
   };
 }
@@ -1038,6 +1052,9 @@ function normalizeLive(item: Partial<LiveTrackingState> | undefined, driverName:
     currentNeighborhood: item?.currentNeighborhood || seed.currentNeighborhood,
     nextStop: item?.nextStop || seed.nextStop,
     estimatedMinutes: Number(item?.estimatedMinutes || 0),
+    estimatedArrivalAt: item?.estimatedArrivalAt || "",
+    estimateSource: item?.estimateSource === "smart" ? "smart" : "manual",
+    distanceToNextStopKm: Number(item?.distanceToNextStopKm || 0),
     source: item?.source || "manual",
   };
 }
@@ -1111,7 +1128,7 @@ function storageProvider(): AdminPayload["storage"]["provider"] {
 }
 
 function supabaseHeaders() {
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
+  const key = (process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
   const headers: Record<string, string> = {
     apikey: key,
     "Content-Type": "application/json",
@@ -1125,19 +1142,42 @@ function supabaseHeaders() {
   return headers;
 }
 
+function supabaseBaseUrl() {
+  return (process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || "")
+    .trim()
+    .replace(/\/+$/, "")
+    .replace(/\/rest\/v1$/i, "");
+}
+
+async function supabaseFailure(action: string, response: Response) {
+  const details = (await response.text().catch(() => "")).replace(/\s+/g, " ").slice(0, 320);
+  return new Error(`Supabase ${action} failed: ${response.status}${details ? ` - ${details}` : ""}`);
+}
+
+export function storageErrorMessage(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error || "");
+  if (message.includes("401") || message.includes("403")) {
+    return "O Supabase recusou a chave de acesso. Confira SUPABASE_SERVICE_ROLE_KEY na Vercel.";
+  }
+  if (message.includes("404") || message.includes("PGRST205")) {
+    return "A tabela do Supabase nao foi encontrada. Execute as migracoes 001 e 002 no SQL Editor.";
+  }
+  return "Nao foi possivel gravar no Supabase. Confira a URL, a chave e as permissoes da tabela.";
+}
+
 async function readSupabaseDb() {
-  const baseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+  const baseUrl = supabaseBaseUrl();
   const response = await fetch(`${baseUrl}/rest/v1/app_state?id=eq.rota-segura&select=payload`, {
     headers: supabaseHeaders(),
     cache: "no-store",
   });
-  if (!response.ok) throw new Error(`Supabase read failed: ${response.status}`);
+  if (!response.ok) throw await supabaseFailure("read", response);
   const rows = await response.json() as Array<{ payload?: Partial<AppDatabase> }>;
   return rows[0]?.payload ? normalizeDb(rows[0].payload) : null;
 }
 
 async function writeSupabaseDb(db: AppDatabase) {
-  const baseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+  const baseUrl = supabaseBaseUrl();
   const response = await fetch(`${baseUrl}/rest/v1/app_state?on_conflict=id`, {
     method: "POST",
     headers: {
@@ -1147,7 +1187,7 @@ async function writeSupabaseDb(db: AppDatabase) {
     body: JSON.stringify({ id: "rota-segura", payload: db, updated_at: todayIso() }),
     cache: "no-store",
   });
-  if (!response.ok) throw new Error(`Supabase write failed: ${response.status}`);
+  if (!response.ok) throw await supabaseFailure("write", response);
 }
 
 export async function prepareDb() {
@@ -1161,8 +1201,10 @@ export async function prepareDb() {
       } else {
         await writeSupabaseDb(readDb());
       }
+      lastStorageError = "";
       return readDb();
-    } catch {
+    } catch (error) {
+      lastStorageError = storageErrorMessage(error);
       if (!hasBlobStorage()) return readDb();
     }
   }
@@ -1189,8 +1231,10 @@ export async function persistDb() {
   if (hasSupabaseStorage()) {
     try {
       await writeSupabaseDb(readDb());
+      lastStorageError = "";
       return true;
     } catch (error) {
+      lastStorageError = storageErrorMessage(error);
       if (!hasBlobStorage()) throw error;
     }
   }
@@ -1204,6 +1248,42 @@ export async function persistDb() {
   });
 
   return true;
+}
+
+export async function createSupabaseBackup(reason: "daily" | "manual" | "before_reset", force = false) {
+  if (!hasSupabaseStorage()) {
+    throw new Error("Supabase backup unavailable");
+  }
+
+  const baseUrl = supabaseBaseUrl();
+  const backupDate = todayIso().slice(0, 10);
+  if (!force) {
+    const existingResponse = await fetch(
+      `${baseUrl}/rest/v1/app_state_backups?state_id=eq.rota-segura&reason=eq.${reason}&backup_date=eq.${backupDate}&select=id&limit=1`,
+      { headers: supabaseHeaders(), cache: "no-store" }
+    );
+    if (!existingResponse.ok) throw await supabaseFailure("backup check", existingResponse);
+    const existing = await existingResponse.json() as Array<{ id: number }>;
+    if (existing.length > 0) return { created: false, backupDate };
+  }
+
+  const response = await fetch(`${baseUrl}/rest/v1/app_state_backups`, {
+    method: "POST",
+    headers: {
+      ...supabaseHeaders(),
+      Prefer: "return=minimal",
+    },
+    body: JSON.stringify({
+      state_id: "rota-segura",
+      payload: readDb(),
+      reason,
+      backup_date: backupDate,
+      created_at: todayIso(),
+    }),
+    cache: "no-store",
+  });
+  if (!response.ok) throw await supabaseFailure("backup", response);
+  return { created: true, backupDate };
 }
 
 export function writeDb(db: AppDatabase) {
@@ -1354,6 +1434,8 @@ export function getAdminPayload(companyId?: string): AdminPayload {
     storage: {
       durable: hasDurableStorage(),
       provider: storageProvider(),
+      healthy: hasDurableStorage() && !lastStorageError,
+      message: lastStorageError,
     },
     adminAccess: safeAdmin(db.admins[0]),
     currentCompany: safeCompany(currentCompany),
@@ -1618,6 +1700,9 @@ export function upsertCompany(input: {
       brandName: input.settings?.brandName?.trim() || company.settings.brandName || name,
       businessName: input.settings?.businessName?.trim() || company.settings.businessName || name,
       document: input.settings?.document?.trim() || document,
+      monthlyFeeDefault: Math.max(0, Number(input.settings?.monthlyFeeDefault ?? company.settings.monthlyFeeDefault ?? 220)),
+      monthlyDueDay: Math.min(28, Math.max(1, Number(input.settings?.monthlyDueDay ?? company.settings.monthlyDueDay ?? 5))),
+      automaticMonthlyBilling: input.settings?.automaticMonthlyBilling ?? company.settings.automaticMonthlyBilling ?? true,
       routeApiProvider: input.settings?.routeApiProvider || company.settings.routeApiProvider || "local-ai",
       routeApiKey: input.settings?.routeApiKey ?? company.settings.routeApiKey ?? "",
     };
@@ -1648,6 +1733,9 @@ export function updateCompanyProfile(
         brandName: settings.brandName?.trim() || company.settings.brandName,
         businessName: settings.businessName?.trim() || company.settings.businessName,
         pixKey: settings.pixKey?.trim() || company.settings.pixKey,
+        monthlyFeeDefault: Math.max(0, Number(settings.monthlyFeeDefault ?? company.settings.monthlyFeeDefault ?? 220)),
+        monthlyDueDay: Math.min(28, Math.max(1, Number(settings.monthlyDueDay ?? company.settings.monthlyDueDay ?? 5))),
+        automaticMonthlyBilling: settings.automaticMonthlyBilling ?? company.settings.automaticMonthlyBilling ?? true,
         routeApiProvider: settings.routeApiProvider || company.settings.routeApiProvider || "local-ai",
         routeApiKey: settings.routeApiKey ?? company.settings.routeApiKey ?? "",
       };
@@ -2176,6 +2264,181 @@ export function deleteVan(id: string, companyId?: string) {
   });
 
   return { db, error };
+}
+
+const MONTH_NAMES = [
+  "Janeiro",
+  "Fevereiro",
+  "Marco",
+  "Abril",
+  "Maio",
+  "Junho",
+  "Julho",
+  "Agosto",
+  "Setembro",
+  "Outubro",
+  "Novembro",
+  "Dezembro",
+];
+
+function nextBillingMonth(referenceDate = new Date()) {
+  const target = new Date(Date.UTC(referenceDate.getUTCFullYear(), referenceDate.getUTCMonth() + 1, 1));
+  const year = target.getUTCFullYear();
+  const monthIndex = target.getUTCMonth();
+  const key = `${year}-${String(monthIndex + 1).padStart(2, "0")}`;
+  return { year, monthIndex, key, label: `${MONTH_NAMES[monthIndex]}/${year}` };
+}
+
+function billingDueDate(year: number, monthIndex: number, requestedDay: number) {
+  const lastDay = new Date(Date.UTC(year, monthIndex + 1, 0)).getUTCDate();
+  const day = Math.min(lastDay, Math.max(1, Math.round(requestedDay || 5)));
+  return `${year}-${String(monthIndex + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
+
+export function generateUpcomingPayments(input: { companyId?: string; force?: boolean; referenceDate?: Date } = {}) {
+  let created = 0;
+  const target = nextBillingMonth(input.referenceDate || new Date());
+
+  const db = mutateDb((draft) => {
+    const companies = input.companyId
+      ? draft.companies.filter((company) => company.id === input.companyId)
+      : draft.companies.filter((company) => company.active);
+
+    companies.forEach((company) => {
+      if (!input.force && !company.settings.automaticMonthlyBilling) return;
+      let companyCreated = 0;
+
+      const children = draft.children.filter(
+        (child) => child.active && belongsToCompany(child, company.id)
+      );
+
+      children.forEach((child) => {
+        const parent = draft.parents.find(
+          (item) => item.id === child.parentId && item.active && belongsToCompany(item, company.id)
+        );
+        if (!parent) return;
+
+        const duplicate = draft.payments.some(
+          (payment) =>
+            payment.childId === child.id &&
+            belongsToCompany(payment, company.id) &&
+            (payment.month === target.label || payment.dueDate.startsWith(target.key))
+        );
+        if (duplicate) return;
+
+        const previous = draft.payments
+          .filter((payment) => payment.childId === child.id && belongsToCompany(payment, company.id))
+          .sort((left, right) => right.dueDate.localeCompare(left.dueDate))[0];
+
+        draft.payments.unshift({
+          id: makeId("pay"),
+          companyId: company.id,
+          parentId: parent.id,
+          childId: child.id,
+          month: target.label,
+          dueDate: billingDueDate(target.year, target.monthIndex, company.settings.monthlyDueDay),
+          amount: previous?.amount > 0 ? previous.amount : Math.max(0, company.settings.monthlyFeeDefault || 220),
+          chargeEnabled: true,
+          automatic: true,
+          paymentMethod: previous?.paymentMethod || "pix",
+          externalReference: "",
+          status: "pending_proof",
+          createdAt: todayIso(),
+        });
+        created += 1;
+        companyCreated += 1;
+      });
+
+      if (companyCreated > 0) {
+        draft.auditLogs.unshift({
+          id: makeId("audit"),
+          companyId: company.id,
+          actorRole: "system",
+          actorName: "Cobranca automatica",
+          action: "created",
+          entityType: "payments",
+          entityId: target.key,
+          summary: `${companyCreated} mensalidade(s) gerada(s) para ${target.label}.`,
+          createdAt: todayIso(),
+        });
+      }
+    });
+  });
+
+  return { db, created, month: target.label, monthKey: target.key };
+}
+
+export function resetCompanyOperationalData(companyId?: string) {
+  const db = mutateDb((draft) => {
+    const company = resolveCompany(draft, companyId);
+    const keepOtherCompanies = <T extends { companyId?: string }>(items: T[]) =>
+      items.filter((item) => !belongsToCompany(item, company.id));
+
+    draft.drivers = keepOtherCompanies(draft.drivers);
+    draft.vans = keepOtherCompanies(draft.vans);
+    draft.parents = keepOtherCompanies(draft.parents);
+    draft.children = keepOtherCompanies(draft.children);
+    draft.checkins = keepOtherCompanies(draft.checkins);
+    draft.payments = keepOtherCompanies(draft.payments);
+    draft.contracts = keepOtherCompanies(draft.contracts);
+    draft.routePlans = keepOtherCompanies(draft.routePlans);
+    draft.driverDocuments = keepOtherCompanies(draft.driverDocuments);
+    draft.driverOccurrences = keepOtherCompanies(draft.driverOccurrences);
+    draft.vehicleMaintenances = keepOtherCompanies(draft.vehicleMaintenances);
+    draft.fuelRecords = keepOtherCompanies(draft.fuelRecords);
+    draft.expenses = keepOtherCompanies(draft.expenses);
+    draft.trackingPoints = keepOtherCompanies(draft.trackingPoints);
+    draft.notifications = keepOtherCompanies(draft.notifications);
+    draft.auditLogs = keepOtherCompanies(draft.auditLogs);
+    draft.liveTrackings = keepOtherCompanies(draft.liveTrackings);
+    draft.vanQrCodes = keepOtherCompanies(draft.vanQrCodes);
+
+    const blankLive: LiveTrackingState = {
+      id: makeId("live"),
+      companyId: company.id,
+      driverId: "",
+      vanId: "",
+      active: false,
+      driverName: company.settings.driverName || "Motorista",
+      startedAt: "",
+      lastSeenAt: "",
+      currentNeighborhood: "",
+      nextStop: "",
+      estimatedMinutes: 0,
+      estimatedArrivalAt: "",
+      estimateSource: "manual",
+      distanceToNextStopKm: 0,
+      source: "manual",
+    };
+    draft.liveTrackings.push(blankLive);
+    if (draft.currentCompanyId === company.id) draft.liveTracking = blankLive;
+
+    const blankQr: VanQrCodeRecord = {
+      id: makeId("vanqr"),
+      companyId: company.id,
+      vanId: "",
+      token: makeId("vanqr"),
+      label: "Sem van cadastrada",
+      active: false,
+      generatedAt: todayIso(),
+    };
+    draft.vanQrCodes.push(blankQr);
+    if (draft.currentCompanyId === company.id) draft.vanQrCode = blankQr;
+
+    draft.auditLogs.unshift({
+      id: makeId("audit"),
+      companyId: company.id,
+      actorRole: "admin",
+      actorName: "Administrador",
+      action: "deleted",
+      entityType: "company_operational_data",
+      entityId: company.id,
+      summary: "Dados operacionais zerados apos backup de seguranca.",
+      createdAt: todayIso(),
+    });
+  });
+
+  return db;
 }
 
 export function upsertDriverDocument(input: Partial<DriverDocumentRecord> & { driverId: string; label: string; companyId?: string }) {
@@ -2717,6 +2980,98 @@ export function bulkUpdateNeighborhoods(ids: string[], action: "serve" | "pause"
   });
 }
 
+function haversineDistanceKm(
+  from: { latitude: number; longitude: number },
+  to: { latitude: number; longitude: number }
+) {
+  const radiusKm = 6371;
+  const toRadians = (value: number) => (value * Math.PI) / 180;
+  const latitudeDelta = toRadians(to.latitude - from.latitude);
+  const longitudeDelta = toRadians(to.longitude - from.longitude);
+  const latitude1 = toRadians(from.latitude);
+  const latitude2 = toRadians(to.latitude);
+  const a =
+    Math.sin(latitudeDelta / 2) ** 2 +
+    Math.cos(latitude1) * Math.cos(latitude2) * Math.sin(longitudeDelta / 2) ** 2;
+  return radiusKm * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function calculateSmartEstimate(
+  db: AppDatabase,
+  input: {
+    companyId: string;
+    driverId?: string;
+    vanId?: string;
+    latitude: number;
+    longitude: number;
+    speed?: number;
+    startedAt?: string;
+  }
+) {
+  const today = todayIso().slice(0, 10);
+  const completedChildIds = new Set(
+    db.checkins
+      .filter(
+        (checkin) =>
+          belongsToCompany(checkin, input.companyId) &&
+          checkin.type === "boarding" &&
+          checkin.scannedAt.startsWith(today)
+      )
+      .map((checkin) => checkin.childId)
+  );
+  const routePlan = db.routePlans
+    .filter(
+      (plan) =>
+        belongsToCompany(plan, input.companyId) &&
+        (!!input.driverId ? plan.driverId === input.driverId : plan.vanId === input.vanId)
+    )
+    .sort((left, right) => right.generatedAt.localeCompare(left.generatedAt))[0];
+  const plannedStop = routePlan?.stops.find((stop) => !completedChildIds.has(stop.childId));
+  const assignedChildren = db.children.filter(
+    (child) =>
+      child.active &&
+      child.absenceStatus !== "not_going" &&
+      !completedChildIds.has(child.id) &&
+      belongsToCompany(child, input.companyId) &&
+      (child.driverId === input.driverId || (!!input.vanId && child.vanId === input.vanId))
+  );
+  const nextChild =
+    (plannedStop && assignedChildren.find((child) => child.id === plannedStop.childId)) ||
+    sortChildrenForRoute(assignedChildren)[0];
+
+  if (!plannedStop && !nextChild) return null;
+
+  let estimatedMinutes = Math.max(1, plannedStop?.estimatedMinutes || 8);
+  let distanceToNextStopKm = 0;
+  if (
+    nextChild &&
+    typeof nextChild.address.latitude === "number" &&
+    typeof nextChild.address.longitude === "number"
+  ) {
+    distanceToNextStopKm = haversineDistanceKm(
+      { latitude: input.latitude, longitude: input.longitude },
+      { latitude: nextChild.address.latitude, longitude: nextChild.address.longitude }
+    );
+    const measuredKmh = Number(input.speed || 0) * 3.6;
+    const effectiveKmh = Math.min(48, Math.max(16, measuredKmh || 28));
+    estimatedMinutes = Math.max(1, Math.ceil((distanceToNextStopKm / effectiveKmh) * 60 * 1.28 + 1));
+  } else if (input.startedAt) {
+    const elapsedMinutes = Math.max(0, (Date.now() - new Date(input.startedAt).getTime()) / 60000);
+    estimatedMinutes = Math.max(1, Math.ceil(estimatedMinutes - elapsedMinutes));
+  }
+
+  const nextStop = nextChild
+    ? `${nextChild.name} - ${nextChild.address.neighborhood || "proxima parada"}`
+    : plannedStop?.childName || "Proxima parada";
+  return {
+    nextStop,
+    estimatedMinutes,
+    estimatedArrivalAt: new Date(Date.now() + estimatedMinutes * 60000).toISOString(),
+    estimateSource: "smart" as const,
+    distanceToNextStopKm: Number(distanceToNextStopKm.toFixed(2)),
+  };
+}
+
 export function updateLiveTracking(input: Partial<LiveTrackingState>) {
   return mutateDb((db) => {
     const now = todayIso();
@@ -2730,6 +3085,21 @@ export function updateLiveTracking(input: Partial<LiveTrackingState>) {
       db.liveTrackings.find((item) => belongsToCompany(item, companyId) && (item.driverId === driver?.id || item.vanId === vanId)) ||
       db.liveTracking ||
       defaultLiveTracking();
+    const startedAt = input.active && !current.active ? now : current.startedAt || now;
+    const smartEstimate =
+      input.active !== false &&
+      typeof input.latitude === "number" &&
+      typeof input.longitude === "number"
+        ? calculateSmartEstimate(db, {
+            companyId,
+            driverId: driver?.id || input.driverId,
+            vanId,
+            latitude: input.latitude,
+            longitude: input.longitude,
+            speed: input.speed,
+            startedAt,
+          })
+        : null;
     const updated: LiveTrackingState = {
       ...current,
       ...input,
@@ -2739,11 +3109,14 @@ export function updateLiveTracking(input: Partial<LiveTrackingState>) {
       vanId,
       active: input.active ?? current.active,
       driverName,
-      startedAt: input.active && !current.active ? now : current.startedAt || now,
+      startedAt,
       lastSeenAt: input.active === false ? current.lastSeenAt : now,
       currentNeighborhood: input.currentNeighborhood || current.currentNeighborhood,
-      nextStop: input.nextStop || current.nextStop,
-      estimatedMinutes: Number(input.estimatedMinutes ?? current.estimatedMinutes ?? 0),
+      nextStop: smartEstimate?.nextStop || input.nextStop || current.nextStop,
+      estimatedMinutes: smartEstimate?.estimatedMinutes ?? Number(input.estimatedMinutes ?? current.estimatedMinutes ?? 0),
+      estimatedArrivalAt: smartEstimate?.estimatedArrivalAt || (input.active === false ? "" : input.estimatedArrivalAt || current.estimatedArrivalAt),
+      estimateSource: smartEstimate?.estimateSource || input.estimateSource || current.estimateSource || "manual",
+      distanceToNextStopKm: smartEstimate?.distanceToNextStopKm ?? Number(input.distanceToNextStopKm ?? current.distanceToNextStopKm ?? 0),
       source: input.source || current.source || "gps",
     };
 

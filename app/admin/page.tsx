@@ -13,6 +13,7 @@ import {
   CalendarClock,
   CheckCircle2,
   Copy,
+  DatabaseBackup,
   Download,
   FileSignature,
   Fuel,
@@ -29,6 +30,7 @@ import {
   Palette,
   Pencil,
   QrCode,
+  RefreshCw,
   ReceiptText,
   Save,
   School,
@@ -114,6 +116,9 @@ const emptyCompany: CompanySettings = {
   pixHolder: "",
   pixBank: "",
   receiptText: "",
+  monthlyFeeDefault: 220,
+  monthlyDueDay: 5,
+  automaticMonthlyBilling: true,
   routeApiProvider: "local-ai",
   routeApiKey: "",
 };
@@ -295,6 +300,7 @@ export default function AdminPage() {
   const [companyForm, setCompanyForm] = useState(emptyCompanyForm);
   const [contractTemplate, setContractTemplate] = useState("");
   const [contractForm, setContractForm] = useState({ parentId: "", childId: "", title: "" });
+  const [resetForm, setResetForm] = useState({ confirmation: "", password: "" });
 
   const [settingsForm, setSettingsForm] = useState<CompanySettings>(emptyCompany);
   const [themeForm, setThemeForm] = useState<ThemeSettings>(emptyTheme);
@@ -323,6 +329,7 @@ export default function AdminPage() {
     month: "",
     dueDate: "",
     amount: "220",
+    chargeEnabled: true,
     paymentMethod: "pix" as "pix" | "boleto" | "card" | "cash",
     externalReference: "",
   });
@@ -459,7 +466,7 @@ export default function AdminPage() {
   const pendingPayments = data?.payments.filter((payment) => payment.status === "pending_proof").length ?? 0;
   const receivedProofs = data?.payments.filter((payment) => payment.proof).length ?? 0;
   const approvedPayments = data?.payments.filter((payment) => payment.status === "approved") ?? [];
-  const openPayments = data?.payments.filter((payment) => payment.status !== "approved") ?? [];
+  const openPayments = data?.payments.filter((payment) => payment.chargeEnabled && payment.status !== "approved") ?? [];
   const approvedAmount = approvedPayments.reduce((total, payment) => total + payment.amount, 0);
   const openAmount = openPayments.reduce((total, payment) => total + payment.amount, 0);
   const activeChildren = data?.children.filter((child) => child.active) ?? [];
@@ -508,17 +515,26 @@ export default function AdminPage() {
     router.push("/");
   };
 
-  const saveSettings = async () => {
-    setSaving("settings");
+  const scrollToEditor = (id: string) => {
+    window.requestAnimationFrame(() => {
+      document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  };
+
+  const saveSettings = async (savingKey = "settings") => {
+    setSaving(savingKey);
     setMessage("");
     const response = await fetch("/api/admin/settings", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ companyId: activeCompanyId, settings: settingsForm, theme: themeForm }),
     });
+    const payload = (await response.json().catch(() => null)) as { error?: string } | null;
     if (response.ok) {
       await load();
       setMessage("Informacoes salvas.");
+    } else {
+      setMessage(payload?.error || "Nao foi possivel salvar as configuracoes.");
     }
     setSaving("");
   };
@@ -666,10 +682,10 @@ export default function AdminPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ...payload, companyId: activeCompanyId }),
     });
-    const result = (await response.json().catch(() => null)) as { error?: string } | null;
+    const result = (await response.json().catch(() => null)) as (AdminPayload & { error?: string }) | null;
 
-    if (response.ok) {
-      await load();
+    if (response.ok && result) {
+      setData(result);
       setDriverForm(emptyDriverForm);
       setMessage(payload.id ? "Motorista atualizado." : "Motorista cadastrado.");
     } else {
@@ -690,6 +706,7 @@ export default function AdminPage() {
       active: driver.active,
     });
     setActive("drivers");
+    scrollToEditor("driver-editor");
   };
 
   const removeDriver = async (driver: AdminPayload["drivers"][number]) => {
@@ -703,10 +720,10 @@ export default function AdminPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id: driver.id, companyId: activeCompanyId }),
     });
-    const result = (await response.json().catch(() => null)) as { error?: string } | null;
+    const result = (await response.json().catch(() => null)) as (AdminPayload & { error?: string }) | null;
 
-    if (response.ok) {
-      await load();
+    if (response.ok && result) {
+      setData(result);
       if (driverForm.id === driver.id) setDriverForm(emptyDriverForm);
       setMessage("Motorista excluido.");
     } else {
@@ -725,10 +742,10 @@ export default function AdminPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ...payload, companyId: activeCompanyId, seats: Number(payload.seats || 15) }),
     });
-    const result = (await response.json().catch(() => null)) as { error?: string } | null;
+    const result = (await response.json().catch(() => null)) as (AdminPayload & { error?: string }) | null;
 
-    if (response.ok) {
-      await load();
+    if (response.ok && result) {
+      setData(result);
       setVanForm(emptyVanForm);
       setMessage(payload.id ? "Van atualizada." : "Van cadastrada.");
     } else {
@@ -751,6 +768,7 @@ export default function AdminPage() {
       notes: van.notes,
     });
     setActive("vans");
+    scrollToEditor("van-editor");
   };
 
   const removeVan = async (van: AdminPayload["vans"][number]) => {
@@ -764,10 +782,10 @@ export default function AdminPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id: van.id, companyId: activeCompanyId }),
     });
-    const result = (await response.json().catch(() => null)) as { error?: string } | null;
+    const result = (await response.json().catch(() => null)) as (AdminPayload & { error?: string }) | null;
 
-    if (response.ok) {
-      await load();
+    if (response.ok && result) {
+      setData(result);
       if (vanForm.id === van.id) setVanForm(emptyVanForm);
       setMessage("Van excluida.");
     } else {
@@ -1023,9 +1041,9 @@ export default function AdminPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ...parentForm, companyId: activeCompanyId }),
     });
-    const result = (await response.json().catch(() => null)) as { error?: string } | null;
-    if (response.ok) {
-      await load();
+    const result = (await response.json().catch(() => null)) as (AdminPayload & { error?: string }) | null;
+    if (response.ok && result) {
+      setData(result);
       setParentForm(emptyParentForm);
       setMessage(parentForm.id ? "Responsavel atualizado." : "Responsavel cadastrado. O CPF informado ja vira a senha dele.");
     } else {
@@ -1044,6 +1062,7 @@ export default function AdminPage() {
       active: parent.active,
     });
     setActive("parents");
+    scrollToEditor("parent-editor");
   };
 
   const removeParent = async (parent: AdminPayload["parents"][number]) => {
@@ -1059,10 +1078,10 @@ export default function AdminPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id: parent.id, companyId: activeCompanyId }),
     });
-    const result = (await response.json().catch(() => null)) as { error?: string } | null;
+    const result = (await response.json().catch(() => null)) as (AdminPayload & { error?: string }) | null;
 
-    if (response.ok) {
-      await load();
+    if (response.ok && result) {
+      setData(result);
       if (parentForm.id === parent.id) setParentForm(emptyParentForm);
       if (childForm.parentId === parent.id) setChildForm(emptyChildForm);
       setMessage("Responsavel e dados vinculados excluidos.");
@@ -1229,10 +1248,13 @@ export default function AdminPage() {
         amount: Number(paymentForm.amount.replace(",", ".")),
       }),
     });
-    if (response.ok) {
-      await load();
-      setPaymentForm({ id: "", parentId: "", childId: "", month: "", dueDate: "", amount: "220", paymentMethod: "pix", externalReference: "" });
+    const result = (await response.json().catch(() => null)) as (AdminPayload & { error?: string }) | null;
+    if (response.ok && result) {
+      setData(result);
+      setPaymentForm({ id: "", parentId: "", childId: "", month: "", dueDate: "", amount: String(settingsForm.monthlyFeeDefault || 220), chargeEnabled: true, paymentMethod: "pix", externalReference: "" });
       setMessage(paymentForm.id ? "Mensalidade atualizada." : "Mensalidade criada.");
+    } else {
+      setMessage(result?.error || "Nao foi possivel salvar a mensalidade.");
     }
     setSaving("");
   };
@@ -1263,10 +1285,12 @@ export default function AdminPage() {
       month: payment.month,
       dueDate: payment.dueDate,
       amount: String(payment.amount),
+      chargeEnabled: payment.chargeEnabled,
       paymentMethod: payment.paymentMethod,
       externalReference: payment.externalReference,
     });
     setActive("payments");
+    scrollToEditor("payment-editor");
   };
 
   const removePayment = async (payment: AdminPayload["payments"][number]) => {
@@ -1277,13 +1301,107 @@ export default function AdminPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id: payment.id, companyId: activeCompanyId }),
     });
-    const payload = (await response.json().catch(() => null)) as { error?: string } | null;
-    if (response.ok) {
-      await load();
-      if (paymentForm.id === payment.id) setPaymentForm({ id: "", parentId: "", childId: "", month: "", dueDate: "", amount: "220", paymentMethod: "pix", externalReference: "" });
+    const payload = (await response.json().catch(() => null)) as (AdminPayload & { error?: string }) | null;
+    if (response.ok && payload) {
+      setData(payload);
+      if (paymentForm.id === payment.id) setPaymentForm({ id: "", parentId: "", childId: "", month: "", dueDate: "", amount: String(settingsForm.monthlyFeeDefault || 220), chargeEnabled: true, paymentMethod: "pix", externalReference: "" });
       setMessage("Mensalidade excluida.");
     } else {
       setMessage(payload?.error || "Nao foi possivel excluir a mensalidade.");
+    }
+    setSaving("");
+  };
+
+  const togglePaymentCharge = async (payment: AdminPayload["payments"][number]) => {
+    setSaving(`payment-charge-${payment.id}`);
+    setMessage("");
+    const response = await fetch("/api/admin/payments", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        ...payment,
+        companyId: activeCompanyId,
+        chargeEnabled: !payment.chargeEnabled,
+      }),
+    });
+    const payload = (await response.json().catch(() => null)) as (AdminPayload & { error?: string }) | null;
+    if (response.ok && payload) {
+      setData(payload);
+      setMessage(payment.chargeEnabled ? "Cobranca desativada para este mes." : "Cobranca ativada para este mes.");
+    } else {
+      setMessage(payload?.error || "Nao foi possivel alterar a cobranca.");
+    }
+    setSaving("");
+  };
+
+  const generateNextPayments = async () => {
+    setSaving("payment-generate");
+    setMessage("");
+    const response = await fetch("/api/admin/payments/generate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ companyId: activeCompanyId }),
+    });
+    const payload = (await response.json().catch(() => null)) as (AdminPayload & { generated?: number; month?: string; error?: string }) | null;
+    if (response.ok && payload) {
+      setData(payload);
+      setMessage(
+        payload.generated
+          ? `${payload.generated} mensalidade(s) criada(s) para ${payload.month}.`
+          : `As mensalidades de ${payload.month || "proximo mes"} ja estavam criadas.`
+      );
+    } else {
+      setMessage(payload?.error || "Nao foi possivel gerar as mensalidades.");
+    }
+    setSaving("");
+  };
+
+  const resetOperationalData = async () => {
+    setSaving("system-reset");
+    setMessage("");
+    const response = await fetch("/api/admin/system", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "reset",
+        companyId: activeCompanyId,
+        login: session?.contact,
+        password: resetForm.password,
+        confirmation: resetForm.confirmation,
+      }),
+    });
+    const payload = (await response.json().catch(() => null)) as (AdminPayload & { error?: string }) | null;
+    if (response.ok && payload) {
+      setData(payload);
+      setDriverForm(emptyDriverForm);
+      setVanForm(emptyVanForm);
+      setParentForm(emptyParentForm);
+      setChildForm(emptyChildForm);
+      setResetForm({ confirmation: "", password: "" });
+      setMessage("Dados operacionais apagados. Um backup foi criado antes da limpeza.");
+    } else {
+      setMessage(payload?.error || "Nao foi possivel zerar os dados.");
+    }
+    setSaving("");
+  };
+
+  const createManualBackup = async () => {
+    setSaving("system-backup");
+    setMessage("");
+    const response = await fetch("/api/admin/system", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "backup",
+        login: session?.contact,
+        password: resetForm.password,
+      }),
+    });
+    const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+    if (response.ok) {
+      setMessage("Backup completo criado no Supabase.");
+    } else {
+      setMessage(payload?.error || "Nao foi possivel criar o backup.");
     }
     setSaving("");
   };
@@ -1477,6 +1595,12 @@ export default function AdminPage() {
               Protecao dos cadastros pendente: conecte um armazenamento privado ao projeto na Vercel para evitar perda de dados apos reinicializacoes.
             </div>
           )}
+          {data.storage?.durable && data.storage.healthy === false && (
+            <div className="mt-4 rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-sm text-red-700 dark:text-red-200">
+              <strong>Supabase conectado, mas sem permissao para salvar.</strong>
+              <span className="mt-1 block">{data.storage.message || "Revise a tabela e as permissoes do banco."}</span>
+            </div>
+          )}
         </header>
 
         <section className="mx-auto mt-8 max-w-6xl">
@@ -1534,6 +1658,7 @@ export default function AdminPage() {
                     messageHref={paymentMessageHref}
                     onEdit={editPayment}
                     onDelete={removePayment}
+                    onCharge={togglePaymentCharge}
                   />
                 </Panel>
 
@@ -1697,7 +1822,7 @@ export default function AdminPage() {
                     />
                   </label>
                 </div>
-                <Button onClick={saveSettings} className="mt-6" disabled={saving === "settings"}>
+                <Button onClick={() => saveSettings()} className="mt-6" disabled={saving === "settings"}>
                   <Save size={16} /> Salvar empresa e Pix
                 </Button>
               </Panel>
@@ -1728,12 +1853,70 @@ export default function AdminPage() {
                   </Button>
                 </Panel>
               )}
+
+              {session.role === "admin" && (
+                <Panel title="Seguranca e limpeza" subtitle="Backup e limpeza dos dados operacionais desta empresa.">
+                  <div className="rounded-xl border border-red-300 bg-red-50 p-4 dark:border-red-400/20 dark:bg-red-500/10">
+                    <div className="flex items-start gap-3">
+                      <ShieldAlert size={20} className="mt-0.5 shrink-0 text-red-600 dark:text-red-300" />
+                      <div>
+                        <div className="font-semibold text-red-800 dark:text-red-200">Zona de seguranca</div>
+                        <p className="mt-1 text-sm leading-relaxed text-red-700 dark:text-red-200/75">
+                          A limpeza apaga motoristas, vans, responsaveis, alunos, mensalidades, contratos, rotas e historicos. Empresa, cores, escolas e bairros permanecem.
+                        </p>
+                      </div>
+                    </div>
+                    <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
+                      <Field
+                        label="Senha do administrador"
+                        type="password"
+                        value={resetForm.password}
+                        onChange={(value) => setResetForm({ ...resetForm, password: value })}
+                        placeholder="Obrigatoria para backup e limpeza"
+                      />
+                      <Field
+                        label="Digite ZERAR para apagar"
+                        value={resetForm.confirmation}
+                        onChange={(value) => setResetForm({ ...resetForm, confirmation: value })}
+                        placeholder="ZERAR"
+                      />
+                    </div>
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      <Button
+                        type="button"
+                        variant="outlineDark"
+                        onClick={createManualBackup}
+                        disabled={!resetForm.password || saving === "system-backup"}
+                      >
+                        <DatabaseBackup size={16} /> Criar backup agora
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outlineDark"
+                        className="border-red-300 text-red-700 hover:bg-red-50 dark:border-red-400/30 dark:text-red-200 dark:hover:bg-red-500/10"
+                        onClick={resetOperationalData}
+                        disabled={
+                          !resetForm.password ||
+                          resetForm.confirmation.trim().toUpperCase() !== "ZERAR" ||
+                          saving === "system-reset"
+                        }
+                      >
+                        <Trash2 size={16} /> Zerar dados operacionais
+                      </Button>
+                    </div>
+                    <p className="mt-3 text-xs text-red-700/75 dark:text-red-200/60">
+                      Antes da limpeza, o sistema cria automaticamente um backup completo no Supabase.
+                    </p>
+                  </div>
+                </Panel>
+              )}
             </div>
           )}
 
           {active === "drivers" && (
             <div className="grid grid-cols-1 gap-5 xl:grid-cols-[380px_1fr]">
               <Panel
+                id="driver-editor"
                 title={driverForm.id ? "Editar motorista" : "Cadastrar motorista"}
                 subtitle="O motorista acessa /driver com contato e CPF."
               >
@@ -1807,7 +1990,7 @@ export default function AdminPage() {
                       </div>
                       <div className="mt-4 flex flex-wrap gap-2">
                         <Button type="button" variant="outlineDark" size="sm" onClick={() => editDriver(driver)}>
-                          Editar
+                          <Pencil size={14} /> Editar dados
                         </Button>
                         <Button
                           type="button"
@@ -1841,6 +2024,7 @@ export default function AdminPage() {
           {active === "vans" && (
             <div className="grid grid-cols-1 gap-5 xl:grid-cols-[380px_1fr]">
               <Panel
+                id="van-editor"
                 title={vanForm.id ? "Editar van" : "Cadastrar van"}
                 subtitle="Controle placa, motorista, lugares e QR individual da van."
               >
@@ -1940,7 +2124,7 @@ export default function AdminPage() {
                             </div>
                             <div className="mt-3 flex flex-wrap gap-2">
                               <Button type="button" variant="outlineDark" size="sm" onClick={() => editVan(van)}>
-                                Editar
+                                <Pencil size={14} /> Editar dados
                               </Button>
                               <Button
                                 type="button"
@@ -2479,6 +2663,7 @@ export default function AdminPage() {
             <div className="grid grid-cols-1 gap-5 xl:grid-cols-[430px_1fr]">
               <div className="space-y-5">
                 <Panel
+                  id="parent-editor"
                   title={parentForm.id ? "Editar responsavel" : "Cadastrar responsavel"}
                   subtitle="O contato e o CPF liberam o acesso da familia."
                 >
@@ -2734,8 +2919,43 @@ export default function AdminPage() {
           )}
 
           {active === "payments" && (
-            <div className="grid grid-cols-1 gap-5 xl:grid-cols-[380px_1fr]">
-              <Panel title={paymentForm.id ? "Editar mensalidade" : "Criar mensalidade"} subtitle="O recibo so libera depois do comprovante anexado.">
+            <div className="space-y-5">
+              <Panel title="Cobranca automatica" subtitle="O sistema prepara o proximo mes para cada aluno ativo, sem criar duplicidades.">
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-[1fr_1fr_auto] md:items-end">
+                  <Field
+                    label="Valor mensal padrao"
+                    type="number"
+                    value={String(settingsForm.monthlyFeeDefault || 0)}
+                    onChange={(value) => setSettingsForm({ ...settingsForm, monthlyFeeDefault: Number(value || 0) })}
+                  />
+                  <Field
+                    label="Dia do vencimento"
+                    type="number"
+                    value={String(settingsForm.monthlyDueDay || 5)}
+                    onChange={(value) => setSettingsForm({ ...settingsForm, monthlyDueDay: Math.min(28, Math.max(1, Number(value || 5))) })}
+                  />
+                  <Button type="button" onClick={() => saveSettings("billing-settings")} disabled={saving === "billing-settings"}>
+                    <Save size={16} /> Salvar regras
+                  </Button>
+                </div>
+                <div className="mt-4 flex flex-col gap-3 rounded-xl border border-line p-4 dark:border-white/10 sm:flex-row sm:items-center sm:justify-between">
+                  <label className="flex items-center gap-3 text-sm font-semibold text-navy dark:text-white">
+                    <input
+                      type="checkbox"
+                      checked={settingsForm.automaticMonthlyBilling}
+                      onChange={(event) => setSettingsForm({ ...settingsForm, automaticMonthlyBilling: event.target.checked })}
+                      className="h-4 w-4 accent-sun"
+                    />
+                    Criar automaticamente as mensalidades do proximo mes
+                  </label>
+                  <Button type="button" variant="outlineDark" onClick={generateNextPayments} disabled={saving === "payment-generate"}>
+                    <RefreshCw size={16} /> Gerar proximo mes agora
+                  </Button>
+                </div>
+              </Panel>
+
+              <div className="grid grid-cols-1 gap-5 xl:grid-cols-[380px_1fr]">
+              <Panel id="payment-editor" title={paymentForm.id ? "Editar mensalidade" : "Criar mensalidade"} subtitle="O recibo so libera depois do comprovante anexado.">
                 <form onSubmit={createPayment} className="space-y-4">
                   <label>
                     <span className="text-xs font-semibold uppercase tracking-wide text-mute dark:text-white/50">Responsavel</span>
@@ -2768,6 +2988,15 @@ export default function AdminPage() {
                   <Field label="Mes de referencia" value={paymentForm.month} onChange={(v) => setPaymentForm({ ...paymentForm, month: v })} placeholder="Setembro/2026" />
                   <Field label="Vencimento" value={paymentForm.dueDate} onChange={(v) => setPaymentForm({ ...paymentForm, dueDate: v })} type="date" />
                   <Field label="Valor" value={paymentForm.amount} onChange={(v) => setPaymentForm({ ...paymentForm, amount: v })} />
+                  <label className="flex items-center gap-3 rounded-xl border border-line px-4 py-3 text-sm font-semibold text-navy dark:border-white/10 dark:text-white">
+                    <input
+                      type="checkbox"
+                      checked={paymentForm.chargeEnabled}
+                      onChange={(event) => setPaymentForm({ ...paymentForm, chargeEnabled: event.target.checked })}
+                      className="h-4 w-4 accent-sun"
+                    />
+                    Cobrar esta mensalidade
+                  </label>
                   <SelectField label="Forma de pagamento" value={paymentForm.paymentMethod} onChange={(value) => setPaymentForm({ ...paymentForm, paymentMethod: value as typeof paymentForm.paymentMethod })} options={[{ value: "pix", label: "Pix" }, { value: "boleto", label: "Boleto" }, { value: "card", label: "Cartao" }, { value: "cash", label: "Dinheiro" }]} />
                   <Field label="Referencia externa" value={paymentForm.externalReference} onChange={(value) => setPaymentForm({ ...paymentForm, externalReference: value })} placeholder="Codigo do boleto ou transacao" />
                   <div className="flex flex-wrap gap-2">
@@ -2775,7 +3004,7 @@ export default function AdminPage() {
                       <Banknote size={16} /> {paymentForm.id ? "Salvar mensalidade" : "Criar mensalidade"}
                     </Button>
                     {paymentForm.id && (
-                      <Button type="button" variant="outlineDark" onClick={() => setPaymentForm({ id: "", parentId: "", childId: "", month: "", dueDate: "", amount: "220", paymentMethod: "pix", externalReference: "" })}>Cancelar</Button>
+                      <Button type="button" variant="outlineDark" onClick={() => setPaymentForm({ id: "", parentId: "", childId: "", month: "", dueDate: "", amount: String(settingsForm.monthlyFeeDefault || 220), chargeEnabled: true, paymentMethod: "pix", externalReference: "" })}>Cancelar</Button>
                     )}
                   </div>
                 </form>
@@ -2796,8 +3025,10 @@ export default function AdminPage() {
                   messageHref={paymentMessageHref}
                   onEdit={editPayment}
                   onDelete={removePayment}
+                  onCharge={togglePaymentCharge}
                 />
               </Panel>
+              </div>
             </div>
           )}
 
@@ -3229,7 +3460,7 @@ export default function AdminPage() {
                   </label>
                 ))}
               </div>
-              <Button onClick={saveSettings} className="mt-6" disabled={saving === "settings"}>
+              <Button onClick={() => saveSettings()} className="mt-6" disabled={saving === "settings"}>
                 <Palette size={16} /> Salvar cores
               </Button>
             </Panel>
@@ -3409,16 +3640,18 @@ function OperationRow({
 }
 
 function Panel({
+  id,
   title,
   subtitle,
   children,
 }: {
+  id?: string;
   title: string;
   subtitle?: string;
   children: React.ReactNode;
 }) {
   return (
-    <div className="rounded-2xl border border-line bg-white p-5 dark:border-white/10 dark:bg-white/[0.04] sm:p-6">
+    <div id={id} className="scroll-mt-28 rounded-2xl border border-line bg-white p-5 dark:border-white/10 dark:bg-white/[0.04] sm:p-6">
       <div className="mb-5">
         <h2 className="text-lg font-semibold text-navy dark:text-white">{title}</h2>
         {subtitle && <p className="mt-1 text-sm text-mute dark:text-white/55">{subtitle}</p>}
@@ -3491,6 +3724,7 @@ function PaymentList({
   messageHref,
   onEdit,
   onDelete,
+  onCharge,
 }: {
   payments: AdminPayload["payments"];
   parentName: (id: string) => string;
@@ -3500,6 +3734,7 @@ function PaymentList({
   messageHref: (payment: AdminPayload["payments"][number]) => string;
   onEdit: (payment: AdminPayload["payments"][number]) => void;
   onDelete: (payment: AdminPayload["payments"][number]) => void;
+  onCharge: (payment: AdminPayload["payments"][number]) => void;
 }) {
   if (payments.length === 0) {
     return (
@@ -3525,15 +3760,16 @@ function PaymentList({
             <span
               className={cn(
                 "inline-flex w-fit items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold",
-                payment.status === "approved" && "bg-ok/10 text-ok",
-                payment.status === "proof_received" && "bg-sun/15 text-sun-2",
-                payment.status === "pending_proof" && "bg-mist text-mute dark:bg-white/5 dark:text-white/55",
-                payment.status === "rejected" && "bg-red-500/10 text-red-600"
+                !payment.chargeEnabled && "bg-slate-200 text-slate-600 dark:bg-white/10 dark:text-white/60",
+                payment.chargeEnabled && payment.status === "approved" && "bg-ok/10 text-ok",
+                payment.chargeEnabled && payment.status === "proof_received" && "bg-sun/15 text-sun-2",
+                payment.chargeEnabled && payment.status === "pending_proof" && "bg-mist text-mute dark:bg-white/5 dark:text-white/55",
+                payment.chargeEnabled && payment.status === "rejected" && "bg-red-500/10 text-red-600"
               )}
             >
-              {payment.status === "approved" && <CheckCircle2 size={13} />}
-              {payment.status === "rejected" && <XCircle size={13} />}
-              {paymentStatusLabel(payment.status)}
+              {payment.chargeEnabled && payment.status === "approved" && <CheckCircle2 size={13} />}
+              {payment.chargeEnabled && payment.status === "rejected" && <XCircle size={13} />}
+              {payment.chargeEnabled ? paymentStatusLabel(payment.status) : "Nao cobrar"}
             </span>
           </div>
 
@@ -3548,7 +3784,16 @@ function PaymentList({
               type="button"
               variant="outlineDark"
               size="sm"
-              disabled={saving === payment.id || !payment.proof}
+              onClick={() => onCharge(payment)}
+              disabled={saving === `payment-charge-${payment.id}`}
+            >
+              {payment.chargeEnabled ? "Nao cobrar este mes" : "Ativar cobranca"}
+            </Button>
+            <Button
+              type="button"
+              variant="outlineDark"
+              size="sm"
+              disabled={saving === payment.id || !payment.proof || !payment.chargeEnabled}
               onClick={() => onStatus(payment.id, "approved")}
             >
               Aprovar
@@ -3557,12 +3802,16 @@ function PaymentList({
               type="button"
               variant="outlineDark"
               size="sm"
-              disabled={saving === payment.id}
+              disabled={saving === payment.id || !payment.chargeEnabled}
               onClick={() => onStatus(payment.id, "rejected")}
             >
               Recusar
             </Button>
-            {payment.proof ? (
+            {!payment.chargeEnabled ? (
+              <span className="inline-flex items-center gap-2 rounded-full bg-slate-200 px-3 py-2 text-xs font-semibold text-slate-600 dark:bg-white/10 dark:text-white/60">
+                Cobranca desativada neste mes
+              </span>
+            ) : payment.proof ? (
               <span className="inline-flex items-center gap-2 rounded-full bg-ok/10 px-3 py-2 text-xs font-semibold text-ok">
                 <ReceiptText size={13} /> Recibo liberado
               </span>
@@ -3571,7 +3820,7 @@ function PaymentList({
                 Sem comprovante, sem recibo
               </span>
             )}
-            {payment.status !== "approved" && (
+            {payment.chargeEnabled && payment.status !== "approved" && (
               <a href={messageHref(payment)} target="_blank" rel="noreferrer">
                 <Button type="button" variant="outlineDark" size="sm">
                   <MessageCircle size={14} /> Cobrar no WhatsApp

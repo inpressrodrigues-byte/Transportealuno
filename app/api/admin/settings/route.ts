@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { persistDb, prepareDb, updateCompanyProfile } from "@/lib/server/app-db";
+import { persistDb, prepareDb, storageErrorMessage, updateCompanyProfile } from "@/lib/server/app-db";
 import type { CompanySettings, ThemeSettings } from "@/lib/app-types";
 
 export async function PUT(request: Request) {
@@ -11,7 +11,11 @@ export async function PUT(request: Request) {
 
   const result = updateCompanyProfile(companyId || undefined, settings, theme);
 
-  await persistDb();
+  try {
+    await persistDb();
+  } catch (error) {
+    return NextResponse.json({ error: storageErrorMessage(error) }, { status: 503 });
+  }
   return NextResponse.json({
     settings: result.settings,
     theme: result.theme,

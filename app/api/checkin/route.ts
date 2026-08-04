@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createCheckin, persistDb, prepareDb } from "@/lib/server/app-db";
+import { createCheckin, persistDb, prepareDb, storageErrorMessage } from "@/lib/server/app-db";
 import type { CheckinType } from "@/lib/app-types";
 
 export async function POST(request: Request) {
@@ -32,6 +32,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: error || "Nao foi possivel registrar o check-in." }, { status: 400 });
   }
 
-  await persistDb();
+  try {
+    await persistDb();
+  } catch (error) {
+    return NextResponse.json({ error: storageErrorMessage(error) }, { status: 503 });
+  }
   return NextResponse.json({ checkin });
 }

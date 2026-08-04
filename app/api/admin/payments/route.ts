@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getAdminPayload, mutateDb, persistDb, prepareDb, readDb } from "@/lib/server/app-db";
+import { getAdminPayload, mutateDb, persistDb, prepareDb, readDb, storageErrorMessage } from "@/lib/server/app-db";
 import { makeId, todayIso } from "@/lib/app-utils";
 
 export async function POST(request: Request) {
@@ -11,6 +11,7 @@ export async function POST(request: Request) {
   const month = String(body?.month || "").trim();
   const dueDate = String(body?.dueDate || "").trim();
   const amount = Number(body?.amount || 0);
+  const chargeEnabled = body?.chargeEnabled !== false;
   const paymentMethod = ["pix", "boleto", "card", "cash"].includes(String(body?.paymentMethod || ""))
     ? String(body.paymentMethod) as "pix" | "boleto" | "card" | "cash"
     : "pix";
@@ -22,7 +23,7 @@ export async function POST(request: Request) {
     currentDb.currentCompanyId ||
     currentDb.companies[0]?.id;
 
-  if (!parentId || !childId || !month || !dueDate || amount <= 0) {
+  if (!parentId || !childId || !month || !dueDate || (chargeEnabled && amount <= 0)) {
     return NextResponse.json(
       { error: "Informe responsavel, aluno, mes, vencimento e valor." },
       { status: 400 }
@@ -55,6 +56,7 @@ export async function POST(request: Request) {
       existing.month = month;
       existing.dueDate = dueDate;
       existing.amount = amount;
+      existing.chargeEnabled = chargeEnabled;
       existing.paymentMethod = paymentMethod;
       existing.externalReference = externalReference;
       if (existing.receipt) {
@@ -66,6 +68,17 @@ export async function POST(request: Request) {
       return;
     }
 
+    const duplicate = draft.payments.find(
+      (payment) =>
+        payment.childId === childId &&
+        (payment.companyId || companyId) === companyId &&
+        (payment.month.toLowerCase() === month.toLowerCase() || payment.dueDate.slice(0, 7) === dueDate.slice(0, 7))
+    );
+    if (duplicate) {
+      error = "Ja existe uma mensalidade deste aluno para o mes informado.";
+      return;
+    }
+
     draft.payments.push({
       id: makeId("pay"),
       companyId,
@@ -74,6 +87,8 @@ export async function POST(request: Request) {
       month,
       dueDate,
       amount,
+      chargeEnabled,
+      automatic: false,
       paymentMethod,
       externalReference,
       status: "pending_proof",
@@ -83,7 +98,11 @@ export async function POST(request: Request) {
 
   if (error) return NextResponse.json({ error }, { status: 400 });
 
-  await persistDb();
+  try {
+    await persistDb();
+  } catch (storageError) {
+    return NextResponse.json({ error: storageErrorMessage(storageError) }, { status: 503 });
+  }
   return NextResponse.json(getAdminPayload(activeCompanyId));
 }
 
@@ -114,6 +133,10 @@ export async function DELETE(request: Request) {
   });
 
   if (error) return NextResponse.json({ error }, { status: 400 });
-  await persistDb();
+  try {
+    await persistDb();
+  } catch (storageError) {
+    return NextResponse.json({ error: storageErrorMessage(storageError) }, { status: 503 });
+  }
   return NextResponse.json(getAdminPayload(companyId || undefined));
 }

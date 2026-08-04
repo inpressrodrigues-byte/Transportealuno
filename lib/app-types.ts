@@ -42,6 +42,9 @@ export type CompanySettings = {
   pixHolder: string;
   pixBank: string;
   receiptText: string;
+  monthlyFeeDefault: number;
+  monthlyDueDay: number;
+  automaticMonthlyBilling: boolean;
   routeApiProvider?: string;
   routeApiKey?: string;
 };
@@ -111,6 +114,9 @@ export type LiveTrackingState = {
   currentNeighborhood: string;
   nextStop: string;
   estimatedMinutes: number;
+  estimatedArrivalAt?: string;
+  estimateSource?: "smart" | "manual";
+  distanceToNextStopKm?: number;
   source: "gps" | "manual";
 };
 
@@ -260,6 +266,8 @@ export type PaymentRecord = {
   month: string;
   dueDate: string;
   amount: number;
+  chargeEnabled: boolean;
+  automatic: boolean;
   paymentMethod: "pix" | "boleto" | "card" | "cash";
   externalReference: string;
   status: PaymentStatus;
@@ -494,6 +502,8 @@ export type AdminPayload = {
   storage: {
     durable: boolean;
     provider: "supabase" | "vercel-blob" | "temporary";
+    healthy?: boolean;
+    message?: string;
   };
   adminAccess: AdminAccessRecord;
   currentCompany?: SafeCompanyRecord;

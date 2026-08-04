@@ -68,6 +68,9 @@ const emptyLive: LiveTrackingState = {
   currentNeighborhood: "Centro",
   nextStop: "Primeiro embarque",
   estimatedMinutes: 0,
+  estimatedArrivalAt: "",
+  estimateSource: "manual",
+  distanceToNextStopKm: 0,
   source: "manual",
 };
 

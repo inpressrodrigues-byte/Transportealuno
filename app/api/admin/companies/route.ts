@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getAdminPayload, persistDb, prepareDb, upsertCompany } from "@/lib/server/app-db";
+import { getAdminPayload, persistDb, prepareDb, storageErrorMessage, upsertCompany } from "@/lib/server/app-db";
 import type { CompanySettings, ThemeSettings } from "@/lib/app-types";
 
 export async function POST(request: Request) {
@@ -21,6 +21,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ error }, { status: 400 });
   }
 
-  await persistDb();
+  try {
+    await persistDb();
+  } catch (error) {
+    return NextResponse.json({ error: storageErrorMessage(error) }, { status: 503 });
+  }
   return NextResponse.json(getAdminPayload(companyId || undefined));
 }

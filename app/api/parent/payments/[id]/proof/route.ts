@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createReceipt, mutateDb, persistDb, prepareDb } from "@/lib/server/app-db";
+import { createReceipt, mutateDb, persistDb, prepareDb, storageErrorMessage } from "@/lib/server/app-db";
 import { todayIso } from "@/lib/app-utils";
 
 export async function POST(
@@ -39,6 +39,10 @@ export async function POST(
       error = "Pagamento nao encontrado.";
       return;
     }
+    if (!payment.chargeEnabled) {
+      error = "Esta mensalidade esta sem cobranca e nao precisa de comprovante.";
+      return;
+    }
 
     const parent = draft.parents.find((item) => item.id === parentId);
     const child = draft.children.find((item) => item.id === payment.childId);
@@ -63,7 +67,11 @@ export async function POST(
     return NextResponse.json({ error }, { status: 400 });
   }
 
-  await persistDb();
+  try {
+    await persistDb();
+  } catch (error) {
+    return NextResponse.json({ error: storageErrorMessage(error) }, { status: 503 });
+  }
   return NextResponse.json({
     payments: db.payments.filter((payment) => payment.parentId === parentId),
   });

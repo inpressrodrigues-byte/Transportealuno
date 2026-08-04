@@ -39,13 +39,23 @@ Acesse `http://localhost:3000`.
 - Relatorios financeiros, alunos, frota e presenca em CSV/Excel e impressao em PDF.
 - PWA instalavel no celular, com shell offline e APIs sempre consultadas em tempo real.
 - Persistencia preferencial no Supabase/PostgreSQL, com Vercel Blob e arquivo local como fallback.
+- Edicao e exclusao de motoristas, vans, responsaveis, alunos e mensalidades.
+- Mensalidades automaticas para o mes seguinte, com valor, vencimento e opcao de nao cobrar.
+- Marcador de van no mapa ao vivo e estimativa inteligente baseada no GPS e na proxima parada.
+- Backup diario no Supabase e backup obrigatorio antes da limpeza dos dados operacionais.
 
 ## Observacao de producao
 
-Para usar Supabase, execute `supabase/migrations/001_app_state.sql` e configure
-`SUPABASE_URL` e `SUPABASE_SERVICE_ROLE_KEY` no Vercel. A chave de service role
-nunca deve ser exposta no navegador. Sem Supabase ou Blob, o painel avisa que a
-persistencia esta em modo temporario.
+Para usar Supabase, execute, nesta ordem:
+
+1. `supabase/migrations/001_app_state.sql`
+2. `supabase/migrations/002_app_state_backups.sql`
+
+Depois configure `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` e um
+`CRON_SECRET` forte no Vercel. A chave de service role nunca deve ser exposta
+no navegador. O agendamento em `vercel.json` executa o backup e a geracao de
+mensalidades todos os dias as 03:00 no horario de Brasilia. Sem Supabase ou Blob,
+o painel avisa que a persistencia esta em modo temporario.
 
 ## Validacao
 

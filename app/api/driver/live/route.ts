@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getLiveTracking, persistDb, prepareDb, updateLiveTracking } from "@/lib/server/app-db";
+import { getLiveTracking, persistDb, prepareDb, storageErrorMessage, updateLiveTracking } from "@/lib/server/app-db";
 import type { LiveTrackingState } from "@/lib/app-types";
 
 export async function GET(request: Request) {
@@ -31,6 +31,10 @@ export async function POST(request: Request) {
   });
 
   const updated = db.liveTrackings.find((item) => item.driverId === String(body.driverId || "")) || db.liveTracking;
-  await persistDb();
+  try {
+    await persistDb();
+  } catch (error) {
+    return NextResponse.json({ error: storageErrorMessage(error) }, { status: 503 });
+  }
   return NextResponse.json(updated);
 }
