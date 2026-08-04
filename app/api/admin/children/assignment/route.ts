@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { assignChildTransport, getAdminPayload, persistDb, prepareDb, storageErrorMessage } from "@/lib/server/app-db";
+import { assignChildTransport, persistDb, prepareDb, storageErrorMessage } from "@/lib/server/app-db";
+import { scopedAdminPayload } from "@/lib/server/admin-request";
 import type { Shift } from "@/lib/app-types";
 
 export async function PATCH(request: Request) {
@@ -23,5 +24,5 @@ export async function PATCH(request: Request) {
   } catch (error) {
     return NextResponse.json({ error: storageErrorMessage(error) }, { status: 503 });
   }
-  return NextResponse.json(getAdminPayload(String(body?.companyId || "") || undefined));
+  return NextResponse.json(scopedAdminPayload(request, String(body?.companyId || "") || undefined));
 }

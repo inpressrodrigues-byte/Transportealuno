@@ -338,11 +338,33 @@ export default function AdminPage() {
     session?.role === "company"
       ? session.companyId || session.id
       : selectedCompanyId || data?.currentCompany?.id || data?.companies[0]?.id || "";
-  const visibleTabs = tabs.filter((tab) => session?.role === "admin" || tab.id !== "companies");
+  const companyTabs: AdminTab[] = [
+    "overview",
+    "company",
+    "drivers",
+    "vans",
+    "operations",
+    "parents",
+    "payments",
+    "reports",
+    "live",
+    "checkin",
+    "contracts",
+    "audit",
+  ];
+  const visibleTabs = tabs.filter((tab) =>
+    session?.role === "admin" ? true : companyTabs.includes(tab.id)
+  );
 
   const load = async (companyId = activeCompanyId) => {
     const suffix = companyId ? `?companyId=${encodeURIComponent(companyId)}` : "";
     const response = await fetch(`/api/admin/state${suffix}`, { cache: "no-store" });
+    if (response.status === 401) {
+      localStorage.removeItem("rota-segura-session");
+      setSession(null);
+      throw new Error("Sessao expirada");
+    }
+    if (!response.ok) throw new Error("Nao foi possivel carregar o painel");
     const payload = (await response.json()) as AdminPayload;
     setData(payload);
     const nextCompanyId = payload.currentCompany?.id || payload.companies[0]?.id || "";
@@ -509,6 +531,7 @@ export default function AdminPage() {
   const todayNotices = data?.children.filter((child) => child.absenceStatus !== "going") ?? [];
   const recentCheckins = data?.checkins.slice(0, 12) ?? [];
   const logout = () => {
+    void fetch("/api/auth/logout", { method: "POST" });
     localStorage.removeItem("rota-segura-session");
     setSession(null);
     setData(null);
@@ -1265,7 +1288,7 @@ export default function AdminPage() {
     const response = await fetch(`/api/admin/payments/${paymentId}/status`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status }),
+      body: JSON.stringify({ status, companyId: activeCompanyId }),
     });
     const payload = (await response.json()) as { error?: string };
     if (response.ok) {

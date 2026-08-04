@@ -105,6 +105,12 @@ export default function DriverPage() {
   const loadRouteState = useCallback(async () => {
     if (!driverId) return;
     const response = await fetch(`/api/driver/route-state?driverId=${encodeURIComponent(driverId)}`, { cache: "no-store" });
+    if (response.status === 401) {
+      localStorage.removeItem("rota-segura-session");
+      setSession(null);
+      setRouteState(null);
+      return;
+    }
     if (response.ok) {
       const payload = (await response.json()) as DriverRoutePayload;
       setRouteState(payload);
@@ -196,6 +202,7 @@ export default function DriverPage() {
   };
 
   const logout = () => {
+    void fetch("/api/auth/logout", { method: "POST" });
     localStorage.removeItem("rota-segura-session");
     setSession(null);
     setRouteState(null);

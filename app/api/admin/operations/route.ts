@@ -8,7 +8,6 @@ import type {
 } from "@/lib/app-types";
 import {
   deleteOperationRecord,
-  getAdminPayload,
   persistDb,
   prepareDb,
   storageErrorMessage,
@@ -18,6 +17,7 @@ import {
   upsertFuelRecord,
   upsertVehicleMaintenance,
 } from "@/lib/server/app-db";
+import { scopedAdminPayload } from "@/lib/server/admin-request";
 
 type OperationEntity = "driverDocument" | "driverOccurrence" | "maintenance" | "fuel" | "expense";
 const entities: OperationEntity[] = ["driverDocument", "driverOccurrence", "maintenance", "fuel", "expense"];
@@ -52,7 +52,7 @@ export async function POST(request: Request) {
   } catch (error) {
     return NextResponse.json({ error: storageErrorMessage(error) }, { status: 503 });
   }
-  return NextResponse.json(getAdminPayload(companyId));
+  return NextResponse.json(scopedAdminPayload(request, companyId));
 }
 
 export async function DELETE(request: Request) {
@@ -71,5 +71,5 @@ export async function DELETE(request: Request) {
   } catch (error) {
     return NextResponse.json({ error: storageErrorMessage(error) }, { status: 503 });
   }
-  return NextResponse.json(getAdminPayload(companyId));
+  return NextResponse.json(scopedAdminPayload(request, companyId));
 }

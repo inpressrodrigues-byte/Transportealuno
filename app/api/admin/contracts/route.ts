@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { createContract, getAdminPayload, persistDb, prepareDb, storageErrorMessage, updateContractTemplate } from "@/lib/server/app-db";
+import { createContract, persistDb, prepareDb, storageErrorMessage, updateContractTemplate } from "@/lib/server/app-db";
+import { scopedAdminPayload } from "@/lib/server/admin-request";
 
 export async function PUT(request: Request) {
   await prepareDb();
@@ -16,7 +17,7 @@ export async function PUT(request: Request) {
   } catch (error) {
     return NextResponse.json({ error: storageErrorMessage(error) }, { status: 503 });
   }
-  return NextResponse.json(getAdminPayload(companyId || undefined));
+  return NextResponse.json(scopedAdminPayload(request, companyId || undefined));
 }
 
 export async function POST(request: Request) {
@@ -39,5 +40,5 @@ export async function POST(request: Request) {
   } catch (error) {
     return NextResponse.json({ error: storageErrorMessage(error) }, { status: 503 });
   }
-  return NextResponse.json({ ...getAdminPayload(companyId || undefined), contract });
+  return NextResponse.json({ ...scopedAdminPayload(request, companyId || undefined), contract });
 }

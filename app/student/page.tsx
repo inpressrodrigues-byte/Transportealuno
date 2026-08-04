@@ -54,7 +54,11 @@ export default function StudentPage() {
     };
 
     boot().catch(() => {
-      if (alive) setLoading(false);
+      localStorage.removeItem("rota-segura-session");
+      if (alive) {
+        setSession(null);
+        setLoading(false);
+      }
     });
 
     return () => {
@@ -102,6 +106,7 @@ export default function StudentPage() {
   };
 
   const logout = () => {
+    void fetch("/api/auth/logout", { method: "POST" });
     localStorage.removeItem("rota-segura-session");
     setSession(null);
     setData(null);

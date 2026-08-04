@@ -127,6 +127,7 @@ export default function DashboardPage() {
     };
 
     boot().catch(() => {
+      localStorage.removeItem("rota-segura-session");
       if (alive) router.replace("/login");
     });
 
@@ -144,6 +145,7 @@ export default function DashboardPage() {
   const recentCheckins = data?.checkins.slice(0, 8) ?? [];
 
   const logout = () => {
+    void fetch("/api/auth/logout", { method: "POST" });
     localStorage.removeItem("rota-segura-session");
     router.push("/");
   };

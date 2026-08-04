@@ -2,6 +2,13 @@ import { NextResponse } from "next/server";
 import { hashSecret, passwordMatches, prepareDb, readDb } from "@/lib/server/app-db";
 import { normalizeContact, normalizeDigits } from "@/lib/app-utils";
 import type { SessionUser } from "@/lib/app-types";
+import { createSessionToken, SESSION_COOKIE, sessionCookieOptions } from "@/lib/session-token";
+
+function loginResponse(user: SessionUser) {
+  const response = NextResponse.json({ user });
+  response.cookies.set(SESSION_COOKIE, createSessionToken(user), sessionCookieOptions);
+  return response;
+}
 
 export async function POST(request: Request) {
   await prepareDb();
@@ -33,7 +40,7 @@ export async function POST(request: Request) {
       contact: admin.login || admin.contact,
     };
 
-    return NextResponse.json({ user });
+    return loginResponse(user);
   }
 
   const document = normalizeDigits(rawLogin);
@@ -54,7 +61,7 @@ export async function POST(request: Request) {
       companyId: company.id,
     };
 
-    return NextResponse.json({ user });
+    return loginResponse(user);
   }
 
   const driver = db.drivers.find(
@@ -74,7 +81,7 @@ export async function POST(request: Request) {
       companyId: driver.companyId,
     };
 
-    return NextResponse.json({ user });
+    return loginResponse(user);
   }
 
   const childCpf = normalizeDigits(rawLogin).slice(0, 11);
@@ -96,7 +103,7 @@ export async function POST(request: Request) {
       companyId: child.companyId || parent?.companyId,
     };
 
-    return NextResponse.json({ user });
+    return loginResponse(user);
   }
 
   const parent = db.parents.find(
@@ -119,7 +126,7 @@ export async function POST(request: Request) {
     companyId: parent.companyId,
   };
 
-  return NextResponse.json({ user });
+  return loginResponse(user);
 }
 
 function birthDateMatches(stored: string, password: string) {

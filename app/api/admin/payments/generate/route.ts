@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
 import {
   generateUpcomingPayments,
-  getAdminPayload,
   persistDb,
   prepareDb,
   storageErrorMessage,
 } from "@/lib/server/app-db";
+import { scopedAdminPayload } from "@/lib/server/admin-request";
 
 export async function POST(request: Request) {
   await prepareDb();
@@ -22,7 +22,7 @@ export async function POST(request: Request) {
   }
 
   return NextResponse.json({
-    ...getAdminPayload(companyId),
+    ...scopedAdminPayload(request, companyId),
     generated: result.created,
     month: result.month,
   });

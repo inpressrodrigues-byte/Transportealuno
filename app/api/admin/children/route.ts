@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
 import {
   deleteChild,
-  getAdminPayload,
   persistDb,
   prepareDb,
   storageErrorMessage,
   upsertChild,
 } from "@/lib/server/app-db";
+import { scopedAdminPayload } from "@/lib/server/admin-request";
 import type { Shift } from "@/lib/app-types";
 
 export async function POST(request: Request) {
@@ -40,7 +40,7 @@ export async function POST(request: Request) {
   } catch (error) {
     return NextResponse.json({ error: storageErrorMessage(error) }, { status: 503 });
   }
-  return NextResponse.json(getAdminPayload(companyId));
+  return NextResponse.json(scopedAdminPayload(request, companyId));
 }
 
 export async function DELETE(request: Request) {
@@ -58,5 +58,5 @@ export async function DELETE(request: Request) {
   } catch (error) {
     return NextResponse.json({ error: storageErrorMessage(error) }, { status: 503 });
   }
-  return NextResponse.json(getAdminPayload(companyId));
+  return NextResponse.json(scopedAdminPayload(request, companyId));
 }

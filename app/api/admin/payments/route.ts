@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { getAdminPayload, mutateDb, persistDb, prepareDb, readDb, storageErrorMessage } from "@/lib/server/app-db";
+import { mutateDb, persistDb, prepareDb, readDb, storageErrorMessage } from "@/lib/server/app-db";
+import { scopedAdminPayload } from "@/lib/server/admin-request";
 import { makeId, todayIso } from "@/lib/app-utils";
 
 export async function POST(request: Request) {
@@ -103,7 +104,7 @@ export async function POST(request: Request) {
   } catch (storageError) {
     return NextResponse.json({ error: storageErrorMessage(storageError) }, { status: 503 });
   }
-  return NextResponse.json(getAdminPayload(activeCompanyId));
+  return NextResponse.json(scopedAdminPayload(request, activeCompanyId));
 }
 
 export async function DELETE(request: Request) {
@@ -138,5 +139,5 @@ export async function DELETE(request: Request) {
   } catch (storageError) {
     return NextResponse.json({ error: storageErrorMessage(storageError) }, { status: 503 });
   }
-  return NextResponse.json(getAdminPayload(companyId || undefined));
+  return NextResponse.json(scopedAdminPayload(request, companyId || undefined));
 }
