@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createReceipt, mutateDb } from "@/lib/server/app-db";
+import { createReceipt, mutateDb, persistDb, prepareDb } from "@/lib/server/app-db";
 import type { PaymentStatus } from "@/lib/app-types";
 
 const statuses: PaymentStatus[] = ["pending_proof", "proof_received", "approved", "rejected"];
@@ -8,6 +8,7 @@ export async function PUT(
   request: Request,
   context: { params: Promise<{ id: string }> }
 ) {
+  await prepareDb();
   const { id } = await context.params;
   const body = await request.json().catch(() => null);
   const status = String(body?.status || "") as PaymentStatus;
@@ -46,5 +47,6 @@ export async function PUT(
     return NextResponse.json({ error }, { status: 400 });
   }
 
+  await persistDb();
   return NextResponse.json({ payments: db.payments });
 }

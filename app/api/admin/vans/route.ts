@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
-import { deleteVan, getAdminPayload, upsertVan } from "@/lib/server/app-db";
+import { deleteVan, getAdminPayload, persistDb, prepareDb, upsertVan } from "@/lib/server/app-db";
 
 export async function POST(request: Request) {
+  await prepareDb();
   const body = await request.json().catch(() => null);
 
   const { error } = upsertVan({
@@ -21,10 +22,12 @@ export async function POST(request: Request) {
     return NextResponse.json({ error }, { status: 400 });
   }
 
+  await persistDb();
   return NextResponse.json(getAdminPayload(String(body?.companyId || "") || undefined));
 }
 
 export async function DELETE(request: Request) {
+  await prepareDb();
   const body = await request.json().catch(() => null);
   const companyId = String(body?.companyId || "");
   const { error } = deleteVan(String(body?.id || ""), companyId || undefined);
@@ -33,5 +36,6 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ error }, { status: 400 });
   }
 
+  await persistDb();
   return NextResponse.json(getAdminPayload(companyId || undefined));
 }

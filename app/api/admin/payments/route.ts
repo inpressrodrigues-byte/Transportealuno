@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
-import { getAdminPayload, mutateDb, readDb } from "@/lib/server/app-db";
+import { getAdminPayload, mutateDb, persistDb, prepareDb, readDb } from "@/lib/server/app-db";
 import { makeId, todayIso } from "@/lib/app-utils";
 
 export async function POST(request: Request) {
+  await prepareDb();
   const body = await request.json().catch(() => null);
   const parentId = String(body?.parentId || "");
   const childId = String(body?.childId || "");
@@ -44,5 +45,6 @@ export async function POST(request: Request) {
     });
   });
 
+  await persistDb();
   return NextResponse.json(getAdminPayload(activeCompanyId));
 }

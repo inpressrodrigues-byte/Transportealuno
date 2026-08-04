@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
-import { getAdminPayload, upsertCompany } from "@/lib/server/app-db";
+import { getAdminPayload, persistDb, prepareDb, upsertCompany } from "@/lib/server/app-db";
 import type { CompanySettings, ThemeSettings } from "@/lib/app-types";
 
 export async function POST(request: Request) {
+  await prepareDb();
   const body = await request.json().catch(() => null);
 
   const { error, companyId } = upsertCompany({
@@ -20,5 +21,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ error }, { status: 400 });
   }
 
+  await persistDb();
   return NextResponse.json(getAdminPayload(companyId || undefined));
 }

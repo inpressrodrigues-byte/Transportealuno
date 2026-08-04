@@ -16,14 +16,17 @@ import {
   MapPin,
   Menu,
   Navigation,
+  Pencil,
   Plus,
   Printer,
   QrCode,
   ReceiptText,
+  Save,
   School,
   ShieldCheck,
   Moon,
   Sun,
+  Trash2,
   UserRound,
   Wallet,
   X,
@@ -34,7 +37,7 @@ import { cn } from "@/lib/utils";
 import type {
   AddressRecord,
   ChildAbsenceStatus,
-  ChildRecord,
+  SafeChildRecord,
   LiveTrackingState,
   ParentDashboardPayload,
   PaymentRecord,
@@ -66,6 +69,7 @@ const emptyAddress: AddressRecord = {
 };
 
 const emptyChild = {
+  id: "",
   name: "",
   cpf: "",
   birthDate: "",
@@ -212,14 +216,14 @@ export default function DashboardPage() {
     );
   };
 
-  const createChild = async (e: React.FormEvent) => {
+  const saveChild = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!session) return;
 
     setSaving("child");
     setMessage("");
     const response = await fetch("/api/parent/children", {
-      method: "POST",
+      method: childForm.id ? "PATCH" : "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ...childForm, parentId: session.id }),
     });
@@ -241,7 +245,50 @@ export default function DashboardPage() {
       responsiblePhone: refreshed.parent.contact || "",
       address: emptyAddress,
     });
-    setMessage("Aluno cadastrado.");
+    setMessage(childForm.id ? "Dados do aluno atualizados." : "Aluno cadastrado.");
+    setSaving("");
+  };
+
+  const editChild = (child: SafeChildRecord) => {
+    setChildForm({
+      id: child.id,
+      name: child.name,
+      cpf: "",
+      birthDate: child.birthDate,
+      schoolId: child.schoolId,
+      grade: child.grade,
+      responsiblePhone: child.responsiblePhone,
+      address: { ...child.address },
+      notes: child.notes,
+    });
+    setActive("alunos");
+    setMessage("Edite os dados e toque em salvar.");
+  };
+
+  const removeChild = async (child: SafeChildRecord) => {
+    if (!session) return;
+    const confirmed = window.confirm(
+      `Excluir o perfil de "${child.name}" e os pagamentos, contratos e check-ins vinculados?`
+    );
+    if (!confirmed) return;
+
+    setSaving(`delete-${child.id}`);
+    setMessage("");
+    const response = await fetch("/api/parent/children", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: child.id, parentId: session.id }),
+    });
+    const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+
+    if (response.ok) {
+      await load(session.id);
+      if (childForm.id === child.id) setChildForm({ ...emptyChild, address: { ...emptyAddress } });
+      setMessage("Perfil do aluno excluido.");
+    } else {
+      setMessage(payload?.error || "Nao foi possivel excluir o aluno.");
+    }
+
     setSaving("");
   };
 
@@ -428,18 +475,26 @@ export default function DashboardPage() {
                         key={child.id}
                         child={child}
                         schoolName={schoolName(child.schoolId)}
-                        saving={saving === `status-${child.id}`}
+                        saving={saving === `status-${child.id}` || saving === `delete-${child.id}`}
                         onStatus={updateChildStatus}
+                        onEdit={() => editChild(child)}
+                        onDelete={() => removeChild(child)}
                       />
                     ))}
                   </div>
                 </Panel>
 
-                <Panel title="Cadastrar filho" subtitle="O CEP ajuda a preencher o endereco automaticamente.">
-                  <form onSubmit={createChild} className="space-y-4">
+                <Panel title={childForm.id ? "Editar filho" : "Cadastrar filho"} subtitle="O CEP ajuda a preencher o endereco automaticamente.">
+                  <form onSubmit={saveChild} className="space-y-4">
                     <Field label="Nome do filho" value={childForm.name} onChange={(v) => setChildForm({ ...childForm, name: v })} required />
                     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                      <Field label="CPF do aluno" value={childForm.cpf} onChange={(v) => setChildForm({ ...childForm, cpf: v })} required />
+                      <Field
+                        label={childForm.id ? "Novo CPF do aluno" : "CPF do aluno"}
+                        value={childForm.cpf}
+                        onChange={(v) => setChildForm({ ...childForm, cpf: v })}
+                        placeholder={childForm.id ? "Deixe em branco para manter" : "000.000.000-00"}
+                        required={!childForm.id}
+                      />
                       <Field label="Nascimento" value={childForm.birthDate} onChange={(v) => setChildForm({ ...childForm, birthDate: v })} type="date" required />
                       <Field label="Serie/turma" value={childForm.grade} onChange={(v) => setChildForm({ ...childForm, grade: v })} />
                     </div>
@@ -507,9 +562,17 @@ export default function DashboardPage() {
                       />
                     </label>
 
-                    <Button type="submit" disabled={saving === "child"}>
-                      <Plus size={16} /> Cadastrar filho
-                    </Button>
+                    <div className="flex flex-wrap gap-2">
+                      <Button type="submit" disabled={saving === "child"}>
+                        {childForm.id ? <Save size={16} /> : <Plus size={16} />}
+                        {childForm.id ? "Salvar alteracoes" : "Cadastrar filho"}
+                      </Button>
+                      {childForm.id && (
+                        <Button type="button" variant="outlineDark" onClick={() => setChildForm({ ...emptyChild, address: { ...emptyAddress }, responsiblePhone: data.parent.contact, schoolId: childSchoolOptions[0]?.id || "" })}>
+                          Cancelar
+                        </Button>
+                      )}
+                    </div>
                   </form>
                 </Panel>
               </div>
@@ -738,12 +801,14 @@ function Field({
   onChange,
   type = "text",
   required,
+  placeholder,
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
   type?: string;
   required?: boolean;
+  placeholder?: string;
 }) {
   return (
     <label>
@@ -752,6 +817,7 @@ function Field({
         required={required}
         type={type}
         value={value}
+        placeholder={placeholder}
         onChange={(e) => onChange(e.target.value)}
         className="mt-2 w-full rounded-xl border border-line bg-white px-4 py-3 text-sm text-navy outline-none focus:border-sun dark:border-white/10 dark:bg-white/5 dark:text-white"
       />
@@ -785,26 +851,38 @@ function ChildCard({
   schoolName,
   saving,
   onStatus,
+  onEdit,
+  onDelete,
 }: {
-  child: ChildRecord;
+  child: SafeChildRecord;
   schoolName: string;
   saving: boolean;
   onStatus: (childId: string, status: ChildAbsenceStatus) => void;
+  onEdit: () => void;
+  onDelete: () => void;
 }) {
   return (
     <div className="rounded-2xl border border-line p-4 dark:border-white/10">
       <div className="flex items-start justify-between gap-3">
         <div>
           <div className="font-semibold text-navy dark:text-white">{child.name}</div>
-          <div className="mt-1 text-sm text-mute dark:text-white/55">{schoolName} · {child.grade || "Serie nao informada"}</div>
+          <div className="mt-1 text-sm text-mute dark:text-white/55">{schoolName} - {child.grade || "Serie nao informada"}</div>
           <div className="mt-1 text-xs text-mute dark:text-white/45">
             CPF final {child.cpfLast4 || "nao informado"} - nascimento {child.birthDate || "nao informado"}
           </div>
         </div>
-        <AbsenceBadge status={child.absenceStatus} />
+        <div className="flex shrink-0 items-center gap-1">
+          <AbsenceBadge status={child.absenceStatus} />
+          <button type="button" onClick={onEdit} disabled={saving} className="rounded-lg p-2 text-mute hover:bg-mist hover:text-navy disabled:opacity-50 dark:hover:bg-white/10 dark:hover:text-white" aria-label={`Editar ${child.name}`} title="Editar aluno">
+            <Pencil size={15} />
+          </button>
+          <button type="button" onClick={onDelete} disabled={saving} className="rounded-lg p-2 text-red-500 hover:bg-red-500/10 disabled:opacity-50" aria-label={`Excluir ${child.name}`} title="Excluir aluno">
+            <Trash2 size={15} />
+          </button>
+        </div>
       </div>
       <div className="mt-4 rounded-xl bg-mist p-3 text-sm text-mute dark:bg-white/5 dark:text-white/60">
-        {child.address.street || "Endereco nao informado"}, {child.address.number || "s/n"} · {child.address.neighborhood || "bairro"}
+        {child.address.street || "Endereco nao informado"}, {child.address.number || "s/n"} - {child.address.neighborhood || "bairro"}
       </div>
       <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-3">
         <StatusButton

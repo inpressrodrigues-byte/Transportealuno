@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
-import { createCheckin } from "@/lib/server/app-db";
+import { createCheckin, persistDb, prepareDb } from "@/lib/server/app-db";
 import type { CheckinType } from "@/lib/app-types";
 
 export async function POST(request: Request) {
+  await prepareDb();
   const body = await request.json().catch(() => null);
   const token = String(body?.token || "");
   const parentId = String(body?.parentId || "");
@@ -31,5 +32,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: error || "Nao foi possivel registrar o check-in." }, { status: 400 });
   }
 
+  await persistDb();
   return NextResponse.json({ checkin });
 }

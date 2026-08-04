@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
-import { getContract, signContract } from "@/lib/server/app-db";
+import { getContract, persistDb, prepareDb, signContract } from "@/lib/server/app-db";
 
 export async function GET(
   _request: Request,
   context: { params: Promise<{ id: string }> }
 ) {
+  await prepareDb();
   const { id } = await context.params;
   const payload = getContract(id);
 
@@ -19,6 +20,7 @@ export async function POST(
   request: Request,
   context: { params: Promise<{ id: string }> }
 ) {
+  await prepareDb();
   const { id } = await context.params;
   const body = await request.json().catch(() => null);
   const { error, contract } = signContract({
@@ -31,5 +33,6 @@ export async function POST(
     return NextResponse.json({ error: error || "Nao foi possivel assinar." }, { status: 400 });
   }
 
+  await persistDb();
   return NextResponse.json({ contract });
 }

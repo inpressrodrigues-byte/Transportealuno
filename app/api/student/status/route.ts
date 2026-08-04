@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
-import { getStudentDashboard, readDb, updateChildAbsence } from "@/lib/server/app-db";
+import { getStudentDashboard, persistDb, prepareDb, readDb, updateChildAbsence } from "@/lib/server/app-db";
 import type { ChildAbsenceStatus } from "@/lib/app-types";
 
 const statuses: ChildAbsenceStatus[] = ["going", "not_going", "not_returning"];
 
 export async function PUT(request: Request) {
+  await prepareDb();
   const body = await request.json().catch(() => null);
   const childId = String(body?.childId || "");
   const status = body?.status as ChildAbsenceStatus;
@@ -24,5 +25,6 @@ export async function PUT(request: Request) {
     return NextResponse.json({ error }, { status: 400 });
   }
 
+  await persistDb();
   return NextResponse.json(getStudentDashboard(child.id));
 }

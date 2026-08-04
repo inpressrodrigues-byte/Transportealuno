@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
-import { bulkUpdateSchools, deleteSchool, upsertSchool } from "@/lib/server/app-db";
+import { bulkUpdateSchools, deleteSchool, persistDb, prepareDb, upsertSchool } from "@/lib/server/app-db";
 import { schoolCategories, shifts } from "@/lib/app-utils";
 import type { SchoolCategory, Shift } from "@/lib/app-types";
 
 export async function POST(request: Request) {
+  await prepareDb();
   const body = await request.json().catch(() => null);
 
   if (!body?.name || String(body.name).trim().length < 2) {
@@ -24,10 +25,12 @@ export async function POST(request: Request) {
     active: body.active ?? true,
   });
 
+  await persistDb();
   return NextResponse.json({ schools: db.schools });
 }
 
 export async function DELETE(request: Request) {
+  await prepareDb();
   const body = await request.json().catch(() => null);
   const id = String(body?.id || "");
 
@@ -36,10 +39,12 @@ export async function DELETE(request: Request) {
   }
 
   const db = deleteSchool(id);
+  await persistDb();
   return NextResponse.json({ schools: db.schools });
 }
 
 export async function PATCH(request: Request) {
+  await prepareDb();
   const body = await request.json().catch(() => null);
   const ids = Array.isArray(body?.ids) ? body.ids.map((id: string) => String(id)) : [];
   const action = String(body?.action || "");
@@ -53,5 +58,6 @@ export async function PATCH(request: Request) {
   }
 
   const db = bulkUpdateSchools(ids, action as "serve" | "pause" | "delete");
+  await persistDb();
   return NextResponse.json({ schools: db.schools });
 }

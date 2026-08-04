@@ -21,6 +21,7 @@ import {
   MessageCircle,
   Navigation,
   Palette,
+  Pencil,
   QrCode,
   ReceiptText,
   Save,
@@ -28,7 +29,6 @@ import {
   Settings,
   ShieldCheck,
   Trash2,
-  UserRoundPlus,
   UsersRound,
   Wallet,
   XCircle,
@@ -171,6 +171,38 @@ const emptyVanForm = {
   notes: "",
 };
 
+const emptyParentForm = {
+  id: "",
+  name: "",
+  contact: "",
+  email: "",
+  cpf: "",
+  active: true,
+};
+
+const emptyChildForm = {
+  id: "",
+  parentId: "",
+  name: "",
+  cpf: "",
+  birthDate: "",
+  schoolId: "",
+  grade: "",
+  responsiblePhone: "",
+  cep: "",
+  street: "",
+  number: "",
+  complement: "",
+  neighborhood: "",
+  city: "Toledo",
+  state: "PR",
+  notes: "",
+  driverId: "",
+  vanId: "",
+  shift: "" as Shift | "",
+  active: true,
+};
+
 export default function AdminPage() {
   const router = useRouter();
   const [session, setSession] = useState<SessionUser | null>(null);
@@ -197,7 +229,8 @@ export default function AdminPage() {
   const [neighborhoodForm, setNeighborhoodForm] = useState(emptyNeighborhoodForm);
   const [driverForm, setDriverForm] = useState(emptyDriverForm);
   const [vanForm, setVanForm] = useState(emptyVanForm);
-  const [parentForm, setParentForm] = useState({ name: "", contact: "", email: "", cpf: "" });
+  const [parentForm, setParentForm] = useState(emptyParentForm);
+  const [childForm, setChildForm] = useState(emptyChildForm);
   const [paymentForm, setPaymentForm] = useState({
     parentId: "",
     childId: "",
@@ -856,7 +889,7 @@ export default function AdminPage() {
     setSaving("");
   };
 
-  const createParent = async (e: React.FormEvent) => {
+  const saveParent = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving("parent");
     setMessage("");
@@ -865,11 +898,151 @@ export default function AdminPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ...parentForm, companyId: activeCompanyId }),
     });
+    const result = (await response.json().catch(() => null)) as { error?: string } | null;
     if (response.ok) {
       await load();
-      setParentForm({ name: "", contact: "", email: "", cpf: "" });
-      setMessage("Responsavel cadastrado. O CPF informado ja vira a senha dele.");
+      setParentForm(emptyParentForm);
+      setMessage(parentForm.id ? "Responsavel atualizado." : "Responsavel cadastrado. O CPF informado ja vira a senha dele.");
+    } else {
+      setMessage(result?.error || "Nao foi possivel salvar o responsavel.");
     }
+    setSaving("");
+  };
+
+  const editParent = (parent: AdminPayload["parents"][number]) => {
+    setParentForm({
+      id: parent.id,
+      name: parent.name,
+      contact: parent.contact,
+      email: parent.email || "",
+      cpf: "",
+      active: parent.active,
+    });
+    setActive("parents");
+  };
+
+  const removeParent = async (parent: AdminPayload["parents"][number]) => {
+    const confirmed = window.confirm(
+      `Excluir o responsavel "${parent.name}" e todos os alunos, pagamentos, contratos e check-ins vinculados?`
+    );
+    if (!confirmed) return;
+
+    setSaving(`parent-delete-${parent.id}`);
+    setMessage("");
+    const response = await fetch("/api/admin/parents", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: parent.id, companyId: activeCompanyId }),
+    });
+    const result = (await response.json().catch(() => null)) as { error?: string } | null;
+
+    if (response.ok) {
+      await load();
+      if (parentForm.id === parent.id) setParentForm(emptyParentForm);
+      if (childForm.parentId === parent.id) setChildForm(emptyChildForm);
+      setMessage("Responsavel e dados vinculados excluidos.");
+    } else {
+      setMessage(result?.error || "Nao foi possivel excluir o responsavel.");
+    }
+
+    setSaving("");
+  };
+
+  const saveChild = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving("child");
+    setMessage("");
+    const response = await fetch("/api/admin/children", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        id: childForm.id,
+        companyId: activeCompanyId,
+        parentId: childForm.parentId,
+        name: childForm.name,
+        cpf: childForm.cpf,
+        birthDate: childForm.birthDate,
+        schoolId: childForm.schoolId,
+        grade: childForm.grade,
+        responsiblePhone: childForm.responsiblePhone,
+        notes: childForm.notes,
+        driverId: childForm.driverId,
+        vanId: childForm.vanId,
+        shift: childForm.shift,
+        active: childForm.active,
+        address: {
+          cep: childForm.cep,
+          street: childForm.street,
+          number: childForm.number,
+          complement: childForm.complement,
+          neighborhood: childForm.neighborhood,
+          city: childForm.city,
+          state: childForm.state,
+        },
+      }),
+    });
+    const result = (await response.json().catch(() => null)) as { error?: string } | null;
+
+    if (response.ok) {
+      await load();
+      setChildForm(emptyChildForm);
+      setMessage(childForm.id ? "Aluno atualizado." : "Aluno cadastrado com acesso liberado.");
+    } else {
+      setMessage(result?.error || "Nao foi possivel salvar o aluno.");
+    }
+
+    setSaving("");
+  };
+
+  const editChild = (child: AdminPayload["children"][number]) => {
+    setChildForm({
+      id: child.id,
+      parentId: child.parentId,
+      name: child.name,
+      cpf: "",
+      birthDate: child.birthDate,
+      schoolId: child.schoolId,
+      grade: child.grade,
+      responsiblePhone: child.responsiblePhone,
+      cep: child.address.cep,
+      street: child.address.street,
+      number: child.address.number,
+      complement: child.address.complement,
+      neighborhood: child.address.neighborhood,
+      city: child.address.city || "Toledo",
+      state: child.address.state || "PR",
+      notes: child.notes,
+      driverId: child.driverId || "",
+      vanId: child.vanId || "",
+      shift: child.shift || "",
+      active: child.active,
+    });
+    setActive("parents");
+  };
+
+  const removeChild = async (child: AdminPayload["children"][number]) => {
+    const confirmed = window.confirm(
+      `Excluir o aluno "${child.name}" e seus pagamentos, contratos e check-ins?`
+    );
+    if (!confirmed) return;
+
+    setSaving(`child-delete-${child.id}`);
+    setMessage("");
+    const response = await fetch("/api/admin/children", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: child.id, companyId: activeCompanyId }),
+    });
+    const result = (await response.json().catch(() => null)) as { error?: string } | null;
+
+    if (response.ok) {
+      await load();
+      if (childForm.id === child.id) setChildForm(emptyChildForm);
+      setMessage("Aluno e dados vinculados excluidos.");
+    } else {
+      setMessage(result?.error || "Nao foi possivel excluir o aluno.");
+    }
+
     setSaving("");
   };
 
@@ -1038,32 +1211,30 @@ export default function AdminPage() {
       </aside>
 
       <main className="px-4 py-5 lg:ml-72 lg:px-10 lg:py-8">
-        <div className="mb-6 flex flex-col gap-4 rounded-2xl border border-line bg-white p-4 dark:border-white/10 dark:bg-white/[0.04] lg:hidden">
-          <div className="flex items-center justify-between">
-            <span className="font-semibold text-navy dark:text-white">Admin</span>
-            <button onClick={logout} className="text-sm font-semibold text-mute dark:text-white/60">
-              Sair
-            </button>
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            {visibleTabs.map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setActive(tab.id)}
-                className={cn(
-                  "rounded-xl px-3 py-2 text-sm font-semibold",
-                  active === tab.id ? "bg-navy text-white" : "bg-mist text-mute"
-                )}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
+        <div className="sticky top-2 z-30 mb-5 flex items-center gap-3 rounded-xl border border-line bg-white/95 p-3 shadow-lg backdrop-blur dark:border-white/10 dark:bg-navy/95 lg:hidden">
+          <Link href="/" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-sun text-navy" aria-label="Voltar ao site" title="Voltar ao site">
+            <Bus size={18} />
+          </Link>
+          <label className="min-w-0 flex-1">
+            <span className="sr-only">Secao do painel</span>
+            <select
+              value={active}
+              onChange={(event) => setActive(event.target.value as AdminTab)}
+              className="h-10 w-full rounded-lg border border-line bg-mist px-3 text-sm font-semibold text-navy outline-none focus:border-sun dark:border-white/10 dark:bg-white/5 dark:text-white"
+            >
+              {visibleTabs.map((tab) => (
+                <option key={tab.id} value={tab.id}>{tab.label}</option>
+              ))}
+            </select>
+          </label>
+          <button onClick={logout} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-mute hover:bg-mist dark:text-white/60 dark:hover:bg-white/10" aria-label="Sair" title="Sair">
+            <LogOut size={18} />
+          </button>
         </div>
 
         <header className="mx-auto max-w-6xl">
           <p className="text-sm font-semibold uppercase tracking-[0.2em] text-sun-2">Empresa</p>
-          <h1 className="mt-2 text-3xl font-semibold text-navy dark:text-white">
+          <h1 className="mt-2 text-2xl font-semibold text-navy dark:text-white sm:text-3xl">
             Controle profissional do transporte escolar
           </h1>
           <p className="mt-2 max-w-2xl text-sm text-mute dark:text-white/60">
@@ -1083,19 +1254,24 @@ export default function AdminPage() {
                 value={activeCompanyId}
                 onChange={(e) => switchCompany(e.target.value)}
                 disabled={saving === "company-switch"}
-                className="rounded-xl border border-line bg-white px-4 py-3 text-sm font-semibold text-navy outline-none focus:border-sun dark:border-white/10 dark:bg-white/5 dark:text-white"
+                className="w-full rounded-xl border border-line bg-white px-4 py-3 text-sm font-semibold text-navy outline-none focus:border-sun dark:border-white/10 dark:bg-white/5 dark:text-white sm:w-auto"
               >
                 {data.companies.map((company) => (
                   <option key={company.id} value={company.id}>{company.name}</option>
                 ))}
               </select>
             ) : (
-              <span className="rounded-full bg-sun px-3 py-1 text-xs font-bold text-navy">Painel da empresa</span>
+              <span className="w-fit rounded-full bg-sun px-3 py-1 text-xs font-bold text-navy">Painel da empresa</span>
             )}
           </div>
           {message && (
             <div className="mt-4 rounded-xl border border-sun/30 bg-sun/10 px-4 py-3 text-sm font-medium text-navy dark:text-sun">
               {message}
+            </div>
+          )}
+          {!data.storage?.durable && (
+            <div className="mt-4 rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-sm text-red-700 dark:text-red-200">
+              Protecao dos cadastros pendente: conecte um armazenamento privado ao projeto na Vercel para evitar perda de dados apos reinicializacoes.
             </div>
           )}
         </header>
@@ -1881,50 +2057,214 @@ export default function AdminPage() {
           )}
 
           {active === "parents" && (
-            <div className="grid grid-cols-1 gap-5 xl:grid-cols-[380px_1fr]">
-              <Panel title="Cadastrar responsavel" subtitle="Contato e CPF serao usados no login da area dos pais.">
-                <form onSubmit={createParent} className="space-y-4">
-                  <Field label="Nome completo" value={parentForm.name} onChange={(v) => setParentForm({ ...parentForm, name: v })} />
-                  <Field label="Numero de contato" value={parentForm.contact} onChange={(v) => setParentForm({ ...parentForm, contact: v })} />
-                  <Field label="Email" value={parentForm.email} onChange={(v) => setParentForm({ ...parentForm, email: v })} />
-                  <Field label="CPF senha" value={parentForm.cpf} onChange={(v) => setParentForm({ ...parentForm, cpf: v })} />
-                  <Button type="submit" disabled={saving === "parent"}>
-                    <UserRoundPlus size={16} /> Cadastrar responsavel
-                  </Button>
-                </form>
-              </Panel>
+            <div className="grid grid-cols-1 gap-5 xl:grid-cols-[430px_1fr]">
+              <div className="space-y-5">
+                <Panel
+                  title={parentForm.id ? "Editar responsavel" : "Cadastrar responsavel"}
+                  subtitle="O contato e o CPF liberam o acesso da familia."
+                >
+                  <form onSubmit={saveParent} className="space-y-4">
+                    <Field label="Nome completo" value={parentForm.name} onChange={(v) => setParentForm({ ...parentForm, name: v })} />
+                    <Field label="Numero de contato" value={parentForm.contact} onChange={(v) => setParentForm({ ...parentForm, contact: v })} placeholder="(45) 99999-9999" />
+                    <Field label="Email" type="email" value={parentForm.email} onChange={(v) => setParentForm({ ...parentForm, email: v })} />
+                    <Field
+                      label={parentForm.id ? "Novo CPF senha" : "CPF senha"}
+                      value={parentForm.cpf}
+                      onChange={(v) => setParentForm({ ...parentForm, cpf: v })}
+                      placeholder={parentForm.id ? "Deixe em branco para manter" : "000.000.000-00"}
+                    />
+                    <label className="flex items-center gap-3 rounded-xl border border-line px-4 py-3 text-sm font-semibold text-navy dark:border-white/10 dark:text-white">
+                      <input
+                        type="checkbox"
+                        checked={parentForm.active}
+                        onChange={(e) => setParentForm({ ...parentForm, active: e.target.checked })}
+                        className="h-4 w-4 accent-sun"
+                      />
+                      Acesso ativo
+                    </label>
+                    <div className="flex flex-wrap gap-2">
+                      <Button type="submit" disabled={saving === "parent"}>
+                        <Save size={16} /> {parentForm.id ? "Salvar" : "Cadastrar"}
+                      </Button>
+                      {parentForm.id && (
+                        <Button type="button" variant="outlineDark" onClick={() => setParentForm(emptyParentForm)}>
+                          Cancelar
+                        </Button>
+                      )}
+                    </div>
+                  </form>
+                </Panel>
 
-              <Panel title="Responsaveis e alunos" subtitle="Os alunos sao cadastrados pela area do responsavel.">
+                <Panel
+                  title={childForm.id ? "Editar aluno" : "Cadastrar aluno"}
+                  subtitle="O aluno entra com CPF e data de nascimento."
+                >
+                  <form onSubmit={saveChild} className="space-y-4">
+                    <label>
+                      <span className="text-xs font-semibold uppercase tracking-wide text-mute dark:text-white/50">Responsavel</span>
+                      <select
+                        required
+                        value={childForm.parentId}
+                        onChange={(e) => {
+                          const parent = data.parents.find((item) => item.id === e.target.value);
+                          setChildForm({ ...childForm, parentId: e.target.value, responsiblePhone: parent?.contact || childForm.responsiblePhone });
+                        }}
+                        className="mt-2 w-full rounded-xl border border-line bg-white px-4 py-3 text-sm text-navy outline-none focus:border-sun dark:border-white/10 dark:bg-white/5 dark:text-white"
+                      >
+                        <option value="">Selecione o responsavel</option>
+                        {data.parents.map((parent) => (
+                          <option key={parent.id} value={parent.id}>{parent.name}</option>
+                        ))}
+                      </select>
+                    </label>
+                    <Field label="Nome do aluno" value={childForm.name} onChange={(v) => setChildForm({ ...childForm, name: v })} />
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                      <Field
+                        label={childForm.id ? "Novo CPF" : "CPF do aluno"}
+                        value={childForm.cpf}
+                        onChange={(v) => setChildForm({ ...childForm, cpf: v })}
+                        placeholder={childForm.id ? "Deixe em branco para manter" : "000.000.000-00"}
+                      />
+                      <Field label="Nascimento" type="date" value={childForm.birthDate} onChange={(v) => setChildForm({ ...childForm, birthDate: v })} />
+                    </div>
+                    <label>
+                      <span className="text-xs font-semibold uppercase tracking-wide text-mute dark:text-white/50">Escola</span>
+                      <select
+                        required
+                        value={childForm.schoolId}
+                        onChange={(e) => setChildForm({ ...childForm, schoolId: e.target.value })}
+                        className="mt-2 w-full rounded-xl border border-line bg-white px-4 py-3 text-sm text-navy outline-none focus:border-sun dark:border-white/10 dark:bg-white/5 dark:text-white"
+                      >
+                        <option value="">Selecione a escola</option>
+                        {data.schools.filter((item) => item.active).map((schoolItem) => (
+                          <option key={schoolItem.id} value={schoolItem.id}>{schoolItem.name}</option>
+                        ))}
+                      </select>
+                    </label>
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                      <Field label="Turma / serie" value={childForm.grade} onChange={(v) => setChildForm({ ...childForm, grade: v })} />
+                      <Field label="Telefone responsavel" value={childForm.responsiblePhone} onChange={(v) => setChildForm({ ...childForm, responsiblePhone: v })} />
+                    </div>
+                    <div className="grid grid-cols-[120px_1fr] gap-4">
+                      <Field label="CEP" value={childForm.cep} onChange={(v) => setChildForm({ ...childForm, cep: v })} />
+                      <Field label="Rua" value={childForm.street} onChange={(v) => setChildForm({ ...childForm, street: v })} />
+                    </div>
+                    <div className="grid grid-cols-[110px_1fr] gap-4">
+                      <Field label="Numero" value={childForm.number} onChange={(v) => setChildForm({ ...childForm, number: v })} />
+                      <Field label="Complemento" value={childForm.complement} onChange={(v) => setChildForm({ ...childForm, complement: v })} />
+                    </div>
+                    <Field label="Bairro" value={childForm.neighborhood} onChange={(v) => setChildForm({ ...childForm, neighborhood: v })} />
+                    <div className="grid grid-cols-[1fr_90px] gap-4">
+                      <Field label="Cidade" value={childForm.city} onChange={(v) => setChildForm({ ...childForm, city: v })} />
+                      <Field label="UF" value={childForm.state} onChange={(v) => setChildForm({ ...childForm, state: v })} />
+                    </div>
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                      <SelectField
+                        label="Van"
+                        value={childForm.vanId}
+                        onChange={(value) => setChildForm({ ...childForm, vanId: value })}
+                        options={[{ value: "", label: "Sem van" }, ...data.vans.map((van) => ({ value: van.id, label: van.label }))]}
+                      />
+                      <SelectField
+                        label="Motorista"
+                        value={childForm.driverId}
+                        onChange={(value) => setChildForm({ ...childForm, driverId: value })}
+                        options={[{ value: "", label: "Sem motorista" }, ...data.drivers.map((driver) => ({ value: driver.id, label: driver.name }))]}
+                      />
+                      <SelectField
+                        label="Turno"
+                        value={childForm.shift}
+                        onChange={(value) => setChildForm({ ...childForm, shift: value as Shift | "" })}
+                        options={[{ value: "", label: "Sem turno" }, ...shifts.map((shift) => ({ value: shift, label: shiftLabel(shift) }))]}
+                      />
+                    </div>
+                    <label>
+                      <span className="text-xs font-semibold uppercase tracking-wide text-mute dark:text-white/50">Observacoes</span>
+                      <textarea
+                        value={childForm.notes}
+                        onChange={(e) => setChildForm({ ...childForm, notes: e.target.value })}
+                        rows={3}
+                        className="mt-2 w-full resize-y rounded-xl border border-line bg-white px-4 py-3 text-sm text-navy outline-none focus:border-sun dark:border-white/10 dark:bg-white/5 dark:text-white"
+                      />
+                    </label>
+                    <label className="flex items-center gap-3 rounded-xl border border-line px-4 py-3 text-sm font-semibold text-navy dark:border-white/10 dark:text-white">
+                      <input
+                        type="checkbox"
+                        checked={childForm.active}
+                        onChange={(e) => setChildForm({ ...childForm, active: e.target.checked })}
+                        className="h-4 w-4 accent-sun"
+                      />
+                      Aluno ativo
+                    </label>
+                    <div className="flex flex-wrap gap-2">
+                      <Button type="submit" disabled={saving === "child"}>
+                        <Save size={16} /> {childForm.id ? "Salvar" : "Cadastrar"}
+                      </Button>
+                      {childForm.id && (
+                        <Button type="button" variant="outlineDark" onClick={() => setChildForm(emptyChildForm)}>
+                          Cancelar
+                        </Button>
+                      )}
+                    </div>
+                  </form>
+                </Panel>
+              </div>
+
+              <Panel title="Responsaveis e alunos" subtitle="Edite acessos, dados pessoais e vinculos de transporte.">
                 <div className="space-y-3">
                   {data.parents.map((parent) => {
                     const children = data.children.filter((child) => child.parentId === parent.id);
                     return (
                       <div key={parent.id} className="rounded-2xl border border-line p-4 dark:border-white/10">
-                        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                           <div>
                             <div className="font-semibold text-navy dark:text-white">{parent.name}</div>
                             <div className="mt-1 flex flex-wrap gap-3 text-sm text-mute dark:text-white/55">
                               <span>{formatPhone(parent.contact)}</span>
                               <span>CPF final {parent.cpfLast4}</span>
+                              {parent.email && <span>{parent.email}</span>}
                             </div>
                           </div>
-                          <span className="rounded-full bg-ok/10 px-3 py-1 text-xs font-semibold text-ok">
-                            {children.length} aluno(s)
-                          </span>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className={cn("rounded-full px-3 py-1 text-xs font-semibold", parent.active ? "bg-ok/10 text-ok" : "bg-slate-200 text-slate-500 dark:bg-white/5 dark:text-white/45")}>
+                              {parent.active ? `${children.length} aluno(s)` : "Pausado"}
+                            </span>
+                            <button type="button" onClick={() => editParent(parent)} className="rounded-lg p-2 text-mute transition hover:bg-mist hover:text-navy dark:hover:bg-white/10 dark:hover:text-white" title="Editar responsavel" aria-label={`Editar ${parent.name}`}>
+                              <Pencil size={16} />
+                            </button>
+                            <button type="button" onClick={() => removeParent(parent)} disabled={saving === `parent-delete-${parent.id}`} className="rounded-lg p-2 text-red-500 transition hover:bg-red-500/10 disabled:opacity-50" title="Excluir responsavel" aria-label={`Excluir ${parent.name}`}>
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
                         </div>
                         {children.length > 0 && (
-                          <div className="mt-4 grid grid-cols-1 gap-2 md:grid-cols-2">
+                          <div className="mt-4 divide-y divide-line border-t border-line dark:divide-white/10 dark:border-white/10">
                             {children.map((child) => (
-                              <div key={child.id} className="rounded-xl bg-mist px-4 py-3 text-sm dark:bg-white/5">
-                                <div className="flex flex-wrap items-center gap-2">
-                                  <div className="font-semibold text-navy dark:text-white">{child.name}</div>
-                                  <AbsenceBadge status={child.absenceStatus} />
+                              <div key={child.id} className="py-4 text-sm">
+                                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                                  <div className="min-w-0">
+                                    <div className="flex flex-wrap items-center gap-2">
+                                      <div className="font-semibold text-navy dark:text-white">{child.name}</div>
+                                      <AbsenceBadge status={child.absenceStatus} />
+                                    </div>
+                                    <div className="mt-1 text-mute dark:text-white/55">{schoolName(child.schoolId)}</div>
+                                    <div className="mt-1 text-xs text-mute dark:text-white/45">
+                                      CPF final {child.cpfLast4 || "nao informado"} - nascimento {child.birthDate || "nao informado"}
+                                    </div>
+                                    <div className="mt-1 text-xs text-mute dark:text-white/45">
+                                      {child.address.street || "Endereco nao informado"}{child.address.number ? `, ${child.address.number}` : ""}{child.address.neighborhood ? ` - ${child.address.neighborhood}` : ""}
+                                    </div>
+                                  </div>
+                                  <div className="flex gap-1">
+                                    <button type="button" onClick={() => editChild(child)} className="rounded-lg p-2 text-mute transition hover:bg-mist hover:text-navy dark:hover:bg-white/10 dark:hover:text-white" title="Editar aluno" aria-label={`Editar ${child.name}`}>
+                                      <Pencil size={16} />
+                                    </button>
+                                    <button type="button" onClick={() => removeChild(child)} disabled={saving === `child-delete-${child.id}`} className="rounded-lg p-2 text-red-500 transition hover:bg-red-500/10 disabled:opacity-50" title="Excluir aluno" aria-label={`Excluir ${child.name}`}>
+                                      <Trash2 size={16} />
+                                    </button>
+                                  </div>
                                 </div>
-                                <div className="text-mute dark:text-white/55">{schoolName(child.schoolId)}</div>
-                                 <div className="mt-1 text-xs text-mute dark:text-white/45">
-                                   CPF final {child.cpfLast4 || "nao informado"} - nascimento {child.birthDate || "nao informado"}
-                                 </div>
-                                  <div className="mt-3 grid grid-cols-1 gap-2 lg:grid-cols-3">
+                                <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
                                     <select
                                       value={child.vanId || ""}
                                       onChange={(e) => assignChildTransport(child, { vanId: e.target.value })}
@@ -1961,9 +2301,9 @@ export default function AdminPage() {
                                         <option key={shift} value={shift}>{shiftLabel(shift)}</option>
                                       ))}
                                     </select>
-                                  </div>
-                               </div>
-                             ))}
+                                </div>
+                              </div>
+                            ))}
                           </div>
                         )}
                       </div>
@@ -2472,6 +2812,33 @@ function Field({
         placeholder={placeholder}
         className="mt-2 w-full rounded-xl border border-line bg-white px-4 py-3 text-sm text-navy outline-none focus:border-sun dark:border-white/10 dark:bg-white/5 dark:text-white"
       />
+    </label>
+  );
+}
+
+function SelectField({
+  label,
+  value,
+  onChange,
+  options,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  options: Array<{ value: string; label: string }>;
+}) {
+  return (
+    <label>
+      <span className="text-xs font-semibold uppercase tracking-wide text-mute dark:text-white/50">{label}</span>
+      <select
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className="mt-2 w-full rounded-xl border border-line bg-white px-3 py-3 text-sm text-navy outline-none focus:border-sun dark:border-white/10 dark:bg-white/5 dark:text-white"
+      >
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>{option.label}</option>
+        ))}
+      </select>
     </label>
   );
 }

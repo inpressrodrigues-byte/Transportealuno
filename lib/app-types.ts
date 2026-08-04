@@ -343,7 +343,7 @@ export type ParentDashboardPayload = {
   liveTracking: LiveTrackingState;
   liveTrackings: LiveTrackingState[];
   parent: SafeParentRecord;
-  children: ChildRecord[];
+  children: SafeChildRecord[];
   checkins: CheckinRecord[];
   payments: PaymentRecord[];
   contracts: ContractRecord[];
@@ -364,6 +364,10 @@ export type StudentDashboardPayload = {
 };
 
 export type AdminPayload = {
+  storage: {
+    durable: boolean;
+    provider: "vercel-blob" | "temporary";
+  };
   adminAccess: AdminAccessRecord;
   currentCompany?: SafeCompanyRecord;
   companies: SafeCompanyRecord[];
@@ -378,7 +382,7 @@ export type AdminPayload = {
   drivers: SafeDriverRecord[];
   vans: VanRecord[];
   parents: SafeParentRecord[];
-  children: ChildRecord[];
+  children: SafeChildRecord[];
   checkins: CheckinRecord[];
   payments: PaymentRecord[];
   contracts: ContractRecord[];

@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
-import { createContract, getAdminPayload, updateContractTemplate } from "@/lib/server/app-db";
+import { createContract, getAdminPayload, persistDb, prepareDb, updateContractTemplate } from "@/lib/server/app-db";
 
 export async function PUT(request: Request) {
+  await prepareDb();
   const body = await request.json().catch(() => null);
   const companyId = String(body?.companyId || "");
   const { error } = updateContractTemplate(companyId || undefined, String(body?.template || ""));
@@ -10,10 +11,12 @@ export async function PUT(request: Request) {
     return NextResponse.json({ error }, { status: 400 });
   }
 
+  await persistDb();
   return NextResponse.json(getAdminPayload(companyId || undefined));
 }
 
 export async function POST(request: Request) {
+  await prepareDb();
   const body = await request.json().catch(() => null);
   const companyId = String(body?.companyId || "");
   const { error, contract } = createContract({
@@ -27,5 +30,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: error || "Nao foi possivel gerar o contrato." }, { status: 400 });
   }
 
+  await persistDb();
   return NextResponse.json({ ...getAdminPayload(companyId || undefined), contract });
 }

@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
-import { hashSecret, readDb } from "@/lib/server/app-db";
+import { hashSecret, passwordMatches, prepareDb, readDb } from "@/lib/server/app-db";
 import { normalizeContact, normalizeDigits } from "@/lib/app-utils";
 import type { SessionUser } from "@/lib/app-types";
 
 export async function POST(request: Request) {
+  await prepareDb();
   const body = await request.json().catch(() => null);
   const rawLogin = String(body?.contact || body?.login || "").trim();
   const contact = normalizeContact(rawLogin);
@@ -21,7 +22,7 @@ export async function POST(request: Request) {
     const adminContact = normalizeContact(item.contact);
     const sameLogin = adminLogin.toLowerCase() === rawLogin.toLowerCase();
     const sameContact = Boolean(contact && adminContact && adminContact === contact);
-    return (sameLogin || sameContact) && item.passwordHash === passwordHash;
+    return (sameLogin || sameContact) && passwordMatches(item.passwordHash, password);
   });
 
   if (admin) {
@@ -41,7 +42,7 @@ export async function POST(request: Request) {
       item.active &&
       Boolean(document) &&
       normalizeDigits(item.document) === document &&
-      item.passwordHash === passwordHash
+      passwordMatches(item.passwordHash, password)
   );
 
   if (company) {

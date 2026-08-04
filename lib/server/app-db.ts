@@ -1,5 +1,6 @@
 import "server-only";
 
+import { get, put } from "@vercel/blob";
 import { createHash } from "crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
 import path from "path";
@@ -35,6 +36,7 @@ import { makeId, normalizeContact, normalizeCpf, normalizeDigits, shifts, todayI
 
 const DATA_DIR = process.env.VERCEL ? path.join("/tmp", "rota-segura") : path.join(process.cwd(), "data");
 const DB_PATH = path.join(DATA_DIR, "app-db.json");
+const BLOB_DB_PATH = "rota-segura/app-db.json";
 const LIVE_MAX_AGE_MINUTES = 45;
 const DEFAULT_ADMIN_LOGIN = "InpresS";
 const DEFAULT_ADMIN_PASSWORD = "GuGalex2011@.";
@@ -49,6 +51,14 @@ let memoryDb: AppDatabase | null = null;
 export function hashSecret(value: string) {
   const normalized = normalizeCpf(value) || normalizeContact(value) || value.trim();
   return createHash("sha256").update(`rota-segura:${normalized}`).digest("hex");
+}
+
+export function hashPassword(value: string) {
+  return createHash("sha256").update(`rota-segura-password:${value.trim()}`).digest("hex");
+}
+
+export function passwordMatches(storedHash: string, value: string) {
+  return storedHash === hashPassword(value) || storedHash === hashSecret(value);
 }
 
 function defaultTheme(): ThemeSettings {
@@ -109,7 +119,7 @@ function defaultCompany(): CompanyRecord {
     document,
     documentHash: hashSecret(document),
     documentLast4: document.slice(-4),
-    passwordHash: hashSecret(DEFAULT_COMPANY_PASSWORD),
+    passwordHash: hashPassword(DEFAULT_COMPANY_PASSWORD),
     active: true,
     settings,
     theme: defaultTheme(),
@@ -371,7 +381,7 @@ function createInitialDb(): AppDatabase {
         name: "Administrador",
         login: DEFAULT_ADMIN_LOGIN,
         contact: DEFAULT_ADMIN_LOGIN,
-        passwordHash: hashSecret(DEFAULT_ADMIN_PASSWORD),
+        passwordHash: hashPassword(DEFAULT_ADMIN_PASSWORD),
         createdAt: now,
       },
     ],
@@ -464,12 +474,10 @@ function createInitialDb(): AppDatabase {
 }
 
 function ensureDb() {
-  if (memoryDb) return memoryDb;
-
   try {
     if (!existsSync(DATA_DIR)) mkdirSync(DATA_DIR, { recursive: true });
     if (!existsSync(DB_PATH)) {
-      const seed = createInitialDb();
+      const seed = memoryDb || createInitialDb();
       writeFileSync(DB_PATH, JSON.stringify(seed, null, 2), "utf8");
       memoryDb = seed;
       return seed;
@@ -492,17 +500,17 @@ function normalizeDb(input: Partial<AppDatabase>): AppDatabase {
     ? mergeById(input.companies.map(normalizeCompany), seed.companies)
     : seed.companies;
   const currentCompanyId = input.currentCompanyId || companies[0]?.id || DEFAULT_COMPANY_ID;
-  const drivers = input.drivers?.length
-    ? mergeById(input.drivers.map(normalizeDriver), seed.drivers)
+  const drivers = Array.isArray(input.drivers)
+    ? input.drivers.map(normalizeDriver)
     : seed.drivers;
-  const vans = input.vans?.length
-    ? mergeById(input.vans.map(normalizeVan), seed.vans)
+  const vans = Array.isArray(input.vans)
+    ? input.vans.map(normalizeVan)
     : seed.vans;
-  const vanQrCodes = input.vanQrCodes?.length
-    ? mergeById(input.vanQrCodes.map(normalizeVanQrCode), seed.vanQrCodes)
+  const vanQrCodes = Array.isArray(input.vanQrCodes)
+    ? input.vanQrCodes.map(normalizeVanQrCode)
     : [normalizeVanQrCode(input.vanQrCode)];
-  const liveTrackings = input.liveTrackings?.length
-    ? mergeById(input.liveTrackings.map((item) => normalizeLive(item, input.settings?.driverName || seed.settings.driverName)), seed.liveTrackings)
+  const liveTrackings = Array.isArray(input.liveTrackings)
+    ? input.liveTrackings.map((item) => normalizeLive(item, input.settings?.driverName || seed.settings.driverName))
     : [normalizeLive(input.liveTracking, input.settings?.driverName || seed.settings.driverName)];
   const schools = input.schools?.length
     ? mergeById(input.schools.map(normalizeSchool), seed.schools)
@@ -527,27 +535,27 @@ function normalizeDb(input: Partial<AppDatabase>): AppDatabase {
     admins: input.admins?.length ? input.admins.map(normalizeAdmin) : seed.admins,
     drivers: drivers.map((driver) => ({ ...driver, companyId: driver.companyId || currentCompanyId })),
     vans: vans.map((van) => ({ ...van, companyId: van.companyId || currentCompanyId })),
-    parents: (input.parents?.length ? input.parents : seed.parents).map((parent) => ({
+    parents: (Array.isArray(input.parents) ? input.parents : seed.parents).map((parent) => ({
       ...parent,
       companyId: parent.companyId || currentCompanyId,
     })),
-    children: (input.children?.length ? input.children.map(normalizeChild) : seed.children).map((child) => ({
+    children: (Array.isArray(input.children) ? input.children.map(normalizeChild) : seed.children).map((child) => ({
       ...child,
       companyId: child.companyId || currentCompanyId,
     })),
-    checkins: (input.checkins?.length ? input.checkins.map(normalizeCheckin) : seed.checkins).map((checkin) => ({
+    checkins: (Array.isArray(input.checkins) ? input.checkins.map(normalizeCheckin) : seed.checkins).map((checkin) => ({
       ...checkin,
       companyId: checkin.companyId || currentCompanyId,
     })),
-    payments: (input.payments?.length ? input.payments : seed.payments).map((payment) => ({
+    payments: (Array.isArray(input.payments) ? input.payments : seed.payments).map((payment) => ({
       ...payment,
       companyId: payment.companyId || currentCompanyId,
     })),
-    contracts: (input.contracts?.length ? input.contracts.map(normalizeContract) : seed.contracts).map((contract) => ({
+    contracts: (Array.isArray(input.contracts) ? input.contracts.map(normalizeContract) : seed.contracts).map((contract) => ({
       ...contract,
       companyId: contract.companyId || currentCompanyId,
     })),
-    routePlans: (input.routePlans?.length ? input.routePlans.map(normalizeRoutePlan) : seed.routePlans).map((plan) => ({
+    routePlans: (Array.isArray(input.routePlans) ? input.routePlans.map(normalizeRoutePlan) : seed.routePlans).map((plan) => ({
       ...plan,
       companyId: plan.companyId || currentCompanyId,
     })),
@@ -784,7 +792,7 @@ function normalizeAdmin(item: Partial<AdminUser>): AdminUser {
     name: item.name || "Administrador",
     login,
     contact: login,
-    passwordHash: oldDefault ? hashSecret(DEFAULT_ADMIN_PASSWORD) : item.passwordHash || hashSecret(DEFAULT_ADMIN_PASSWORD),
+    passwordHash: oldDefault ? hashPassword(DEFAULT_ADMIN_PASSWORD) : item.passwordHash || hashPassword(DEFAULT_ADMIN_PASSWORD),
     createdAt: item.createdAt || todayIso(),
   };
 }
@@ -856,6 +864,46 @@ export function readDb() {
   return ensureDb();
 }
 
+function hasDurableStorage() {
+  return Boolean(
+    process.env.BLOB_READ_WRITE_TOKEN ||
+      (process.env.BLOB_STORE_ID && process.env.VERCEL_OIDC_TOKEN)
+  );
+}
+
+export async function prepareDb() {
+  if (!hasDurableStorage()) return readDb();
+
+  try {
+    const result = await get(BLOB_DB_PATH, { access: "private", useCache: false });
+    if (result?.statusCode === 200) {
+      const raw = await new Response(result.stream).text();
+      writeDb(normalizeDb(JSON.parse(raw) as Partial<AppDatabase>));
+    } else {
+      memoryDb = ensureDb();
+      await persistDb();
+    }
+  } catch {
+    memoryDb = ensureDb();
+  }
+
+  return readDb();
+}
+
+export async function persistDb() {
+  if (!hasDurableStorage()) return false;
+
+  await put(BLOB_DB_PATH, JSON.stringify(readDb()), {
+    access: "private",
+    allowOverwrite: true,
+    addRandomSuffix: false,
+    contentType: "application/json",
+    cacheControlMaxAge: 60,
+  });
+
+  return true;
+}
+
 export function writeDb(db: AppDatabase) {
   memoryDb = db;
 
@@ -918,6 +966,10 @@ export function getAdminPayload(companyId?: string): AdminPayload {
   const vanQrCodes = db.vanQrCodes.filter((item) => belongsToCompany(item, currentCompanyId));
 
   return {
+    storage: {
+      durable: hasDurableStorage(),
+      provider: hasDurableStorage() ? "vercel-blob" : "temporary",
+    },
     adminAccess: safeAdmin(db.admins[0]),
     currentCompany: safeCompany(currentCompany),
     companies: db.companies.map(safeCompany),
@@ -932,7 +984,7 @@ export function getAdminPayload(companyId?: string): AdminPayload {
     drivers: drivers.map(safeDriver),
     vans,
     parents: parents.map(safeParent),
-    children,
+    children: children.map(safeChild),
     checkins,
     payments,
     contracts,
@@ -975,7 +1027,7 @@ export function getParentDashboard(parentId: string): ParentDashboardPayload | n
     liveTracking,
     liveTrackings: relatedLiveTrackings,
     parent: safeParent(parent),
-    children,
+    children: children.map(safeChild),
     checkins: db.checkins.filter((checkin) => checkin.parentId === parent.id),
     payments: db.payments.filter((payment) => payment.parentId === parent.id),
     contracts: db.contracts.filter((contract) => contract.parentId === parent.id),
@@ -1112,7 +1164,7 @@ export function updateAdminAccess(input: {
     admin.name = input.name.trim() || admin.name || "Administrador";
     admin.login = login;
     admin.contact = login;
-    if (password) admin.passwordHash = hashSecret(password);
+    if (password) admin.passwordHash = hashPassword(password);
   });
 
   return { db, error, adminAccess: safeAdmin(db.admins[0]) };
@@ -1170,7 +1222,7 @@ export function upsertCompany(input: {
     };
     company.theme = { ...company.theme, ...input.theme };
     company.contractTemplate = input.contractTemplate?.trim() || company.contractTemplate || defaultContractTemplate();
-    if (password) company.passwordHash = hashSecret(password);
+    if (password) company.passwordHash = hashPassword(password);
     companyId = company.id;
 
     if (!existing) {
@@ -1226,6 +1278,293 @@ export function updateCompanyProfile(
   };
 }
 
+export function upsertParent(input: {
+  id?: string;
+  companyId?: string;
+  name: string;
+  contact: string;
+  email?: string;
+  cpf?: string;
+  active?: boolean;
+}) {
+  let error = "";
+  let parentId = "";
+
+  const db = mutateDb((draft) => {
+    const companyId = resolveCompany(draft, input.companyId).id;
+    const name = input.name.trim();
+    const contact = normalizeContact(input.contact);
+    const cpf = normalizeCpf(input.cpf || "");
+    const existing = input.id
+      ? draft.parents.find((item) => item.id === input.id && belongsToCompany(item, companyId))
+      : undefined;
+
+    if (!name || contact.length < 10) {
+      error = "Informe nome e um contato valido com DDD.";
+      return;
+    }
+
+    if (input.id && !existing) {
+      error = "Responsavel nao encontrado.";
+      return;
+    }
+
+    if (!existing && cpf.length !== 11) {
+      error = "Informe o CPF com 11 digitos para criar a senha.";
+      return;
+    }
+
+    const duplicateContact = draft.parents.find(
+      (item) =>
+        item.id !== existing?.id &&
+        item.active &&
+        belongsToCompany(item, companyId) &&
+        normalizeContact(item.contact) === contact
+    );
+    if (duplicateContact) {
+      error = "Este contato ja pertence a outro responsavel desta empresa.";
+      return;
+    }
+
+    if (cpf) {
+      const cpfHash = hashSecret(cpf);
+      const duplicateCpf = draft.parents.find(
+        (item) =>
+          item.id !== existing?.id &&
+          item.active &&
+          belongsToCompany(item, companyId) &&
+          item.cpfHash === cpfHash
+      );
+      if (duplicateCpf) {
+        error = "Este CPF ja pertence a outro responsavel desta empresa.";
+        return;
+      }
+    }
+
+    const parent: ParentRecord = existing || {
+      id: makeId("parent"),
+      companyId,
+      name,
+      contact,
+      email: "",
+      cpfHash: hashSecret(cpf),
+      cpfLast4: cpf.slice(-4),
+      active: true,
+      createdAt: todayIso(),
+    };
+
+    parent.companyId = companyId;
+    parent.name = name;
+    parent.contact = contact;
+    parent.email = input.email?.trim() || "";
+    parent.active = input.active ?? true;
+    if (cpf) {
+      parent.cpfHash = hashSecret(cpf);
+      parent.cpfLast4 = cpf.slice(-4);
+    }
+    parentId = parent.id;
+
+    if (!existing) draft.parents.push(parent);
+    draft.children.forEach((child) => {
+      if (child.parentId === parent.id) child.responsiblePhone = contact;
+    });
+  });
+
+  return { db, error, parentId };
+}
+
+export function deleteParent(id: string, companyId?: string) {
+  let error = "";
+
+  const db = mutateDb((draft) => {
+    const activeCompanyId = resolveCompany(draft, companyId).id;
+    const parent = draft.parents.find(
+      (item) => item.id === id && belongsToCompany(item, activeCompanyId)
+    );
+    if (!parent) {
+      error = "Responsavel nao encontrado.";
+      return;
+    }
+
+    const childIds = new Set(
+      draft.children.filter((child) => child.parentId === id).map((child) => child.id)
+    );
+    draft.parents = draft.parents.filter((item) => item.id !== id);
+    draft.children = draft.children.filter((child) => child.parentId !== id);
+    draft.checkins = draft.checkins.filter((checkin) => checkin.parentId !== id);
+    draft.payments = draft.payments.filter((payment) => payment.parentId !== id);
+    draft.contracts = draft.contracts.filter((contract) => contract.parentId !== id);
+    draft.routePlans = draft.routePlans.filter(
+      (plan) => !plan.stops.some((stop) => childIds.has(stop.childId))
+    );
+  });
+
+  return { db, error };
+}
+
+export function upsertChild(input: {
+  id?: string;
+  companyId?: string;
+  parentId: string;
+  name: string;
+  cpf?: string;
+  birthDate: string;
+  schoolId: string;
+  grade?: string;
+  responsiblePhone?: string;
+  address?: Partial<ChildRecord["address"]>;
+  notes?: string;
+  driverId?: string;
+  vanId?: string;
+  shift?: Shift | "";
+  active?: boolean;
+}) {
+  let error = "";
+  let childId = "";
+
+  const db = mutateDb((draft) => {
+    const companyId = resolveCompany(draft, input.companyId).id;
+    const parent = draft.parents.find(
+      (item) => item.id === input.parentId && item.active && belongsToCompany(item, companyId)
+    );
+    const schoolItem = draft.schools.find((item) => item.id === input.schoolId && item.active);
+    const name = input.name.trim();
+    const cpf = normalizeCpf(input.cpf || "");
+    const existing = input.id
+      ? draft.children.find((item) => item.id === input.id && belongsToCompany(item, companyId))
+      : undefined;
+
+    if (!parent) {
+      error = "Responsavel nao encontrado.";
+      return;
+    }
+    if (input.id && !existing) {
+      error = "Aluno nao encontrado.";
+      return;
+    }
+    if (!name || !input.birthDate || !schoolItem) {
+      error = "Informe nome, nascimento e escola do aluno.";
+      return;
+    }
+    if (!existing && cpf.length !== 11) {
+      error = "Informe o CPF com 11 digitos para liberar o acesso do aluno.";
+      return;
+    }
+
+    if (cpf) {
+      const cpfHash = hashSecret(cpf);
+      const duplicateCpf = draft.children.find(
+        (item) => item.id !== existing?.id && item.active && item.cpfHash === cpfHash
+      );
+      if (duplicateCpf) {
+        error = "Este CPF ja pertence a outro aluno.";
+        return;
+      }
+    }
+
+    const driver = input.driverId
+      ? draft.drivers.find(
+          (item) => item.id === input.driverId && belongsToCompany(item, companyId)
+        )
+      : undefined;
+    const van = input.vanId
+      ? draft.vans.find((item) => item.id === input.vanId && belongsToCompany(item, companyId))
+      : undefined;
+    if (input.driverId && !driver) {
+      error = "Motorista selecionado nao pertence a esta empresa.";
+      return;
+    }
+    if (input.vanId && !van) {
+      error = "Van selecionada nao pertence a esta empresa.";
+      return;
+    }
+
+    const child: ChildRecord = existing || {
+      id: makeId("child"),
+      companyId,
+      parentId: parent.id,
+      name,
+      cpfHash: hashSecret(cpf),
+      cpfLast4: cpf.slice(-4),
+      birthDate: input.birthDate,
+      schoolId: input.schoolId,
+      grade: "",
+      responsiblePhone: parent.contact,
+      address: {
+        cep: "",
+        street: "",
+        number: "",
+        complement: "",
+        neighborhood: "",
+        city: "Toledo",
+        state: "PR",
+      },
+      notes: "",
+      absenceStatus: "going",
+      absenceDate: todayIso().slice(0, 10),
+      absenceUpdatedAt: todayIso(),
+      active: true,
+      createdAt: todayIso(),
+    };
+
+    child.companyId = companyId;
+    child.parentId = parent.id;
+    child.name = name;
+    child.birthDate = input.birthDate;
+    child.schoolId = input.schoolId;
+    child.grade = input.grade?.trim() || "";
+    child.responsiblePhone = normalizeContact(input.responsiblePhone || parent.contact);
+    child.address = {
+      ...child.address,
+      ...input.address,
+      city: input.address?.city?.trim() || child.address.city || "Toledo",
+      state: input.address?.state?.trim().toUpperCase() || child.address.state || "PR",
+    };
+    child.notes = input.notes?.trim() || "";
+    child.driverId = driver?.id || "";
+    child.vanId = van?.id || "";
+    child.shift = shifts.includes(input.shift as Shift) ? (input.shift as Shift) : undefined;
+    child.active = input.active ?? true;
+    if (cpf) {
+      child.cpfHash = hashSecret(cpf);
+      child.cpfLast4 = cpf.slice(-4);
+    }
+    childId = child.id;
+
+    if (!existing) draft.children.push(child);
+  });
+
+  return { db, error, childId };
+}
+
+export function deleteChild(id: string, companyId?: string, parentId?: string) {
+  let error = "";
+
+  const db = mutateDb((draft) => {
+    const activeCompanyId = resolveCompany(draft, companyId).id;
+    const child = draft.children.find(
+      (item) =>
+        item.id === id &&
+        belongsToCompany(item, activeCompanyId) &&
+        (!parentId || item.parentId === parentId)
+    );
+    if (!child) {
+      error = "Aluno nao encontrado.";
+      return;
+    }
+
+    draft.children = draft.children.filter((item) => item.id !== id);
+    draft.checkins = draft.checkins.filter((checkin) => checkin.childId !== id);
+    draft.payments = draft.payments.filter((payment) => payment.childId !== id);
+    draft.contracts = draft.contracts.filter((contract) => contract.childId !== id);
+    draft.routePlans = draft.routePlans.filter(
+      (plan) => !plan.stops.some((stop) => stop.childId === id)
+    );
+  });
+
+  return { db, error };
+}
+
 export function upsertDriver(input: Partial<DriverRecord> & { name: string; contact: string; cpf?: string; companyId?: string }) {
   let error = "";
   const db = mutateDb((draft) => {
@@ -1234,8 +1573,8 @@ export function upsertDriver(input: Partial<DriverRecord> & { name: string; cont
     const contact = normalizeContact(input.contact || "");
     const cpf = normalizeCpf(input.cpf || "");
 
-    if (!name || !contact) {
-      error = "Informe nome e contato do motorista.";
+    if (!name || contact.length < 10) {
+      error = "Informe nome e um contato valido com DDD.";
       return;
     }
 
@@ -1245,6 +1584,38 @@ export function upsertDriver(input: Partial<DriverRecord> & { name: string; cont
     }
 
     const existing = input.id ? draft.drivers.find((item) => item.id === input.id && belongsToCompany(item, companyId)) : null;
+    if (input.id && !existing) {
+      error = "Motorista nao encontrado.";
+      return;
+    }
+
+    const duplicateContact = draft.drivers.find(
+      (item) =>
+        item.id !== existing?.id &&
+        item.active &&
+        belongsToCompany(item, companyId) &&
+        normalizeContact(item.contact) === contact
+    );
+    if (duplicateContact) {
+      error = "Este contato ja pertence a outro motorista desta empresa.";
+      return;
+    }
+
+    if (cpf) {
+      const cpfHash = hashSecret(cpf);
+      const duplicateCpf = draft.drivers.find(
+        (item) =>
+          item.id !== existing?.id &&
+          item.active &&
+          belongsToCompany(item, companyId) &&
+          item.cpfHash === cpfHash
+      );
+      if (duplicateCpf) {
+        error = "Este CPF ja pertence a outro motorista desta empresa.";
+        return;
+      }
+    }
+
     const driver: DriverRecord = existing || {
       id: makeId("driver"),
       companyId,
@@ -1638,7 +2009,7 @@ export function getDriverRoutePayload(driverId?: string) {
     liveTracking,
     schools: db.schools.filter((schoolItem) => schoolItem.active),
     parents: db.parents.filter((parent) => belongsToCompany(parent, companyId)).map(safeParent),
-    children,
+    children: children.map(safeChild),
     checkins: db.checkins.filter((checkin) => childIds.has(checkin.childId) && belongsToCompany(checkin, companyId)).slice(0, 80),
     vanQrCode: driverVan
       ? db.vanQrCodes.find((qr) => qr.vanId === driverVan.id && belongsToCompany(qr, companyId)) || ensureCompanyOnQr(db.vanQrCode, companyId)

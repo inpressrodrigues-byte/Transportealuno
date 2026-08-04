@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
-import { updateCompanyProfile } from "@/lib/server/app-db";
+import { persistDb, prepareDb, updateCompanyProfile } from "@/lib/server/app-db";
 import type { CompanySettings, ThemeSettings } from "@/lib/app-types";
 
 export async function PUT(request: Request) {
+  await prepareDb();
   const body = await request.json().catch(() => null);
   const companyId = String(body?.companyId || "");
   const settings = body?.settings as Partial<CompanySettings> | undefined;
@@ -10,6 +11,7 @@ export async function PUT(request: Request) {
 
   const result = updateCompanyProfile(companyId || undefined, settings, theme);
 
+  await persistDb();
   return NextResponse.json({
     settings: result.settings,
     theme: result.theme,

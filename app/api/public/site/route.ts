@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
-import { getPublicPayload } from "@/lib/server/app-db";
+import { getPublicPayload, prepareDb } from "@/lib/server/app-db";
 
 export async function GET() {
+  await prepareDb();
   return NextResponse.json(getPublicPayload());
 }

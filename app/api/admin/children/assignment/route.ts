@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
-import { assignChildTransport, getAdminPayload } from "@/lib/server/app-db";
+import { assignChildTransport, getAdminPayload, persistDb, prepareDb } from "@/lib/server/app-db";
 import type { Shift } from "@/lib/app-types";
 
 export async function PATCH(request: Request) {
+  await prepareDb();
   const body = await request.json().catch(() => null);
 
   const { error } = assignChildTransport({
@@ -17,5 +18,6 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error }, { status: 400 });
   }
 
+  await persistDb();
   return NextResponse.json(getAdminPayload(String(body?.companyId || "") || undefined));
 }

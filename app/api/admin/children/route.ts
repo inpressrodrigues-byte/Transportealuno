@@ -1,44 +1,27 @@
 import { NextResponse } from "next/server";
 import {
   deleteChild,
-  getParentDashboard,
+  getAdminPayload,
   persistDb,
   prepareDb,
-  readDb,
   upsertChild,
 } from "@/lib/server/app-db";
 import type { Shift } from "@/lib/app-types";
 
 export async function POST(request: Request) {
-  return saveChild(request);
-}
-
-export async function PATCH(request: Request) {
-  return saveChild(request);
-}
-
-async function saveChild(request: Request) {
   await prepareDb();
   const body = await request.json().catch(() => null);
-  const parentId = String(body?.parentId || "");
-  const parent = readDb().parents.find((item) => item.id === parentId && item.active);
-  if (!parent) {
-    return NextResponse.json(
-      { error: "Responsavel nao encontrado. Entre novamente na area dos pais." },
-      { status: 404 }
-    );
-  }
-
+  const companyId = String(body?.companyId || "") || undefined;
   const { error } = upsertChild({
     id: String(body?.id || "") || undefined,
-    companyId: parent.companyId,
-    parentId,
+    companyId,
+    parentId: String(body?.parentId || ""),
     name: String(body?.name || ""),
     cpf: String(body?.cpf || ""),
     birthDate: String(body?.birthDate || ""),
     schoolId: String(body?.schoolId || ""),
     grade: String(body?.grade || ""),
-    responsiblePhone: String(body?.responsiblePhone || parent.contact),
+    responsiblePhone: String(body?.responsiblePhone || ""),
     address: body?.address || {},
     notes: String(body?.notes || ""),
     driverId: String(body?.driverId || ""),
@@ -52,23 +35,19 @@ async function saveChild(request: Request) {
   }
 
   await persistDb();
-  return NextResponse.json(getParentDashboard(parentId));
+  return NextResponse.json(getAdminPayload(companyId));
 }
 
 export async function DELETE(request: Request) {
   await prepareDb();
   const body = await request.json().catch(() => null);
-  const parentId = String(body?.parentId || "");
-  const parent = readDb().parents.find((item) => item.id === parentId && item.active);
-  if (!parent) {
-    return NextResponse.json({ error: "Responsavel nao encontrado." }, { status: 404 });
-  }
+  const companyId = String(body?.companyId || "") || undefined;
+  const { error } = deleteChild(String(body?.id || ""), companyId);
 
-  const { error } = deleteChild(String(body?.id || ""), parent.companyId, parentId);
   if (error) {
     return NextResponse.json({ error }, { status: 400 });
   }
 
   await persistDb();
-  return NextResponse.json(getParentDashboard(parentId));
+  return NextResponse.json(getAdminPayload(companyId));
 }

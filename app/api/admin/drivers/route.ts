@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
-import { deleteDriver, getAdminPayload, upsertDriver } from "@/lib/server/app-db";
+import { deleteDriver, getAdminPayload, persistDb, prepareDb, upsertDriver } from "@/lib/server/app-db";
 
 export async function POST(request: Request) {
+  await prepareDb();
   const body = await request.json().catch(() => null);
 
   const { error } = upsertDriver({
@@ -19,10 +20,12 @@ export async function POST(request: Request) {
     return NextResponse.json({ error }, { status: 400 });
   }
 
+  await persistDb();
   return NextResponse.json(getAdminPayload(String(body?.companyId || "") || undefined));
 }
 
 export async function DELETE(request: Request) {
+  await prepareDb();
   const body = await request.json().catch(() => null);
   const companyId = String(body?.companyId || "");
   const { error } = deleteDriver(String(body?.id || ""), companyId || undefined);
@@ -31,5 +34,6 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ error }, { status: 400 });
   }
 
+  await persistDb();
   return NextResponse.json(getAdminPayload(companyId || undefined));
 }

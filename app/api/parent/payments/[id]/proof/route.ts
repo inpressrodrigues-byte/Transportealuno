@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
-import { createReceipt, mutateDb } from "@/lib/server/app-db";
+import { createReceipt, mutateDb, persistDb, prepareDb } from "@/lib/server/app-db";
 import { todayIso } from "@/lib/app-utils";
 
 export async function POST(
   request: Request,
   context: { params: Promise<{ id: string }> }
 ) {
+  await prepareDb();
   const { id } = await context.params;
   const body = await request.json().catch(() => null);
   const parentId = String(body?.parentId || "");
@@ -62,6 +63,7 @@ export async function POST(
     return NextResponse.json({ error }, { status: 400 });
   }
 
+  await persistDb();
   return NextResponse.json({
     payments: db.payments.filter((payment) => payment.parentId === parentId),
   });

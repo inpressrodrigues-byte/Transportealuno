@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
-import { bulkUpdateNeighborhoods, upsertNeighborhood } from "@/lib/server/app-db";
+import { bulkUpdateNeighborhoods, persistDb, prepareDb, upsertNeighborhood } from "@/lib/server/app-db";
 
 export async function POST(request: Request) {
+  await prepareDb();
   const body = await request.json().catch(() => null);
 
   if (!body?.name || String(body.name).trim().length < 2) {
@@ -21,10 +22,12 @@ export async function POST(request: Request) {
     },
   });
 
+  await persistDb();
   return NextResponse.json({ neighborhoods: db.neighborhoods });
 }
 
 export async function PATCH(request: Request) {
+  await prepareDb();
   const body = await request.json().catch(() => null);
   const ids = Array.isArray(body?.ids) ? body.ids.map((id: string) => String(id)) : [];
   const action = String(body?.action || "");
@@ -38,5 +41,6 @@ export async function PATCH(request: Request) {
   }
 
   const db = bulkUpdateNeighborhoods(ids, action as "serve" | "pause" | "delete");
+  await persistDb();
   return NextResponse.json({ neighborhoods: db.neighborhoods });
 }

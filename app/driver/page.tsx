@@ -24,7 +24,7 @@ import { LiveRouteMap } from "@/components/ui/LiveRouteMap";
 import type {
   CheckinRecord,
   ChildAbsenceStatus,
-  ChildRecord,
+  SafeChildRecord,
   CompanySettings,
   LiveTrackingState,
   RoutePlanRecord,
@@ -44,7 +44,7 @@ type DriverRoutePayload = {
   liveTracking: LiveTrackingState;
   schools: SchoolRecord[];
   parents: SafeParentRecord[];
-  children: ChildRecord[];
+  children: SafeChildRecord[];
   checkins: CheckinRecord[];
   vanQrCode: VanQrCodeRecord;
   routePlan: RoutePlanRecord | null;

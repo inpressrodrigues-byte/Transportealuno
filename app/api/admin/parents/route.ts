@@ -1,52 +1,44 @@
 import { NextResponse } from "next/server";
-import { getAdminPayload, hashSecret, mutateDb, readDb } from "@/lib/server/app-db";
-import { makeId, normalizeContact, normalizeCpf, todayIso } from "@/lib/app-utils";
+import {
+  deleteParent,
+  getAdminPayload,
+  persistDb,
+  prepareDb,
+  upsertParent,
+} from "@/lib/server/app-db";
 
 export async function POST(request: Request) {
+  await prepareDb();
   const body = await request.json().catch(() => null);
-  const name = String(body?.name || "").trim();
-  const contact = normalizeContact(String(body?.contact || ""));
-  const cpf = normalizeCpf(String(body?.cpf || ""));
-  const requestedCompanyId = String(body?.companyId || "");
-  const activeCompanyId =
-    readDb().companies.find((company) => company.id === requestedCompanyId)?.id ||
-    readDb().currentCompanyId ||
-    readDb().companies[0]?.id;
-
-  if (!name || !contact || cpf.length !== 11) {
-    return NextResponse.json(
-      { error: "Informe nome, contato e CPF com 11 digitos." },
-      { status: 400 }
-    );
-  }
-
-  mutateDb((draft) => {
-    const companyId = activeCompanyId || draft.currentCompanyId || draft.companies[0]?.id;
-    const existing = draft.parents.find(
-      (parent) => normalizeContact(parent.contact) === contact && (parent.companyId || companyId) === companyId
-    );
-    if (existing) {
-      existing.companyId = companyId;
-      existing.name = name;
-      existing.email = String(body?.email || existing.email || "");
-      existing.cpfHash = hashSecret(cpf);
-      existing.cpfLast4 = cpf.slice(-4);
-      existing.active = body?.active ?? true;
-      return;
-    }
-
-    draft.parents.push({
-      id: makeId("parent"),
-      companyId,
-      name,
-      contact,
-      email: String(body?.email || ""),
-      cpfHash: hashSecret(cpf),
-      cpfLast4: cpf.slice(-4),
-      active: true,
-      createdAt: todayIso(),
-    });
+  const companyId = String(body?.companyId || "") || undefined;
+  const { error } = upsertParent({
+    id: String(body?.id || "") || undefined,
+    companyId,
+    name: String(body?.name || ""),
+    contact: String(body?.contact || ""),
+    email: String(body?.email || ""),
+    cpf: String(body?.cpf || ""),
+    active: body?.active ?? true,
   });
 
-  return NextResponse.json(getAdminPayload(activeCompanyId));
+  if (error) {
+    return NextResponse.json({ error }, { status: 400 });
+  }
+
+  await persistDb();
+  return NextResponse.json(getAdminPayload(companyId));
+}
+
+export async function DELETE(request: Request) {
+  await prepareDb();
+  const body = await request.json().catch(() => null);
+  const companyId = String(body?.companyId || "") || undefined;
+  const { error } = deleteParent(String(body?.id || ""), companyId);
+
+  if (error) {
+    return NextResponse.json({ error }, { status: 400 });
+  }
+
+  await persistDb();
+  return NextResponse.json(getAdminPayload(companyId));
 }

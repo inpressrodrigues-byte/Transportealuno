@@ -1,13 +1,15 @@
 import { NextResponse } from "next/server";
-import { getLiveTracking, updateLiveTracking } from "@/lib/server/app-db";
+import { getLiveTracking, persistDb, prepareDb, updateLiveTracking } from "@/lib/server/app-db";
 import type { LiveTrackingState } from "@/lib/app-types";
 
 export async function GET(request: Request) {
+  await prepareDb();
   const { searchParams } = new URL(request.url);
   return NextResponse.json(getLiveTracking(searchParams.get("driverId") || undefined));
 }
 
 export async function POST(request: Request) {
+  await prepareDb();
   const body = (await request.json().catch(() => null)) as Partial<LiveTrackingState> | null;
   if (!body) {
     return NextResponse.json({ error: "Envie os dados da rota." }, { status: 400 });
@@ -29,5 +31,6 @@ export async function POST(request: Request) {
   });
 
   const updated = db.liveTrackings.find((item) => item.driverId === String(body.driverId || "")) || db.liveTracking;
+  await persistDb();
   return NextResponse.json(updated);
 }
