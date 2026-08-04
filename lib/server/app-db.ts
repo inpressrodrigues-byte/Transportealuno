@@ -1444,6 +1444,7 @@ export function getAdminPayload(companyId?: string): AdminPayload {
       durable: hasDurableStorage(),
       provider: storageProvider(),
       healthy: hasDurableStorage() && !lastStorageError,
+      automaticBackups: Boolean(process.env.CRON_SECRET && hasSupabaseStorage()),
       message: lastStorageError,
     },
     adminAccess: safeAdmin(db.admins[0]),

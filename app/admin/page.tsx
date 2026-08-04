@@ -1879,6 +1879,26 @@ export default function AdminPage() {
 
               {session.role === "admin" && (
                 <Panel title="Seguranca e limpeza" subtitle="Backup e limpeza dos dados operacionais desta empresa.">
+                  <div className="mb-4 flex flex-col gap-3 rounded-xl border border-white/10 bg-white/5 p-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex items-start gap-3">
+                      <DatabaseBackup size={20} className="mt-0.5 shrink-0 text-amber-300" />
+                      <div>
+                        <div className="font-semibold text-white">Backup diario automatico</div>
+                        <p className="mt-1 text-sm text-white/60">Execucao diaria com copia segura no Supabase.</p>
+                      </div>
+                    </div>
+                    <span
+                      className={cn(
+                        "inline-flex w-fit items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold",
+                        data.storage.automaticBackups
+                          ? "border-emerald-400/25 bg-emerald-400/10 text-emerald-200"
+                          : "border-amber-400/25 bg-amber-400/10 text-amber-200",
+                      )}
+                    >
+                      {data.storage.automaticBackups ? <CheckCircle2 size={14} /> : <AlertTriangle size={14} />}
+                      {data.storage.automaticBackups ? "Ativo" : "Configuracao pendente"}
+                    </span>
+                  </div>
                   <div className="rounded-xl border border-red-300 bg-red-50 p-4 dark:border-red-400/20 dark:bg-red-500/10">
                     <div className="flex items-start gap-3">
                       <ShieldAlert size={20} className="mt-0.5 shrink-0 text-red-600 dark:text-red-300" />

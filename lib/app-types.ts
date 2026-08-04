@@ -503,6 +503,7 @@ export type AdminPayload = {
     durable: boolean;
     provider: "supabase" | "vercel-blob" | "temporary";
     healthy?: boolean;
+    automaticBackups?: boolean;
     message?: string;
   };
   adminAccess: AdminAccessRecord;
