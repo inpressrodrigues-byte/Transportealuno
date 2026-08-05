@@ -2,11 +2,20 @@ import { NextResponse } from "next/server";
 import { hashSecret, passwordMatches, prepareDb, readDb } from "@/lib/server/app-db";
 import { normalizeContact, normalizeDigits } from "@/lib/app-utils";
 import type { SessionUser } from "@/lib/app-types";
-import { createSessionToken, SESSION_COOKIE, sessionCookieOptions } from "@/lib/session-token";
+import {
+  ADMIN_SESSION_COOKIE,
+  createSessionToken,
+  SESSION_COOKIE,
+  sessionCookieOptions,
+} from "@/lib/session-token";
 
-function loginResponse(user: SessionUser) {
+function loginResponse(user: SessionUser, adminPortal = false) {
   const response = NextResponse.json({ user });
-  response.cookies.set(SESSION_COOKIE, createSessionToken(user), sessionCookieOptions);
+  const token = createSessionToken(user);
+  response.cookies.set(SESSION_COOKIE, token, sessionCookieOptions);
+  if (adminPortal && (user.role === "admin" || user.role === "company")) {
+    response.cookies.set(ADMIN_SESSION_COOKIE, token, sessionCookieOptions);
+  }
   return response;
 }
 
@@ -16,6 +25,7 @@ export async function POST(request: Request) {
   const rawLogin = String(body?.contact || body?.login || "").trim();
   const contact = normalizeContact(rawLogin);
   const password = String(body?.password || "");
+  const adminPortal = String(body?.portal || "") === "admin";
 
   if (!rawLogin || !password) {
     return NextResponse.json({ error: "Informe usuario e senha." }, { status: 400 });
@@ -40,7 +50,7 @@ export async function POST(request: Request) {
       contact: admin.login || admin.contact,
     };
 
-    return loginResponse(user);
+    return loginResponse(user, adminPortal);
   }
 
   const document = normalizeDigits(rawLogin);
@@ -61,7 +71,7 @@ export async function POST(request: Request) {
       companyId: company.id,
     };
 
-    return loginResponse(user);
+    return loginResponse(user, adminPortal);
   }
 
   const driver = db.drivers.find(

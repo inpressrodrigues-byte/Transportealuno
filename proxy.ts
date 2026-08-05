@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { SESSION_COOKIE, verifySessionToken } from "@/lib/session-token";
+import { ADMIN_SESSION_COOKIE, SESSION_COOKIE, verifySessionToken } from "@/lib/session-token";
 
 const companyAdminPaths = [
   "/api/admin/state",
@@ -34,10 +34,13 @@ function forward(request: NextRequest, claims: NonNullable<ReturnType<typeof ver
 }
 
 export async function proxy(request: NextRequest) {
-  const claims = verifySessionToken(request.cookies.get(SESSION_COOKIE)?.value);
+  const path = request.nextUrl.pathname;
+  const adminClaims = path.startsWith("/api/admin/")
+    ? verifySessionToken(request.cookies.get(ADMIN_SESSION_COOKIE)?.value)
+    : null;
+  const claims = adminClaims || verifySessionToken(request.cookies.get(SESSION_COOKIE)?.value);
   if (!claims) return denied();
 
-  const path = request.nextUrl.pathname;
   const body = await jsonBody(request);
 
   if (path.startsWith("/api/admin/")) {

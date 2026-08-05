@@ -382,7 +382,7 @@ export default function AdminPage() {
     const suffix = companyId ? `?companyId=${encodeURIComponent(companyId)}` : "";
     const response = await fetch(`/api/admin/state${suffix}`, { cache: "no-store" });
     if (response.status === 401) {
-      localStorage.removeItem("rota-segura-session");
+      localStorage.removeItem("rota-segura-admin-session");
       setSession(null);
       throw new Error("Sessao expirada");
     }
@@ -424,7 +424,7 @@ export default function AdminPage() {
     let alive = true;
 
     const boot = async () => {
-      const raw = localStorage.getItem("rota-segura-session");
+      const raw = localStorage.getItem("rota-segura-admin-session");
       const parsed = raw ? (JSON.parse(raw) as SessionUser) : null;
       if (!parsed || (parsed.role !== "admin" && parsed.role !== "company")) {
         if (alive) setLoading(false);
@@ -458,7 +458,7 @@ export default function AdminPage() {
       const response = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(loginForm),
+        body: JSON.stringify({ ...loginForm, portal: "admin" }),
       });
       const payload = (await response.json()) as { user?: SessionUser; error?: string };
 
@@ -472,8 +472,8 @@ export default function AdminPage() {
         return;
       }
 
-      localStorage.setItem("rota-segura-session", JSON.stringify(payload.user));
-      window.dispatchEvent(new Event("rota-segura-session"));
+      localStorage.setItem("rota-segura-admin-session", JSON.stringify(payload.user));
+      window.dispatchEvent(new Event("rota-segura-admin-session"));
       setSession(payload.user);
       const companyId = payload.user.role === "company" ? payload.user.companyId || payload.user.id : selectedCompanyId;
       if (companyId) setSelectedCompanyId(companyId);
@@ -570,8 +570,12 @@ export default function AdminPage() {
   const todayNotices = data?.children.filter((child) => child.absenceStatus !== "going") ?? [];
   const recentCheckins = data?.checkins.slice(0, 12) ?? [];
   const logout = () => {
-    void fetch("/api/auth/logout", { method: "POST" });
-    localStorage.removeItem("rota-segura-session");
+    void fetch("/api/auth/logout", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ portal: "admin" }),
+    });
+    localStorage.removeItem("rota-segura-admin-session");
     setSession(null);
     setData(null);
     router.push("/");
@@ -620,7 +624,7 @@ export default function AdminPage() {
         : session;
       if (updatedSession) {
         setSession(updatedSession);
-        localStorage.setItem("rota-segura-session", JSON.stringify(updatedSession));
+        localStorage.setItem("rota-segura-admin-session", JSON.stringify(updatedSession));
       }
       await load();
       setMessage("Acesso administrativo atualizado.");
@@ -1447,6 +1451,15 @@ export default function AdminPage() {
       testData?: Record<string, number>;
       error?: string;
     }) | null;
+
+    if (response.status === 401 || response.status === 403) {
+      localStorage.removeItem("rota-segura-admin-session");
+      setSession(null);
+      setData(null);
+      setLoginError("Entre novamente como administrador para continuar.");
+      setSaving("");
+      return;
+    }
 
     if (response.ok && payload) {
       setData(payload);

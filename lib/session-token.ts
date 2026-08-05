@@ -2,6 +2,7 @@ import { createHmac, timingSafeEqual } from "crypto";
 import type { SessionUser, UserRole } from "@/lib/app-types";
 
 export const SESSION_COOKIE = "rota-segura-auth";
+export const ADMIN_SESSION_COOKIE = "rota-segura-admin-auth";
 const SESSION_DURATION_SECONDS = 60 * 60 * 12;
 
 export type SessionClaims = {
