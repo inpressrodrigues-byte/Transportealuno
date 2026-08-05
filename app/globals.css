@@ -2,16 +2,16 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 :root {
-  --color-navy: #0f172a;
-  --color-navy-2: #16213b;
-  --color-ink: #1e293b;
-  --color-mute: #64748b;
-  --color-mist: #f1f5f9;
-  --color-cloud: #f8fafc;
-  --color-sun: #facc15;
-  --color-sun-2: #eab308;
-  --color-line: #e2e8f0;
-  --color-ok: #22c55e;
+  --color-navy: #090909;
+  --color-navy-2: #141310;
+  --color-ink: #201f1c;
+  --color-mute: #68645d;
+  --color-mist: #f0efeb;
+  --color-cloud: #faf9f6;
+  --color-sun: #c89b4a;
+  --color-sun-2: #9e7431;
+  --color-line: #dedbd3;
+  --color-ok: #2f855a;
 
   --font-display: -apple-system, "SF Pro Display", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   --font-body: -apple-system, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -50,8 +50,8 @@ body {
 }
 
 html.dark body {
-  background: #0b1220;
-  color: #e2e8f0;
+  background: #0d0d0c;
+  color: #f0efeb;
 }
 
 ::selection {

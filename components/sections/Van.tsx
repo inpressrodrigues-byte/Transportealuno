@@ -18,9 +18,10 @@ export function Van() {
     (site?.galleryPhotos ?? []).find((photo) => photo.order === index)
   );
   const activePhoto = photoSlots[active];
+  const activeName = activePhoto?.caption?.trim() || thumbs[active];
 
   return (
-    <section id="van" className="bg-white py-24 sm:py-32 dark:bg-[#0b1220]">
+    <section id="van" className="bg-white py-24 sm:py-32 dark:bg-[#0d0d0c]">
       <div className="mx-auto max-w-6xl px-4">
         <SectionHeading eyebrow="Nossa van" title="Feita para o trajeto de todos os dias" />
 
@@ -36,7 +37,7 @@ export function Van() {
                   className="h-full w-full object-cover"
                 />
                 <figcaption className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/75 to-transparent px-5 pb-5 pt-14 text-sm font-semibold text-white">
-                  {thumbs[active]}
+                  {activeName}
                 </figcaption>
               </figure>
             ) : (
@@ -50,18 +51,25 @@ export function Van() {
             <div className="mt-4 grid grid-cols-4 gap-3">
               {thumbs.map((label, i) => {
                 const photo = photoSlots[i];
+                const photoName = photo?.caption?.trim() || label;
                 return (
                   <button
                     key={label}
                     onClick={() => setActive(i)}
-                    aria-label={`Mostrar ${label}`}
+                    aria-label={`Mostrar ${photoName}`}
+                    title={photoName}
                     className={`rounded-xl border p-2 transition-colors ${
                       active === i ? "border-sun-2 bg-sun/10" : "border-line hover:border-mute/30"
                     }`}
                   >
                     {photo ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={photo.url} alt="" loading="lazy" className="aspect-square w-full rounded-lg object-cover" />
+                      <span className="relative block aspect-square w-full overflow-hidden rounded-lg">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={photo.url} alt="" loading="lazy" className="h-full w-full object-cover" />
+                        <span className="absolute inset-x-0 bottom-0 line-clamp-2 break-words bg-black/75 px-1.5 py-1 text-[10px] font-semibold leading-tight text-white">
+                          {photoName}
+                        </span>
+                      </span>
                     ) : (
                       <MediaFrame label={label} tone="mist" className="aspect-square w-full" />
                     )}

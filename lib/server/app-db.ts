@@ -74,16 +74,41 @@ export function passwordMatches(storedHash: string, value: string) {
 
 function defaultTheme(): ThemeSettings {
   return {
-    navy: "#0f172a",
-    navy2: "#16213b",
-    ink: "#1e293b",
-    mute: "#64748b",
-    mist: "#f1f5f9",
-    cloud: "#f8fafc",
-    sun: "#facc15",
-    sun2: "#eab308",
-    ok: "#22c55e",
+    navy: "#090909",
+    navy2: "#141310",
+    ink: "#201f1c",
+    mute: "#68645d",
+    mist: "#f0efeb",
+    cloud: "#faf9f6",
+    sun: "#c89b4a",
+    sun2: "#9e7431",
+    ok: "#2f855a",
   };
+}
+
+const legacyDefaultTheme: ThemeSettings = {
+  navy: "#0f172a",
+  navy2: "#16213b",
+  ink: "#1e293b",
+  mute: "#64748b",
+  mist: "#f1f5f9",
+  cloud: "#f8fafc",
+  sun: "#facc15",
+  sun2: "#eab308",
+  ok: "#22c55e",
+};
+
+function normalizeTheme(theme?: Partial<ThemeSettings>): ThemeSettings {
+  if (!theme) return defaultTheme();
+
+  const keys = Object.keys(legacyDefaultTheme) as (keyof ThemeSettings)[];
+  const isLegacyDefault = keys.every((key) => theme[key] === legacyDefaultTheme[key]);
+  return isLegacyDefault ? defaultTheme() : { ...defaultTheme(), ...theme };
+}
+
+function normalizeBrandName(value: string | undefined, fallback: string) {
+  const name = String(value || "").trim();
+  return /^rota segura(?:\s+transporte escolar)?$/i.test(name) || !name ? fallback : name;
 }
 
 function defaultSettings(): CompanySettings {
@@ -199,7 +224,7 @@ function defaultVan(): VanRecord {
     plate: "ABC-1D23",
     model: "Renault Master",
     seats: 15,
-    color: "#facc15",
+    color: "#c89b4a",
     driverId: DEFAULT_DRIVER_ID,
     active: true,
     notes: "Veiculo principal da empresa.",
@@ -347,7 +372,7 @@ function neighborhood(
 
 function seedNeighborhoods(): NeighborhoodRecord[] {
   return [
-    neighborhood("bairro_centro", "Centro", "Central", 50, 48, true, "#facc15"),
+    neighborhood("bairro_centro", "Centro", "Central", 50, 48, true, "#c89b4a"),
     neighborhood("bairro_lasalle", "Jardim La Salle", "Central", 43, 38, true, "#38bdf8"),
     neighborhood("bairro_vila_industrial", "Vila Industrial", "Central", 40, 58, true, "#4ade80"),
     neighborhood("bairro_porto_alegre", "Jardim Porto Alegre", "Leste", 69, 45, true, "#f472b6"),
@@ -649,6 +674,8 @@ function normalizeCompany(item: Partial<CompanyRecord>): CompanyRecord {
     ...defaultSettings(),
     ...item.settings,
   };
+  settings.brandName = normalizeBrandName(settings.brandName, "Oziel Turismo");
+  settings.businessName = normalizeBrandName(settings.businessName, "Oziel Turismo");
   const document = normalizeDigits(String(item.document || settings.document || seed.document));
   const passwordHash = item.passwordHash || DEFAULT_COMPANY_PASSWORD_HASH;
 
@@ -668,7 +695,7 @@ function normalizeCompany(item: Partial<CompanyRecord>): CompanyRecord {
       routeApiProvider: settings.routeApiProvider || "local-ai",
       routeApiKey: settings.routeApiKey || "",
     },
-    theme: { ...defaultTheme(), ...item.theme },
+    theme: normalizeTheme(item.theme),
     contractTemplate: item.contractTemplate || defaultContractTemplate(),
     createdAt: item.createdAt || todayIso(),
   };
@@ -2340,7 +2367,7 @@ export function upsertVan(input: Partial<VanRecord> & { label: string; companyId
       plate: "",
       model: "",
       seats: 15,
-      color: "#facc15",
+      color: "#c89b4a",
       driverId: "",
       active: true,
       notes: "",
@@ -2352,7 +2379,7 @@ export function upsertVan(input: Partial<VanRecord> & { label: string; companyId
     van.plate = input.plate || "";
     van.model = input.model || "";
     van.seats = Math.max(1, Number(input.seats || 15));
-    van.color = input.color || "#facc15";
+    van.color = input.color || "#c89b4a";
     van.driverId = input.driverId || "";
     van.active = input.active ?? true;
     van.notes = input.notes || "";
@@ -2755,7 +2782,7 @@ export function createCompanyTestData(companyId?: string) {
       plate: `TST-${index + 1}A0${index + 1}`,
       model: index === 0 ? "Renault Master" : "Mercedes-Benz Sprinter",
       seats: index === 0 ? 15 : 18,
-      color: index === 0 ? "#facc15" : "#22c55e",
+      color: index === 0 ? "#c89b4a" : "#2f855a",
       driverId: driverIds[index],
       active: true,
       notes: "Veiculo ficticio para validacao do sistema.",
@@ -3504,7 +3531,7 @@ export function upsertNeighborhood(input: Partial<NeighborhoodRecord> & { name: 
       name: input.name.trim(),
       area: input.area?.trim() || "Toledo",
       served: input.served ?? true,
-      color: input.color || "#facc15",
+      color: input.color || "#c89b4a",
       notes: input.notes || "",
       position: {
         x: Number(input.position?.x ?? 50),

@@ -1,5 +1,5 @@
-const CACHE_NAME = "rota-segura-v1";
-const APP_SHELL = ["/", "/login", "/dashboard", "/student", "/driver", "/app-icon.svg"];
+const CACHE_NAME = "oziel-turismo-v2";
+const APP_SHELL = ["/", "/login", "/dashboard", "/student", "/driver", "/icon.png", "/brand/oziel-logo-v3.png"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_SHELL)));
@@ -28,4 +28,3 @@ self.addEventListener("fetch", (event) => {
       .catch(() => caches.match(request).then((cached) => cached || caches.match("/login")))
   );
 });
-

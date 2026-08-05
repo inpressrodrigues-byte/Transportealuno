@@ -52,6 +52,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
+import { BrandLogo } from "@/components/ui/BrandLogo";
 import { LiveRouteMap } from "@/components/ui/LiveRouteMap";
 import { cn } from "@/lib/utils";
 import type {
@@ -148,15 +149,15 @@ const emptyCompanyForm = {
 };
 
 const emptyTheme: ThemeSettings = {
-  navy: "#0f172a",
-  navy2: "#16213b",
-  ink: "#1e293b",
-  mute: "#64748b",
-  mist: "#f1f5f9",
-  cloud: "#f8fafc",
-  sun: "#facc15",
-  sun2: "#eab308",
-  ok: "#22c55e",
+  navy: "#090909",
+  navy2: "#141310",
+  ink: "#201f1c",
+  mute: "#68645d",
+  mist: "#f0efeb",
+  cloud: "#faf9f6",
+  sun: "#c89b4a",
+  sun2: "#9e7431",
+  ok: "#2f855a",
 };
 
 const emptySchoolForm = {
@@ -176,7 +177,7 @@ const emptyNeighborhoodForm = {
   name: "",
   area: "Urbano",
   served: true,
-  color: "#facc15",
+  color: "#c89b4a",
   x: "50",
   y: "50",
   notes: "",
@@ -198,7 +199,7 @@ const emptyVanForm = {
   plate: "",
   model: "",
   seats: "15",
-  color: "#facc15",
+  color: "#c89b4a",
   driverId: "",
   active: true,
   notes: "",
@@ -1733,7 +1734,7 @@ export default function AdminPage() {
 
   if (loading) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-[#0b1220] text-white">
+      <main className="flex min-h-screen items-center justify-center bg-[#0d0d0c] text-white">
         <Loader2 className="animate-spin text-sun-2" size={28} />
       </main>
     );
@@ -1752,12 +1753,10 @@ export default function AdminPage() {
   }
 
   return (
-    <div className="min-h-screen bg-mist dark:bg-[#0b1220]">
+    <div className="min-h-screen bg-mist dark:bg-[#0d0d0c]">
       <aside className="fixed inset-y-0 left-0 hidden w-72 flex-col overflow-hidden border-r border-line bg-white p-5 dark:border-white/10 dark:bg-navy lg:flex">
         <Link href="/" className="flex items-center gap-3">
-          <span className="flex h-10 w-10 items-center justify-center rounded-full bg-sun text-navy">
-            <Bus size={18} strokeWidth={2.5} />
-          </span>
+          <BrandLogo variant="mark" />
           <div>
             <div className="text-sm font-bold text-navy dark:text-white">Oziel Turismo</div>
             <div className="text-xs text-mute dark:text-white/45">Painel da empresa</div>
@@ -1794,8 +1793,8 @@ export default function AdminPage() {
 
       <main className="px-4 py-5 lg:ml-72 lg:px-10 lg:py-8">
         <div className="sticky top-2 z-30 mb-5 flex items-center gap-3 rounded-xl border border-line bg-white/95 p-3 shadow-lg backdrop-blur dark:border-white/10 dark:bg-navy/95 lg:hidden">
-          <Link href="/" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-sun text-navy" aria-label="Voltar ao site" title="Voltar ao site">
-            <Bus size={18} />
+          <Link href="/" className="shrink-0" aria-label="Voltar ao site" title="Voltar ao site">
+            <BrandLogo variant="mark" />
           </Link>
           <label className="min-w-0 flex-1">
             <span className="sr-only">Secao do painel</span>
@@ -2548,7 +2547,7 @@ export default function AdminPage() {
             <div className="space-y-5">
               <Panel
                 title="Fotos de Nossa van"
-                subtitle="Estas imagens preenchem exatamente os quatro espacos que ja existem no frontend."
+                subtitle="Estas imagens preenchem os quatro espacos que ja existem no site. Depois do envio, defina o nome exibido em cada foto."
               >
                 <form onSubmit={uploadGalleryPhotos} className="grid grid-cols-1 gap-5 lg:grid-cols-[1fr_340px]">
                   <div>
@@ -2635,6 +2634,12 @@ export default function AdminPage() {
                         </div>
 
                         <div className="space-y-4 p-4 sm:p-5">
+                          <Field
+                            label="Nome exibido no site"
+                            value={photo.caption}
+                            onChange={(value) => updateGalleryDraft(photo.id, { caption: value })}
+                            placeholder="Ex.: Van vista de frente"
+                          />
                           <Field
                             label="Descricao da imagem"
                             value={photo.alt}
@@ -4043,20 +4048,13 @@ function AdminLogin({
   const [showPassword, setShowPassword] = useState(false);
 
   return (
-    <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#0b1220] px-4 py-10 text-white">
-      <div
-        aria-hidden
-        className="absolute inset-0 bg-[radial-gradient(60%_40%_at_50%_0%,rgba(250,204,21,0.12),transparent)]"
-      />
-
+    <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#0d0d0c] px-4 py-10 text-white">
       <section className="relative z-10 w-full max-w-md rounded-3xl border border-white/10 bg-white/[0.05] p-6 shadow-2xl shadow-black/30 backdrop-blur-md sm:p-8">
         <Link href="/" className="inline-flex items-center gap-2 text-sm font-medium text-white/55 hover:text-white">
           Voltar ao site
         </Link>
 
-        <span className="mt-7 flex h-12 w-12 items-center justify-center rounded-full bg-sun text-navy">
-          <ShieldCheck size={22} />
-        </span>
+        <BrandLogo priority className="mt-6 w-64 max-w-full" />
         <p className="mt-5 text-sm font-semibold uppercase tracking-[0.22em] text-sun">
           Painel restrito
         </p>

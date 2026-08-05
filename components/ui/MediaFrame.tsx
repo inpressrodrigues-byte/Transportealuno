@@ -27,7 +27,7 @@ export function MediaFrame({
           "absolute inset-0 opacity-[0.15]",
           "bg-[radial-gradient(circle_at_1px_1px,_currentColor_1px,_transparent_0)] [background-size:16px_16px]"
         )}
-        style={{ color: tone === "navy" ? "#facc15" : "#0f172a" }}
+        style={{ color: tone === "navy" ? "var(--color-sun)" : "var(--color-navy)" }}
       />
       <div
         className={cn(

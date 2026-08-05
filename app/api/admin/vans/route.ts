@@ -12,7 +12,7 @@ export async function POST(request: Request) {
     plate: String(body?.plate || ""),
     model: String(body?.model || ""),
     seats: Number(body?.seats || 15),
-    color: String(body?.color || "#facc15"),
+    color: String(body?.color || "#c89b4a"),
     driverId: String(body?.driverId || ""),
     companyId: String(body?.companyId || ""),
     active: body?.active ?? true,

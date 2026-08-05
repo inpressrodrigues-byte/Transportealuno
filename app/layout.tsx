@@ -4,11 +4,15 @@ import { ThemeRuntime } from "@/components/system/ThemeRuntime";
 import { PwaRuntime } from "@/components/system/PwaRuntime";
 
 export const metadata: Metadata = {
-  title: "Rota Segura - Transporte Escolar",
+  title: {
+    default: "Oziel Turismo | Transporte Escolar",
+    template: "%s | Oziel Turismo",
+  },
+  applicationName: "Oziel Turismo",
   description:
-    "Transporte escolar com seguranca e pontualidade. Acompanhe a rota, converse com o motorista e tenha tranquilidade todos os dias.",
+    "Transporte escolar em Toledo com seguranca, pontualidade e acompanhamento em tempo real.",
   manifest: "/manifest.webmanifest",
-  icons: { icon: "/app-icon.svg", apple: "/app-icon.svg" },
+  icons: { icon: "/icon.png", apple: "/apple-icon.png" },
 };
 
 export default function RootLayout({

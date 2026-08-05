@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Bus } from "lucide-react";
+import { BrandLogo } from "@/components/ui/BrandLogo";
 import { InstagramGlyph, FacebookGlyph } from "@/components/ui/SocialIcons";
 import { usePublicSite } from "@/lib/use-public-site";
 
@@ -28,8 +28,7 @@ const cols = [
 export function Footer() {
   const site = usePublicSite();
   const settings = site?.settings;
-  const brand = settings?.brandName || "Rota Segura";
-  const businessName = settings?.businessName || "Rota Segura Transporte Escolar";
+  const businessName = settings?.businessName || "Oziel Turismo";
   const document = settings?.document || "00.000.000/0001-00";
 
   return (
@@ -37,12 +36,7 @@ export function Footer() {
       <div className="mx-auto max-w-6xl px-4">
         <div className="grid grid-cols-1 gap-10 sm:grid-cols-2 lg:grid-cols-4">
           <div>
-            <div className="flex items-center gap-2">
-              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-sun text-navy">
-                <Bus size={16} strokeWidth={2.5} />
-              </span>
-              <span className="text-sm font-bold text-white">{brand}</span>
-            </div>
+            <BrandLogo className="w-52" />
             <p className="mt-4 text-sm leading-relaxed text-white/50">
               Transporte escolar em Toledo, PR. Atendimento com seguranca,
               comunicacao e pontualidade.

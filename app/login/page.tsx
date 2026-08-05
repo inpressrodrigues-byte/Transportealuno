@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   ArrowLeft,
-  Bus,
   IdCard,
   Loader2,
   Phone,
@@ -13,6 +12,7 @@ import {
   UserRound,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
+import { BrandLogo } from "@/components/ui/BrandLogo";
 import { RouteDivider } from "@/components/ui/RouteMotif";
 import type { SessionUser } from "@/lib/app-types";
 
@@ -58,11 +58,6 @@ export default function LoginPage() {
 
   return (
     <main className="relative min-h-screen overflow-hidden bg-navy px-4 py-10 text-white">
-      <div
-        aria-hidden
-        className="absolute inset-0 bg-[radial-gradient(70%_50%_at_50%_0%,rgba(250,204,21,0.14),transparent)]"
-      />
-
       <Link
         href="/"
         className="relative z-10 inline-flex items-center gap-2 text-sm font-medium text-white/60 hover:text-white"
@@ -71,12 +66,10 @@ export default function LoginPage() {
       </Link>
 
       <div className="relative z-10 mx-auto grid min-h-[calc(100vh-88px)] w-full max-w-5xl grid-cols-1 items-center gap-10 lg:grid-cols-[1fr_420px]">
-        <section>
-          <span className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-sun text-navy">
-            <Bus size={22} strokeWidth={2.5} />
-          </span>
-          <p className="mt-6 text-sm font-semibold uppercase tracking-[0.24em] text-sun">
-            Rota Segura
+        <section className="hidden lg:block">
+          <BrandLogo priority className="w-72 max-w-full" />
+          <p className="mt-6 text-sm font-semibold uppercase text-sun">
+            Area dos responsaveis
           </p>
           <h1 className="mt-4 max-w-xl text-4xl font-semibold leading-tight sm:text-5xl">
             Acesso dos responsaveis para acompanhar filhos, pagamentos e rota.
@@ -100,6 +93,7 @@ export default function LoginPage() {
         </section>
 
         <section className="rounded-3xl border border-white/10 bg-white/[0.05] p-6 shadow-2xl shadow-black/20 backdrop-blur-md sm:p-8">
+          <BrandLogo priority className="mb-6 w-56 lg:hidden" />
           <div>
             <p className="text-sm font-semibold uppercase tracking-[0.2em] text-sun">
               Area dos pais

@@ -7,7 +7,7 @@ export function RouteDivider({ dark = false }: { dark?: boolean }) {
         <path
           d="M0 20 Q 300 0 600 20 T 1200 20"
           fill="none"
-          stroke={dark ? "rgba(250,204,21,0.35)" : "rgba(15,23,42,0.15)"}
+          stroke={dark ? "color-mix(in srgb, var(--color-sun) 35%, transparent)" : "color-mix(in srgb, var(--color-navy) 15%, transparent)"}
           strokeWidth="2"
           className="route-line route-line-animated"
         />
@@ -25,8 +25,8 @@ export function HeroRouteMap() {
   const pathD = "M 20 160 C 120 40, 260 260, 380 120 S 560 20, 700 120";
 
   return (
-    <div className="relative w-full aspect-[4/3] max-w-lg mx-auto">
-      <svg viewBox="0 0 720 240" className="w-full h-full overflow-visible">
+    <div className="relative mx-auto aspect-[18/5] min-h-28 w-full max-w-5xl">
+      <svg viewBox="0 0 720 200" className="h-full w-full overflow-visible">
         <path
           d={pathD}
           fill="none"
@@ -40,7 +40,7 @@ export function HeroRouteMap() {
           { x: 700, y: 120, label: "Colégio Horizonte" },
         ].map((p) => (
           <g key={p.label}>
-            <circle cx={p.x} cy={p.y} r="7" fill="#0f172a" stroke="#facc15" strokeWidth="2" />
+            <circle cx={p.x} cy={p.y} r="7" fill="var(--color-navy)" stroke="var(--color-sun)" strokeWidth="2" />
           </g>
         ))}
       </svg>
@@ -50,19 +50,12 @@ export function HeroRouteMap() {
         style={{ ["--path" as string]: `path("${pathD}")` }}
       >
         <div className="flex h-9 w-9 items-center justify-center rounded-full bg-sun shadow-lg shadow-black/30">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0f172a" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--color-navy)" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
             <path d="M8 6v6M2 12h13l3 3h3a1 1 0 0 0 1-1v-3a2 2 0 0 0-2-2h-2l-2.5-4A2 2 0 0 0 13.7 4H4a2 2 0 0 0-2 2v6Z" />
             <circle cx="7" cy="18" r="2" />
             <circle cx="17" cy="18" r="2" />
           </svg>
         </div>
-      </div>
-
-      <div className="absolute -bottom-6 left-0 text-[11px] font-semibold tabular text-white/70">
-        Jd. Porto Alegre
-      </div>
-      <div className="absolute -bottom-6 right-0 text-[11px] font-semibold tabular text-white/70 text-right">
-        Colégio Horizonte
       </div>
     </div>
   );

@@ -2,11 +2,11 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Menu, X, Bus } from "lucide-react";
+import { Menu, X } from "lucide-react";
 import { Button } from "@/components/ui/Button";
+import { BrandLogo } from "@/components/ui/BrandLogo";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { cn } from "@/lib/utils";
-import { usePublicSite } from "@/lib/use-public-site";
 
 const links = [
   { href: "#inicio", label: "Inicio" },
@@ -20,8 +20,6 @@ const links = [
 export function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
-  const site = usePublicSite();
-  const brand = site?.settings.brandName || "Rota Segura";
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 24);
@@ -39,19 +37,14 @@ export function Navbar() {
     >
       <div
         className={cn(
-          "mx-auto flex max-w-6xl items-center justify-between rounded-full px-4 transition-all duration-300",
+          "mx-auto flex max-w-6xl items-center justify-between rounded-lg border border-white/10 px-4 transition-all duration-300",
           scrolled
-            ? "bg-navy/90 backdrop-blur-md shadow-lg shadow-navy/10 py-2 max-w-5xl"
-            : "bg-navy/70 backdrop-blur-sm py-3"
+            ? "max-w-5xl bg-navy/95 py-1.5 shadow-lg shadow-black/20 backdrop-blur-md"
+            : "bg-navy/90 py-2 backdrop-blur-sm"
         )}
       >
-        <Link href="#inicio" className="flex items-center gap-2 pl-2 shrink-0">
-          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-sun text-navy">
-            <Bus size={16} strokeWidth={2.5} />
-          </span>
-          <span className="text-sm font-bold tracking-tight text-white">
-            {brand}
-          </span>
+        <Link href="#inicio" className="shrink-0" aria-label="Oziel Turismo - Inicio">
+          <BrandLogo priority className="w-40 sm:w-44" />
         </Link>
 
         <nav className="hidden lg:flex items-center gap-1">
@@ -88,7 +81,7 @@ export function Navbar() {
       </div>
 
       {open && (
-        <div className="mx-4 mt-2 rounded-3xl bg-navy/95 backdrop-blur-md p-4 lg:hidden shadow-xl">
+        <div className="mx-4 mt-2 rounded-lg border border-white/10 bg-navy/95 p-4 shadow-xl backdrop-blur-md lg:hidden">
           <nav className="flex flex-col gap-1">
             {links.map((l) => (
               <a

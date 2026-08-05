@@ -6,7 +6,6 @@ import Link from "next/link";
 import {
   Banknote,
   Bell,
-  Bus,
   CalendarClock,
   CheckCircle2,
   Clock,
@@ -34,6 +33,7 @@ import {
   X,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
+import { BrandLogo } from "@/components/ui/BrandLogo";
 import { LiveRouteMap } from "@/components/ui/LiveRouteMap";
 import { cn } from "@/lib/utils";
 import type {
@@ -361,13 +361,11 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="min-h-screen bg-mist dark:bg-[#0b1220]">
+    <div className="min-h-screen bg-mist dark:bg-[#0d0d0c]">
       <aside className="fixed inset-y-0 left-0 hidden w-64 flex-col border-r border-line bg-white dark:border-white/10 dark:bg-navy lg:flex">
         <Link href="/" className="flex items-center gap-2 px-6 py-6">
-          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-sun text-navy">
-            <Bus size={17} strokeWidth={2.5} />
-          </span>
-          <span className="text-sm font-bold text-navy dark:text-white">Rota Segura</span>
+          <BrandLogo variant="mark" />
+          <span className="text-sm font-bold text-navy dark:text-white">Oziel Turismo</span>
         </Link>
         <nav className="mt-2 flex-1 space-y-1 px-4">
           {tabs.map((tab) => {
@@ -397,7 +395,10 @@ export default function DashboardPage() {
       </aside>
 
       <div className="fixed inset-x-0 top-0 z-40 flex items-center justify-between border-b border-line bg-white px-4 py-3 dark:border-white/10 dark:bg-navy lg:hidden">
-        <span className="text-sm font-bold text-navy dark:text-white">Rota Segura</span>
+        <div className="flex items-center gap-2">
+          <BrandLogo variant="mark" className="h-8 w-8" />
+          <span className="text-sm font-bold text-navy dark:text-white">Oziel Turismo</span>
+        </div>
         <button onClick={() => setMenuOpen(!menuOpen)} className="text-navy dark:text-white" aria-label="Abrir menu">
           {menuOpen ? <X size={20} /> : <Menu size={20} />}
         </button>

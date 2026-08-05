@@ -1,4 +1,4 @@
-# Rota Segura - Transporte Escolar
+# Oziel Turismo - Transporte Escolar
 
 Site e sistema de gestao para transporte escolar, feito em Next.js,
 TypeScript e Tailwind.

@@ -14,7 +14,7 @@ export async function POST(request: Request) {
     name: String(body.name),
     area: String(body.area || "Toledo"),
     served: Boolean(body.served),
-    color: String(body.color || "#facc15"),
+    color: String(body.color || "#c89b4a"),
     notes: String(body.notes || ""),
     position: {
       x: Number(body.position?.x ?? 50),

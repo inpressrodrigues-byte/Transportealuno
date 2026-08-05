@@ -9,7 +9,7 @@ import { UserRound } from "lucide-react";
 
 export function Sobre() {
   return (
-    <section id="sobre" className="bg-cloud py-24 sm:py-32 dark:bg-[#0b1220]">
+    <section id="sobre" className="bg-cloud py-24 sm:py-32 dark:bg-[#0d0d0c]">
       <div className="mx-auto max-w-6xl px-4">
         <SectionHeading
           eyebrow="Quem dirige"
