@@ -2307,6 +2307,10 @@ function billingDueDate(year: number, monthIndex: number, requestedDay: number) 
 
 export function generateUpcomingPayments(input: { companyId?: string; force?: boolean; referenceDate?: Date } = {}) {
   let created = 0;
+  let eligible = 0;
+  let skippedDuplicates = 0;
+  let skippedMissingParent = 0;
+  let companiesMatched = 0;
   const target = nextBillingMonth(input.referenceDate || new Date());
 
   const db = mutateDb((draft) => {
@@ -2316,6 +2320,7 @@ export function generateUpcomingPayments(input: { companyId?: string; force?: bo
 
     companies.forEach((company) => {
       if (!input.force && !company.settings.automaticMonthlyBilling) return;
+      companiesMatched += 1;
       let companyCreated = 0;
 
       const children = draft.children.filter(
@@ -2326,7 +2331,11 @@ export function generateUpcomingPayments(input: { companyId?: string; force?: bo
         const parent = draft.parents.find(
           (item) => item.id === child.parentId && item.active && belongsToCompany(item, company.id)
         );
-        if (!parent) return;
+        if (!parent) {
+          skippedMissingParent += 1;
+          return;
+        }
+        eligible += 1;
 
         const duplicate = draft.payments.some(
           (payment) =>
@@ -2334,7 +2343,10 @@ export function generateUpcomingPayments(input: { companyId?: string; force?: bo
             belongsToCompany(payment, company.id) &&
             (payment.month === target.label || payment.dueDate.startsWith(target.key))
         );
-        if (duplicate) return;
+        if (duplicate) {
+          skippedDuplicates += 1;
+          return;
+        }
 
         const previous = draft.payments
           .filter((payment) => payment.childId === child.id && belongsToCompany(payment, company.id))
@@ -2375,7 +2387,401 @@ export function generateUpcomingPayments(input: { companyId?: string; force?: bo
     });
   });
 
-  return { db, created, month: target.label, monthKey: target.key };
+  return {
+    db,
+    created,
+    month: target.label,
+    monthKey: target.key,
+    eligible,
+    skippedDuplicates,
+    skippedMissingParent,
+    companiesMatched,
+  };
+}
+
+const TEST_DATA_PREFIX = "test_";
+
+function isTestDataId(id: string) {
+  return id.startsWith(TEST_DATA_PREFIX);
+}
+
+function clearCompanyTestRecords(draft: AppDatabase, companyId: string) {
+  const testParentIds = new Set(
+    draft.parents
+      .filter((item) => belongsToCompany(item, companyId) && isTestDataId(item.id))
+      .map((item) => item.id)
+  );
+  const testChildIds = new Set(
+    draft.children
+      .filter((item) => belongsToCompany(item, companyId) && isTestDataId(item.id))
+      .map((item) => item.id)
+  );
+  const testDriverIds = new Set(
+    draft.drivers
+      .filter((item) => belongsToCompany(item, companyId) && isTestDataId(item.id))
+      .map((item) => item.id)
+  );
+  const testVanIds = new Set(
+    draft.vans
+      .filter((item) => belongsToCompany(item, companyId) && isTestDataId(item.id))
+      .map((item) => item.id)
+  );
+  const keep = <T extends { id: string; companyId?: string }>(items: T[]) =>
+    items.filter((item) => !(belongsToCompany(item, companyId) && isTestDataId(item.id)));
+  const testPayments = draft.payments.filter(
+    (item) =>
+      belongsToCompany(item, companyId) &&
+      (isTestDataId(item.id) || testParentIds.has(item.parentId) || testChildIds.has(item.childId))
+  );
+  const testCheckins = draft.checkins.filter(
+    (item) =>
+      belongsToCompany(item, companyId) &&
+      (isTestDataId(item.id) || testParentIds.has(item.parentId) || testChildIds.has(item.childId))
+  );
+  const testContracts = draft.contracts.filter(
+    (item) =>
+      belongsToCompany(item, companyId) &&
+      (isTestDataId(item.id) || testParentIds.has(item.parentId) || testChildIds.has(item.childId))
+  );
+
+  const removed = {
+    drivers: testDriverIds.size,
+    vans: testVanIds.size,
+    parents: testParentIds.size,
+    children: testChildIds.size,
+    payments: testPayments.length,
+    checkins: testCheckins.length,
+    contracts: testContracts.length,
+  };
+
+  draft.drivers = keep(draft.drivers);
+  draft.vans = keep(draft.vans);
+  draft.parents = keep(draft.parents);
+  draft.children = keep(draft.children);
+  draft.payments = draft.payments.filter((item) => !testPayments.includes(item));
+  draft.checkins = draft.checkins.filter((item) => !testCheckins.includes(item));
+  draft.contracts = draft.contracts.filter((item) => !testContracts.includes(item));
+  draft.routePlans = draft.routePlans.filter(
+    (item) =>
+      !(
+        belongsToCompany(item, companyId) &&
+        (isTestDataId(item.id) ||
+          testDriverIds.has(item.driverId || "") ||
+          testVanIds.has(item.vanId || "") ||
+          item.stops.some((stop) => testChildIds.has(stop.childId)))
+      )
+  );
+  draft.driverDocuments = draft.driverDocuments.filter(
+    (item) => !(belongsToCompany(item, companyId) && (isTestDataId(item.id) || testDriverIds.has(item.driverId)))
+  );
+  draft.driverOccurrences = draft.driverOccurrences.filter(
+    (item) =>
+      !(
+        belongsToCompany(item, companyId) &&
+        (isTestDataId(item.id) || testDriverIds.has(item.driverId) || testChildIds.has(item.childId || ""))
+      )
+  );
+  draft.vehicleMaintenances = draft.vehicleMaintenances.filter(
+    (item) => !(belongsToCompany(item, companyId) && (isTestDataId(item.id) || testVanIds.has(item.vanId)))
+  );
+  draft.fuelRecords = keep(draft.fuelRecords);
+  draft.expenses = keep(draft.expenses);
+  draft.trackingPoints = draft.trackingPoints.filter(
+    (item) =>
+      !(
+        belongsToCompany(item, companyId) &&
+        (isTestDataId(item.id) || testDriverIds.has(item.driverId || "") || testVanIds.has(item.vanId || ""))
+      )
+  );
+  draft.notifications = draft.notifications.filter(
+    (item) =>
+      !(
+        belongsToCompany(item, companyId) &&
+        (isTestDataId(item.id) ||
+          testParentIds.has(item.parentId || "") ||
+          testChildIds.has(item.childId || "") ||
+          testDriverIds.has(item.driverId || ""))
+      )
+  );
+  draft.auditLogs = draft.auditLogs.filter(
+    (item) =>
+      !(
+        belongsToCompany(item, companyId) &&
+        (isTestDataId(item.id) || isTestDataId(item.entityId))
+      )
+  );
+  draft.liveTrackings = draft.liveTrackings.filter(
+    (item) =>
+      !(
+        belongsToCompany(item, companyId) &&
+        (isTestDataId(item.id) || testDriverIds.has(item.driverId || "") || testVanIds.has(item.vanId || ""))
+      )
+  );
+  draft.vanQrCodes = draft.vanQrCodes.filter(
+    (item) =>
+      !(
+        belongsToCompany(item, companyId) &&
+        (isTestDataId(item.id) || testVanIds.has(item.vanId || ""))
+      )
+  );
+
+  return removed;
+}
+
+export function removeCompanyTestData(companyId?: string) {
+  let removed = {
+    drivers: 0,
+    vans: 0,
+    parents: 0,
+    children: 0,
+    payments: 0,
+    checkins: 0,
+    contracts: 0,
+  };
+
+  const db = mutateDb((draft) => {
+    const company = resolveCompany(draft, companyId);
+    removed = clearCompanyTestRecords(draft, company.id);
+  });
+
+  return { db, removed };
+}
+
+export function createCompanyTestData(companyId?: string) {
+  const created = {
+    drivers: 2,
+    vans: 2,
+    parents: 6,
+    children: 8,
+    payments: 4,
+    checkins: 3,
+    contracts: 2,
+  };
+
+  const db = mutateDb((draft) => {
+    const company = resolveCompany(draft, companyId);
+    clearCompanyTestRecords(draft, company.id);
+
+    const now = todayIso();
+    const currentDate = new Date();
+    const currentYear = currentDate.getUTCFullYear();
+    const currentMonthIndex = currentDate.getUTCMonth();
+    const currentMonthKey = `${currentYear}-${String(currentMonthIndex + 1).padStart(2, "0")}`;
+    const currentMonthLabel = `${MONTH_NAMES[currentMonthIndex]}/${currentYear}`;
+    const activeSchools = draft.schools.filter((schoolItem) => schoolItem.active);
+    const schoolIds = activeSchools.length ? activeSchools.map((schoolItem) => schoolItem.id) : [""];
+    const neighborhoods = [
+      "Jardim Coopagro",
+      "Vila Industrial",
+      "Jardim Panorama",
+      "Vila Pioneiro",
+      "Sao Francisco",
+      "Jardim Europa",
+      "Centro",
+      "Jardim Porto Alegre",
+    ];
+    const streets = [
+      "Rua dos Pioneiros",
+      "Rua Guarani",
+      "Rua Barao do Rio Branco",
+      "Avenida Maripa",
+      "Rua Carlos Barbosa",
+      "Rua Almirante Barroso",
+      "Rua Santos Dumont",
+      "Rua General Estilac Leal",
+    ];
+    const vanIds = [`test_van_${company.id}_1`, `test_van_${company.id}_2`];
+    const driverIds = [`test_driver_${company.id}_1`, `test_driver_${company.id}_2`];
+
+    const drivers: DriverRecord[] = driverIds.map((id, index) => {
+      const cpf = `9000000000${index + 1}`;
+      return {
+        id,
+        companyId: company.id,
+        name: `[TESTE] Motorista ${index + 1}`,
+        contact: `4599100000${index + 1}`,
+        cpfHash: hashSecret(cpf),
+        cpfLast4: cpf.slice(-4),
+        license: `CNH TESTE ${index + 1}`,
+        vanId: vanIds[index],
+        active: true,
+        createdAt: now,
+      };
+    });
+    const vans: VanRecord[] = vanIds.map((id, index) => ({
+      id,
+      companyId: company.id,
+      label: `[TESTE] Van ${index + 1}`,
+      plate: `TST-${index + 1}A0${index + 1}`,
+      model: index === 0 ? "Renault Master" : "Mercedes-Benz Sprinter",
+      seats: index === 0 ? 15 : 18,
+      color: index === 0 ? "#facc15" : "#22c55e",
+      driverId: driverIds[index],
+      active: true,
+      notes: "Veiculo ficticio para validacao do sistema.",
+      createdAt: now,
+    }));
+    const parents: ParentRecord[] = Array.from({ length: created.parents }, (_, index) => {
+      const cpf = `800000000${String(index + 1).padStart(2, "0")}`;
+      return {
+        id: `test_parent_${company.id}_${index + 1}`,
+        companyId: company.id,
+        name: `[TESTE] Responsavel ${String(index + 1).padStart(2, "0")}`,
+        contact: `45990001${String(index + 1).padStart(3, "0")}`,
+        email: `responsavel${index + 1}@teste.local`,
+        cpfHash: hashSecret(cpf),
+        cpfLast4: cpf.slice(-4),
+        active: true,
+        createdAt: now,
+      };
+    });
+    const children: ChildRecord[] = Array.from({ length: created.children }, (_, index) => {
+      const cpf = `700000000${String(index + 1).padStart(2, "0")}`;
+      const parent = parents[index % parents.length];
+      const vanIndex = index % vanIds.length;
+      return {
+        id: `test_child_${company.id}_${index + 1}`,
+        companyId: company.id,
+        parentId: parent.id,
+        driverId: driverIds[vanIndex],
+        vanId: vanIds[vanIndex],
+        shift: index % 2 === 0 ? "manha" : "tarde",
+        name: `[TESTE] Aluno ${String(index + 1).padStart(2, "0")}`,
+        cpfHash: hashSecret(cpf),
+        cpfLast4: cpf.slice(-4),
+        birthDate: `${2012 + (index % 5)}-${String((index % 9) + 1).padStart(2, "0")}-15`,
+        schoolId: schoolIds[index % schoolIds.length],
+        grade: `${(index % 8) + 1}o ano`,
+        responsiblePhone: parent.contact,
+        address: {
+          cep: `85900${String(100 + index).padStart(3, "0")}`,
+          street: streets[index],
+          number: String(100 + index * 17),
+          complement: index % 3 === 0 ? `Casa ${index + 1}` : "",
+          neighborhood: neighborhoods[index],
+          city: "Toledo",
+          state: "PR",
+          latitude: -24.72 - index * 0.003,
+          longitude: -53.74 + index * 0.003,
+        },
+        notes: "Cadastro ficticio gerado pelo ambiente de testes.",
+        absenceStatus: index === 2 ? "not_going" : index === 5 ? "not_returning" : "going",
+        absenceDate: index === 2 || index === 5 ? now.slice(0, 10) : "",
+        absenceUpdatedAt: index === 2 || index === 5 ? now : "",
+        active: true,
+        createdAt: now,
+      };
+    });
+    const paymentStatuses: PaymentRecord["status"][] = [
+      "pending_proof",
+      "proof_received",
+      "approved",
+      "rejected",
+    ];
+    const payments: PaymentRecord[] = children.slice(0, created.payments).map((child, index) => {
+      const parent = parents.find((item) => item.id === child.parentId) || parents[0];
+      const status = paymentStatuses[index];
+      const amount = 220 + index * 15;
+      return {
+        id: `test_payment_${company.id}_${index + 1}`,
+        companyId: company.id,
+        parentId: parent.id,
+        childId: child.id,
+        month: currentMonthLabel,
+        dueDate: `${currentMonthKey}-${String(Math.min(28, company.settings.monthlyDueDay || 5)).padStart(2, "0")}`,
+        amount,
+        chargeEnabled: true,
+        automatic: false,
+        paymentMethod: "pix",
+        externalReference: `TESTE-${index + 1}`,
+        status,
+        proof: status === "proof_received" || status === "approved"
+          ? {
+              fileName: "comprovante-teste.txt",
+              fileType: "text/plain",
+              fileData: "data:text/plain;base64,VGVzdGU=",
+              uploadedAt: now,
+            }
+          : undefined,
+        receipt: status === "approved"
+          ? {
+              number: `TESTE-${currentYear}-${index + 1}`,
+              generatedAt: now,
+              companyName: company.name,
+              pixKey: company.settings.pixKey,
+              payerName: parent.name,
+              childName: child.name,
+              amount,
+              month: currentMonthLabel,
+              note: "Recibo ficticio para teste.",
+            }
+          : undefined,
+        createdAt: now,
+      };
+    });
+    const checkins: CheckinRecord[] = children.slice(0, created.checkins).map((child, index) => ({
+      id: `test_checkin_${company.id}_${index + 1}`,
+      companyId: company.id,
+      parentId: child.parentId,
+      childId: child.id,
+      vanId: child.vanId,
+      driverId: child.driverId,
+      type: index === 2 ? "returning" : "boarding",
+      scannedAt: now,
+      latitude: child.address.latitude,
+      longitude: child.address.longitude,
+      accuracy: 12,
+      token: `test_qr_${company.id}_${(index % 2) + 1}`,
+    }));
+    const contracts: ContractRecord[] = children.slice(0, created.contracts).map((child, index) => ({
+      id: `test_contract_${company.id}_${index + 1}`,
+      companyId: company.id,
+      parentId: child.parentId,
+      childId: child.id,
+      title: `[TESTE] Contrato de transporte ${index + 1}`,
+      content: "Contrato ficticio criado exclusivamente para validacao das funcoes do sistema.",
+      status: index === 0 ? "signed" : "sent",
+      signerName: index === 0 ? parents.find((item) => item.id === child.parentId)?.name : undefined,
+      signerDocument: index === 0 ? "DOCUMENTO TESTE" : undefined,
+      signedAt: index === 0 ? now : undefined,
+      createdAt: now,
+    }));
+
+    draft.drivers.push(...drivers);
+    draft.vans.push(...vans);
+    draft.parents.push(...parents);
+    draft.children.push(...children);
+    draft.payments.unshift(...payments);
+    draft.checkins.unshift(...checkins);
+    draft.contracts.unshift(...contracts);
+    draft.vanQrCodes.push(
+      ...vans.map((van, index): VanQrCodeRecord => ({
+        id: `test_vanqr_${company.id}_${index + 1}`,
+        companyId: company.id,
+        vanId: van.id,
+        token: `test_qr_${company.id}_${index + 1}`,
+        label: van.label,
+        active: true,
+        generatedAt: now,
+      }))
+    );
+    draft.notifications.unshift(
+      ...children.slice(0, 3).map((child, index): NotificationRecord => ({
+        id: `test_notification_${company.id}_${index + 1}`,
+        companyId: company.id,
+        parentId: child.parentId,
+        childId: child.id,
+        driverId: child.driverId,
+        type: index === 0 ? "checkin" : index === 1 ? "payment" : "absence",
+        title: `[TESTE] Notificacao ${index + 1}`,
+        message: "Mensagem ficticia para validar a central de notificacoes.",
+        createdAt: now,
+        readAt: index === 0 ? now : "",
+      }))
+    );
+  });
+
+  return { db, created };
 }
 
 export function resetCompanyOperationalData(companyId?: string) {

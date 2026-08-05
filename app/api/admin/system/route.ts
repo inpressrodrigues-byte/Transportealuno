@@ -1,11 +1,13 @@
 import { NextResponse } from "next/server";
 import {
+  createCompanyTestData,
   createSupabaseBackup,
   getAdminPayload,
   passwordMatches,
   persistDb,
   prepareDb,
   readDb,
+  removeCompanyTestData,
   resetCompanyOperationalData,
   storageErrorMessage,
 } from "@/lib/server/app-db";
@@ -14,9 +16,30 @@ export async function POST(request: Request) {
   await prepareDb();
   const body = await request.json().catch(() => null);
   const action = String(body?.action || "");
+  const companyId = String(body?.companyId || "") || undefined;
+
+  if (action === "seed_test_data" || action === "delete_test_data") {
+    if (request.headers.get("x-rota-role") !== "admin") {
+      return NextResponse.json({ error: "Apenas o administrador pode gerenciar dados de teste." }, { status: 403 });
+    }
+
+    try {
+      const testData = action === "seed_test_data"
+        ? createCompanyTestData(companyId).created
+        : removeCompanyTestData(companyId).removed;
+      await persistDb();
+      return NextResponse.json({
+        ...getAdminPayload(companyId),
+        testData,
+        testDataAction: action,
+      });
+    } catch (error) {
+      return NextResponse.json({ error: storageErrorMessage(error) }, { status: 503 });
+    }
+  }
+
   const login = String(body?.login || "").trim().toLowerCase();
   const password = String(body?.password || "");
-  const companyId = String(body?.companyId || "") || undefined;
   const admin = readDb().admins.find(
     (item) =>
       (item.login || item.contact).trim().toLowerCase() === login &&

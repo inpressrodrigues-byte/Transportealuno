@@ -40,6 +40,7 @@ import {
   Settings,
   ShieldCheck,
   ShieldAlert,
+  TestTube2,
   Trash2,
   UsersRound,
   Wallet,
@@ -73,6 +74,7 @@ import {
 
 type AdminTab =
   | "overview"
+  | "test-data"
   | "companies"
   | "company"
   | "drivers"
@@ -91,6 +93,7 @@ type AdminTab =
 
 const tabs = [
   { id: "overview" as AdminTab, label: "Visao geral", icon: Home },
+  { id: "test-data" as AdminTab, label: "Dados de teste", icon: TestTube2 },
   { id: "companies" as AdminTab, label: "Empresas", icon: Building2 },
   { id: "company" as AdminTab, label: "Empresa e Pix", icon: Settings },
   { id: "drivers" as AdminTab, label: "Motoristas", icon: UsersRound },
@@ -284,6 +287,32 @@ const emptyExpenseForm = {
   notes: "",
 };
 
+function paymentDueDate(month: string, dueDay = 5) {
+  const [year, monthNumber] = month.split("-").map(Number);
+  if (!year || !monthNumber) return "";
+  const lastDay = new Date(year, monthNumber, 0).getDate();
+  const day = Math.min(lastDay, Math.max(1, Math.round(dueDay || 5)));
+  return `${month}-${String(day).padStart(2, "0")}`;
+}
+
+function emptyPaymentForm(monthlyFee = 220, dueDay = 5) {
+  const now = new Date();
+  const target = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+  const month = `${target.getFullYear()}-${String(target.getMonth() + 1).padStart(2, "0")}`;
+
+  return {
+    id: "",
+    parentId: "",
+    childId: "",
+    month,
+    dueDate: paymentDueDate(month, dueDay),
+    amount: String(monthlyFee || 220),
+    chargeEnabled: true,
+    paymentMethod: "pix" as "pix" | "boleto" | "card" | "cash",
+    externalReference: "",
+  };
+}
+
 export default function AdminPage() {
   const router = useRouter();
   const [session, setSession] = useState<SessionUser | null>(null);
@@ -325,17 +354,7 @@ export default function AdminPage() {
       warning: new Date(now.getTime() + 30 * 86400000).toISOString().slice(0, 10),
     };
   });
-  const [paymentForm, setPaymentForm] = useState({
-    id: "",
-    parentId: "",
-    childId: "",
-    month: "",
-    dueDate: "",
-    amount: "220",
-    chargeEnabled: true,
-    paymentMethod: "pix" as "pix" | "boleto" | "card" | "cash",
-    externalReference: "",
-  });
+  const [paymentForm, setPaymentForm] = useState(() => emptyPaymentForm());
 
   const activeCompanyId =
     session?.role === "company"
@@ -373,6 +392,11 @@ export default function AdminPage() {
     const nextCompanyId = payload.currentCompany?.id || payload.companies[0]?.id || "";
     if (nextCompanyId && session?.role !== "company") setSelectedCompanyId(nextCompanyId);
     setSettingsForm(payload.settings);
+    setPaymentForm((current) =>
+      current.id || current.parentId
+        ? current
+        : emptyPaymentForm(payload.settings.monthlyFeeDefault, payload.settings.monthlyDueDay)
+    );
     setThemeForm(payload.theme);
     setContractTemplate(payload.currentCompany?.contractTemplate || "");
     setAdminAccessForm({
@@ -495,6 +519,18 @@ export default function AdminPage() {
   const approvedAmount = approvedPayments.reduce((total, payment) => total + payment.amount, 0);
   const openAmount = openPayments.reduce((total, payment) => total + payment.amount, 0);
   const activeChildren = data?.children.filter((child) => child.active) ?? [];
+  const testParentIds = new Set(data?.parents.filter((item) => item.id.startsWith("test_")).map((item) => item.id) ?? []);
+  const testChildIds = new Set(data?.children.filter((item) => item.id.startsWith("test_")).map((item) => item.id) ?? []);
+  const testDataCounts = {
+    parents: testParentIds.size,
+    children: testChildIds.size,
+    drivers: data?.drivers.filter((item) => item.id.startsWith("test_")).length ?? 0,
+    vans: data?.vans.filter((item) => item.id.startsWith("test_")).length ?? 0,
+    payments: data?.payments.filter(
+      (item) => item.id.startsWith("test_") || testParentIds.has(item.parentId) || testChildIds.has(item.childId)
+    ).length ?? 0,
+  };
+  const testDataTotal = Object.values(testDataCounts).reduce((total, value) => total + value, 0);
   const onlineDrivers = data?.liveTrackings.filter((tracking) => tracking.active).length ?? 0;
   const paidExpenses = data?.expenses.filter((expense) => expense.status === "paid") ?? [];
   const pendingExpenses = data?.expenses.filter((expense) => expense.status === "pending") ?? [];
@@ -1277,7 +1313,7 @@ export default function AdminPage() {
     const result = (await response.json().catch(() => null)) as (AdminPayload & { error?: string }) | null;
     if (response.ok && result) {
       setData(result);
-      setPaymentForm({ id: "", parentId: "", childId: "", month: "", dueDate: "", amount: String(settingsForm.monthlyFeeDefault || 220), chargeEnabled: true, paymentMethod: "pix", externalReference: "" });
+      setPaymentForm(emptyPaymentForm(settingsForm.monthlyFeeDefault, settingsForm.monthlyDueDay));
       setMessage(paymentForm.id ? "Mensalidade atualizada." : "Mensalidade criada.");
     } else {
       setMessage(result?.error || "Nao foi possivel salvar a mensalidade.");
@@ -1308,7 +1344,7 @@ export default function AdminPage() {
       id: payment.id,
       parentId: payment.parentId,
       childId: payment.childId,
-      month: payment.month,
+      month: payment.dueDate.slice(0, 7),
       dueDate: payment.dueDate,
       amount: String(payment.amount),
       chargeEnabled: payment.chargeEnabled,
@@ -1330,7 +1366,9 @@ export default function AdminPage() {
     const payload = (await response.json().catch(() => null)) as (AdminPayload & { error?: string }) | null;
     if (response.ok && payload) {
       setData(payload);
-      if (paymentForm.id === payment.id) setPaymentForm({ id: "", parentId: "", childId: "", month: "", dueDate: "", amount: String(settingsForm.monthlyFeeDefault || 220), chargeEnabled: true, paymentMethod: "pix", externalReference: "" });
+      if (paymentForm.id === payment.id) {
+        setPaymentForm(emptyPaymentForm(settingsForm.monthlyFeeDefault, settingsForm.monthlyDueDay));
+      }
       setMessage("Mensalidade excluida.");
     } else {
       setMessage(payload?.error || "Nao foi possivel excluir a mensalidade.");
@@ -1368,16 +1406,58 @@ export default function AdminPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ companyId: activeCompanyId }),
     });
-    const payload = (await response.json().catch(() => null)) as (AdminPayload & { generated?: number; month?: string; error?: string }) | null;
+    const payload = (await response.json().catch(() => null)) as (AdminPayload & {
+      generated?: number;
+      month?: string;
+      eligible?: number;
+      skippedDuplicates?: number;
+      skippedMissingParent?: number;
+      error?: string;
+    }) | null;
     if (response.ok && payload) {
       setData(payload);
-      setMessage(
-        payload.generated
-          ? `${payload.generated} mensalidade(s) criada(s) para ${payload.month}.`
-          : `As mensalidades de ${payload.month || "proximo mes"} ja estavam criadas.`
-      );
+      if (payload.generated) {
+        setMessage(`${payload.generated} mensalidade(s) criada(s) para ${payload.month}.`);
+      } else if (payload.skippedMissingParent) {
+        setMessage(`${payload.skippedMissingParent} aluno(s) ativo(s) estao sem responsavel ativo. Corrija o cadastro e tente novamente.`);
+      } else if (!payload.eligible) {
+        setMessage("Nenhum aluno ativo com responsavel foi encontrado para gerar mensalidade.");
+      } else {
+        setMessage(`As ${payload.skippedDuplicates || payload.eligible} mensalidade(s) de ${payload.month || "proximo mes"} ja existem.`);
+      }
     } else {
       setMessage(payload?.error || "Nao foi possivel gerar as mensalidades.");
+    }
+    setSaving("");
+  };
+
+  const manageTestData = async (action: "seed_test_data" | "delete_test_data") => {
+    if (action === "delete_test_data" && !window.confirm("Apagar somente os dados identificados como TESTE?")) {
+      return;
+    }
+
+    setSaving(action);
+    setMessage("");
+    const response = await fetch("/api/admin/system", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action, companyId: activeCompanyId }),
+    });
+    const payload = (await response.json().catch(() => null)) as (AdminPayload & {
+      testData?: Record<string, number>;
+      error?: string;
+    }) | null;
+
+    if (response.ok && payload) {
+      setData(payload);
+      const total = Object.values(payload.testData || {}).reduce((sum, value) => sum + value, 0);
+      setMessage(
+        action === "seed_test_data"
+          ? `Ambiente de testes criado com ${total} registros ficticios.`
+          : `${total} registros de teste apagados. Os dados reais foram preservados.`
+      );
+    } else {
+      setMessage(payload?.error || "Nao foi possivel atualizar os dados de teste.");
     }
     setSaving("");
   };
@@ -1734,6 +1814,75 @@ export default function AdminPage() {
                       </div>
                     );
                   })}
+                </div>
+              </Panel>
+            </div>
+          )}
+
+          {active === "test-data" && session.role === "admin" && (
+            <div className="space-y-5">
+              <Panel
+                title="Ambiente de testes"
+                subtitle="Gere cadastros ficticios completos para validar pagamentos, rotas, check-in, contratos e acessos."
+              >
+                <div className="grid grid-cols-2 gap-x-5 gap-y-4 border-y border-line py-5 dark:border-white/10 sm:grid-cols-5">
+                  {[
+                    ["Responsaveis", testDataCounts.parents],
+                    ["Alunos", testDataCounts.children],
+                    ["Motoristas", testDataCounts.drivers],
+                    ["Vans", testDataCounts.vans],
+                    ["Mensalidades", testDataCounts.payments],
+                  ].map(([label, value]) => (
+                    <div key={String(label)}>
+                      <div className="text-xs uppercase text-mute dark:text-white/45">{label}</div>
+                      <div className="mt-1 text-xl font-semibold text-navy dark:text-white">{value}</div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="mt-5 border-l-4 border-sun pl-4">
+                  <div className="font-semibold text-navy dark:text-white">
+                    {testDataTotal ? "Dados de teste ativos" : "Nenhum dado de teste criado"}
+                  </div>
+                  <p className="mt-1 text-sm leading-relaxed text-mute dark:text-white/55">
+                    Todos os nomes recebem a marca [TESTE]. A limpeza desta area reconhece os identificadores internos e preserva os dados reais.
+                  </p>
+                </div>
+
+                <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+                  <Button
+                    type="button"
+                    onClick={() => manageTestData("seed_test_data")}
+                    disabled={saving === "seed_test_data"}
+                  >
+                    <TestTube2 size={16} /> {testDataTotal ? "Recriar dados de teste" : "Criar dados de teste"}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outlineDark"
+                    className="border-red-500/40 text-red-600 hover:bg-red-500/10 dark:border-red-400/40 dark:text-red-300"
+                    onClick={() => manageTestData("delete_test_data")}
+                    disabled={!testDataTotal || saving === "delete_test_data"}
+                  >
+                    <Trash2 size={16} /> Apagar dados de teste
+                  </Button>
+                </div>
+              </Panel>
+
+              <Panel title="Acessos ficticios" subtitle="Use estes perfis depois de criar os dados de teste.">
+                <div className="divide-y divide-line text-sm dark:divide-white/10">
+                  <div className="grid gap-1 py-4 sm:grid-cols-[160px_1fr]">
+                    <strong className="text-navy dark:text-white">Responsavel 01</strong>
+                    <span className="text-mute dark:text-white/60">Contato 45990001001 - senha CPF 80000000001</span>
+                  </div>
+                  <div className="grid gap-1 py-4 sm:grid-cols-[160px_1fr]">
+                    <strong className="text-navy dark:text-white">Aluno 01</strong>
+                    <span className="text-mute dark:text-white/60">CPF 70000000001 - senha 15/01/2012</span>
+                  </div>
+                  <div className="grid gap-1 py-4 sm:grid-cols-[160px_1fr]">
+                    <strong className="text-navy dark:text-white">Motorista 01</strong>
+                    <span className="text-mute dark:text-white/60">Contato 45991000001 - senha CPF 90000000001</span>
+                  </div>
                 </div>
               </Panel>
             </div>
@@ -3043,7 +3192,11 @@ export default function AdminPage() {
                     <span className="text-xs font-semibold uppercase tracking-wide text-mute dark:text-white/50">Responsavel</span>
                     <select
                       value={paymentForm.parentId}
-                      onChange={(e) => setPaymentForm({ ...paymentForm, parentId: e.target.value, childId: "" })}
+                      onChange={(e) => {
+                        const parentId = e.target.value;
+                        const firstChild = data.children.find((child) => child.parentId === parentId && child.active);
+                        setPaymentForm({ ...paymentForm, parentId, childId: firstChild?.id || "" });
+                      }}
                       className="mt-2 w-full rounded-xl border border-line bg-white px-4 py-3 text-sm text-navy outline-none focus:border-sun dark:border-white/10 dark:bg-white/5 dark:text-white"
                       required
                     >
@@ -3067,7 +3220,16 @@ export default function AdminPage() {
                       ))}
                     </select>
                   </label>
-                  <Field label="Mes de referencia" value={paymentForm.month} onChange={(v) => setPaymentForm({ ...paymentForm, month: v })} placeholder="Setembro/2026" />
+                  <Field
+                    label="Mes de referencia"
+                    type="month"
+                    value={paymentForm.month}
+                    onChange={(value) => setPaymentForm({
+                      ...paymentForm,
+                      month: value,
+                      dueDate: paymentDueDate(value, settingsForm.monthlyDueDay),
+                    })}
+                  />
                   <Field label="Vencimento" value={paymentForm.dueDate} onChange={(v) => setPaymentForm({ ...paymentForm, dueDate: v })} type="date" />
                   <Field label="Valor" value={paymentForm.amount} onChange={(v) => setPaymentForm({ ...paymentForm, amount: v })} />
                   <label className="flex items-center gap-3 rounded-xl border border-line px-4 py-3 text-sm font-semibold text-navy dark:border-white/10 dark:text-white">
@@ -3086,7 +3248,7 @@ export default function AdminPage() {
                       <Banknote size={16} /> {paymentForm.id ? "Salvar mensalidade" : "Criar mensalidade"}
                     </Button>
                     {paymentForm.id && (
-                      <Button type="button" variant="outlineDark" onClick={() => setPaymentForm({ id: "", parentId: "", childId: "", month: "", dueDate: "", amount: String(settingsForm.monthlyFeeDefault || 220), chargeEnabled: true, paymentMethod: "pix", externalReference: "" })}>Cancelar</Button>
+                      <Button type="button" variant="outlineDark" onClick={() => setPaymentForm(emptyPaymentForm(settingsForm.monthlyFeeDefault, settingsForm.monthlyDueDay))}>Cancelar</Button>
                     )}
                   </div>
                 </form>

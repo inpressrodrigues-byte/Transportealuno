@@ -25,5 +25,8 @@ export async function POST(request: Request) {
     ...scopedAdminPayload(request, companyId),
     generated: result.created,
     month: result.month,
+    eligible: result.eligible,
+    skippedDuplicates: result.skippedDuplicates,
+    skippedMissingParent: result.skippedMissingParent,
   });
 }

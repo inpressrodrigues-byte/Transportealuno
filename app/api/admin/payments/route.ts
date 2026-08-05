@@ -3,14 +3,37 @@ import { mutateDb, persistDb, prepareDb, readDb, storageErrorMessage } from "@/l
 import { scopedAdminPayload } from "@/lib/server/admin-request";
 import { makeId, todayIso } from "@/lib/app-utils";
 
+const MONTH_NAMES = [
+  "Janeiro",
+  "Fevereiro",
+  "Marco",
+  "Abril",
+  "Maio",
+  "Junho",
+  "Julho",
+  "Agosto",
+  "Setembro",
+  "Outubro",
+  "Novembro",
+  "Dezembro",
+];
+
+function paymentMonthLabel(value: string, dueDate: string) {
+  const monthKey = /^\d{4}-\d{2}$/.test(value) ? value : dueDate.slice(0, 7);
+  const [year, month] = monthKey.split("-").map(Number);
+  if (year && month >= 1 && month <= 12) return `${MONTH_NAMES[month - 1]}/${year}`;
+  return value;
+}
+
 export async function POST(request: Request) {
   await prepareDb();
   const body = await request.json().catch(() => null);
   const id = String(body?.id || "");
   const parentId = String(body?.parentId || "");
   const childId = String(body?.childId || "");
-  const month = String(body?.month || "").trim();
+  const rawMonth = String(body?.month || "").trim();
   const dueDate = String(body?.dueDate || "").trim();
+  const month = paymentMonthLabel(rawMonth, dueDate);
   const amount = Number(body?.amount || 0);
   const chargeEnabled = body?.chargeEnabled !== false;
   const paymentMethod = ["pix", "boleto", "card", "cash"].includes(String(body?.paymentMethod || ""))
@@ -24,7 +47,7 @@ export async function POST(request: Request) {
     currentDb.currentCompanyId ||
     currentDb.companies[0]?.id;
 
-  if (!parentId || !childId || !month || !dueDate || (chargeEnabled && amount <= 0)) {
+  if (!parentId || !childId || !rawMonth || !month || !dueDate || (chargeEnabled && amount <= 0)) {
     return NextResponse.json(
       { error: "Informe responsavel, aluno, mes, vencimento e valor." },
       { status: 400 }
