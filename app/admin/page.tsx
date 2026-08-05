@@ -31,6 +31,7 @@ import {
   Navigation,
   Palette,
   Pencil,
+  Plus,
   QrCode,
   RefreshCw,
   ReceiptText,
@@ -1962,6 +1963,7 @@ export default function AdminPage() {
             <div className="grid grid-cols-1 gap-5 xl:grid-cols-[380px_1fr]">
               <Panel
                 id="driver-editor"
+                className="order-2 xl:order-1"
                 title={driverForm.id ? "Editar motorista" : "Cadastrar motorista"}
                 subtitle="O motorista acessa /driver com contato e CPF."
               >
@@ -2010,7 +2012,20 @@ export default function AdminPage() {
                 </form>
               </Panel>
 
-              <Panel title="Motoristas cadastrados" subtitle="Equipe com acesso proprio para ver alunos e iniciar rota.">
+              <Panel className="order-1 xl:order-2" title="Motoristas cadastrados" subtitle="Equipe com acesso proprio para ver alunos e iniciar rota.">
+                <div className="mb-4 flex justify-end">
+                  <Button
+                    type="button"
+                    variant="outlineDark"
+                    size="sm"
+                    onClick={() => {
+                      setDriverForm(emptyDriverForm);
+                      scrollToEditor("driver-editor");
+                    }}
+                  >
+                    <Plus size={14} /> Novo motorista
+                  </Button>
+                </div>
                 <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                   {data.drivers.map((driver) => (
                     <div key={driver.id} className="rounded-2xl border border-line p-4 dark:border-white/10">
@@ -2074,6 +2089,7 @@ export default function AdminPage() {
             <div className="grid grid-cols-1 gap-5 xl:grid-cols-[380px_1fr]">
               <Panel
                 id="van-editor"
+                className="order-2 xl:order-1"
                 title={vanForm.id ? "Editar van" : "Cadastrar van"}
                 subtitle="Controle placa, motorista, lugares e QR individual da van."
               >
@@ -2129,7 +2145,20 @@ export default function AdminPage() {
                 </form>
               </Panel>
 
-              <Panel title="Frota" subtitle="Cada van pode ter motorista, QR e alunos vinculados.">
+              <Panel className="order-1 xl:order-2" title="Frota" subtitle="Cada van pode ter motorista, QR e alunos vinculados.">
+                <div className="mb-4 flex justify-end">
+                  <Button
+                    type="button"
+                    variant="outlineDark"
+                    size="sm"
+                    onClick={() => {
+                      setVanForm(emptyVanForm);
+                      scrollToEditor("van-editor");
+                    }}
+                  >
+                    <Plus size={14} /> Nova van
+                  </Button>
+                </div>
                 <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
                   {data.vans.map((van) => {
                     const students = data.children.filter((child) => child.vanId === van.id);
@@ -3712,17 +3741,19 @@ function OperationRow({
 
 function Panel({
   id,
+  className,
   title,
   subtitle,
   children,
 }: {
   id?: string;
+  className?: string;
   title: string;
   subtitle?: string;
   children: React.ReactNode;
 }) {
   return (
-    <div id={id} className="scroll-mt-28 rounded-2xl border border-line bg-white p-5 dark:border-white/10 dark:bg-white/[0.04] sm:p-6">
+    <div id={id} className={cn("scroll-mt-28 rounded-2xl border border-line bg-white p-5 dark:border-white/10 dark:bg-white/[0.04] sm:p-6", className)}>
       <div className="mb-5">
         <h2 className="text-lg font-semibold text-navy dark:text-white">{title}</h2>
         {subtitle && <p className="mt-1 text-sm text-mute dark:text-white/55">{subtitle}</p>}
