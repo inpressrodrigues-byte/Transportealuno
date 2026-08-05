@@ -6,12 +6,16 @@ import { SectionHeading } from "@/components/ui/SectionHeading";
 import { Card } from "@/components/ui/Card";
 import { MediaFrame } from "@/components/ui/MediaFrame";
 import { vanFeatures, vanSpecs } from "@/lib/data";
+import { usePublicSite } from "@/lib/use-public-site";
 import { Bus } from "lucide-react";
 
 const thumbs = ["Frontal", "Lateral", "Interior", "Bancos"];
 
 export function Van() {
   const [active, setActive] = useState(0);
+  const site = usePublicSite();
+  const photos = (site?.galleryPhotos ?? []).slice(0, 4);
+  const activePhoto = photos[active] || photos[0];
 
   return (
     <section id="van" className="bg-white py-24 sm:py-32 dark:bg-[#0b1220]">
@@ -20,24 +24,49 @@ export function Van() {
 
         <div className="mt-14 grid grid-cols-1 gap-10 lg:grid-cols-2">
           <div>
-            <MediaFrame
-              label={`Foto — ${thumbs[active]}`}
-              icon={<Bus size={22} />}
-              tone="mist"
-              className="aspect-[4/3] w-full"
-            />
+            {activePhoto ? (
+              <figure className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl bg-mist">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={activePhoto.url}
+                  alt={activePhoto.alt}
+                  decoding="async"
+                  className="h-full w-full object-cover"
+                />
+                <figcaption className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/75 to-transparent px-5 pb-5 pt-14 text-sm font-semibold text-white">
+                  {activePhoto.caption}
+                </figcaption>
+              </figure>
+            ) : (
+              <MediaFrame
+                label={`Foto - ${thumbs[active]}`}
+                icon={<Bus size={22} />}
+                tone="mist"
+                className="aspect-[4/3] w-full"
+              />
+            )}
             <div className="mt-4 grid grid-cols-4 gap-3">
-              {thumbs.map((t, i) => (
-                <button
-                  key={t}
-                  onClick={() => setActive(i)}
-                  className={`rounded-xl border p-2 transition-colors ${
-                    active === i ? "border-sun-2 bg-sun/10" : "border-line hover:border-mute/30"
-                  }`}
-                >
-                  <MediaFrame label={t} tone="mist" className="aspect-square w-full" />
-                </button>
-              ))}
+              {(photos.length ? photos : thumbs).map((item, i) => {
+                const photo = typeof item === "string" ? null : item;
+                const label = photo?.caption || String(item);
+                return (
+                  <button
+                    key={photo?.id || label}
+                    onClick={() => setActive(i)}
+                    aria-label={`Mostrar ${label}`}
+                    className={`rounded-xl border p-2 transition-colors ${
+                      active === i ? "border-sun-2 bg-sun/10" : "border-line hover:border-mute/30"
+                    }`}
+                  >
+                    {photo ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={photo.url} alt="" loading="lazy" className="aspect-square w-full rounded-lg object-cover" />
+                    ) : (
+                      <MediaFrame label={label} tone="mist" className="aspect-square w-full" />
+                    )}
+                  </button>
+                );
+              })}
             </div>
 
             <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">

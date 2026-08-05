@@ -6,6 +6,8 @@ import Link from "next/link";
 import {
   Activity,
   AlertTriangle,
+  ArrowDown,
+  ArrowUp,
   BarChart3,
   Banknote,
   Building2,
@@ -23,6 +25,8 @@ import {
   GraduationCap,
   Home,
   IdCard,
+  ImagePlus,
+  Images,
   Loader2,
   Lock,
   LogOut,
@@ -79,6 +83,7 @@ type AdminTab =
   | "company"
   | "drivers"
   | "vans"
+  | "gallery"
   | "operations"
   | "schools"
   | "neighborhoods"
@@ -98,6 +103,7 @@ const tabs = [
   { id: "company" as AdminTab, label: "Empresa e Pix", icon: Settings },
   { id: "drivers" as AdminTab, label: "Motoristas", icon: UsersRound },
   { id: "vans" as AdminTab, label: "Vans", icon: Bus },
+  { id: "gallery" as AdminTab, label: "Fotos da van", icon: Images },
   { id: "operations" as AdminTab, label: "Operacao e frota", icon: Wrench },
   { id: "schools" as AdminTab, label: "Escolas", icon: School },
   { id: "neighborhoods" as AdminTab, label: "Bairros", icon: MapPinned },
@@ -333,6 +339,9 @@ export default function AdminPage() {
   const [contractTemplate, setContractTemplate] = useState("");
   const [contractForm, setContractForm] = useState({ parentId: "", childId: "", title: "" });
   const [resetForm, setResetForm] = useState({ confirmation: "", password: "" });
+  const [galleryFiles, setGalleryFiles] = useState<File[]>([]);
+  const [galleryCaption, setGalleryCaption] = useState("");
+  const [galleryInputKey, setGalleryInputKey] = useState(0);
 
   const [settingsForm, setSettingsForm] = useState<CompanySettings>(emptyCompany);
   const [themeForm, setThemeForm] = useState<ThemeSettings>(emptyTheme);
@@ -858,6 +867,131 @@ export default function AdminPage() {
       setMessage(result?.error || "Nao foi possivel excluir a van.");
     }
 
+    setSaving("");
+  };
+
+  const selectGalleryFiles = (files: FileList | null) => {
+    const selected = Array.from(files || []).slice(0, 12);
+    const supported = selected.filter(
+      (file) => ["image/jpeg", "image/png", "image/webp"].includes(file.type) && file.size <= 4 * 1024 * 1024
+    );
+    setGalleryFiles(supported);
+    if (supported.length !== selected.length) {
+      setMessage("Algumas fotos foram ignoradas. Use JPG, PNG ou WEBP com ate 4 MB cada.");
+    } else {
+      setMessage("");
+    }
+  };
+
+  const uploadGalleryPhotos = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!galleryFiles.length) {
+      setMessage("Selecione pelo menos uma foto da van.");
+      return;
+    }
+
+    setSaving("gallery-upload");
+    setMessage("");
+    let uploaded = 0;
+    let failure = "";
+
+    for (const file of galleryFiles) {
+      const form = new FormData();
+      form.append("companyId", activeCompanyId);
+      form.append("caption", galleryFiles.length === 1 ? galleryCaption : "");
+      form.append("file", file);
+      const response = await fetch("/api/admin/gallery", { method: "POST", body: form });
+      const result = (await response.json().catch(() => null)) as (AdminPayload & { error?: string }) | null;
+      if (!response.ok || !result) {
+        failure = result?.error || `Nao foi possivel enviar ${file.name}.`;
+        break;
+      }
+      uploaded += 1;
+      setData(result);
+    }
+
+    if (uploaded > 0) {
+      setGalleryFiles([]);
+      setGalleryCaption("");
+      setGalleryInputKey((current) => current + 1);
+    }
+    setMessage(
+      failure
+        ? `${uploaded} foto(s) enviada(s). ${failure}`
+        : `${uploaded} foto(s) enviada(s) e publicadas no site.`
+    );
+    setSaving("");
+  };
+
+  const updateGalleryDraft = (
+    id: string,
+    changes: Partial<Pick<AdminPayload["galleryPhotos"][number], "caption" | "alt" | "active">>
+  ) => {
+    setData((current) => current ? {
+      ...current,
+      galleryPhotos: current.galleryPhotos.map((photo) => photo.id === id ? { ...photo, ...changes } : photo),
+    } : current);
+  };
+
+  const saveGalleryPhoto = async (photo: AdminPayload["galleryPhotos"][number]) => {
+    setSaving(`gallery-save-${photo.id}`);
+    setMessage("");
+    const response = await fetch("/api/admin/gallery", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        id: photo.id,
+        companyId: activeCompanyId,
+        caption: photo.caption,
+        alt: photo.alt,
+        active: photo.active,
+      }),
+    });
+    const result = (await response.json().catch(() => null)) as (AdminPayload & { error?: string }) | null;
+    if (response.ok && result) {
+      setData(result);
+      setMessage("Informacoes da foto salvas.");
+    } else {
+      setMessage(result?.error || "Nao foi possivel salvar a foto.");
+    }
+    setSaving("");
+  };
+
+  const moveGalleryPhoto = async (photoId: string, direction: "up" | "down") => {
+    setSaving(`gallery-move-${photoId}`);
+    setMessage("");
+    const response = await fetch("/api/admin/gallery", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: photoId, companyId: activeCompanyId, direction }),
+    });
+    const result = (await response.json().catch(() => null)) as (AdminPayload & { error?: string }) | null;
+    if (response.ok && result) {
+      setData(result);
+      setMessage("Ordem das fotos atualizada.");
+    } else {
+      setMessage(result?.error || "Nao foi possivel mudar a ordem.");
+    }
+    setSaving("");
+  };
+
+  const removeGalleryPhoto = async (photo: AdminPayload["galleryPhotos"][number]) => {
+    if (!window.confirm(`Apagar a foto "${photo.caption}" do site?`)) return;
+
+    setSaving(`gallery-delete-${photo.id}`);
+    setMessage("");
+    const response = await fetch("/api/admin/gallery", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: photo.id, companyId: activeCompanyId }),
+    });
+    const result = (await response.json().catch(() => null)) as (AdminPayload & { error?: string; warning?: string }) | null;
+    if (response.ok && result) {
+      setData(result);
+      setMessage(result.warning || "Foto apagada do site.");
+    } else {
+      setMessage(result?.error || "Nao foi possivel apagar a foto.");
+    }
     setSaving("");
   };
 
@@ -2398,6 +2532,156 @@ export default function AdminPage() {
                     );
                   })}
                 </div>
+              </Panel>
+            </div>
+          )}
+
+          {active === "gallery" && session.role === "admin" && (
+            <div className="space-y-5">
+              <Panel
+                title="Fotos da van"
+                subtitle="Envie as imagens que aparecem em Nossa van e na galeria do site."
+              >
+                <form onSubmit={uploadGalleryPhotos} className="grid grid-cols-1 gap-5 lg:grid-cols-[1fr_340px]">
+                  <div>
+                    <label className="flex min-h-44 cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed border-white/20 bg-white/[0.03] px-5 py-8 text-center transition hover:border-sun/60 hover:bg-sun/[0.04]">
+                      <input
+                        key={galleryInputKey}
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp"
+                        multiple
+                        onChange={(event) => selectGalleryFiles(event.target.files)}
+                        className="sr-only"
+                      />
+                      <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-sun/15 text-sun">
+                        <ImagePlus size={22} />
+                      </span>
+                      <span className="mt-4 text-sm font-semibold text-white">Selecionar fotos</span>
+                      <span className="mt-1 text-xs leading-5 text-white/50">JPG, PNG ou WEBP, ate 4 MB por foto</span>
+                    </label>
+
+                    {galleryFiles.length > 0 && (
+                      <div className="mt-4 space-y-2">
+                        {galleryFiles.map((file) => (
+                          <div key={`${file.name}-${file.lastModified}`} className="flex items-center justify-between gap-3 border-b border-white/10 py-2 text-sm">
+                            <span className="min-w-0 truncate text-white/75">{file.name}</span>
+                            <span className="shrink-0 text-xs text-white/40">{(file.size / 1024 / 1024).toFixed(1)} MB</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="space-y-4">
+                    <Field
+                      label="Legenda da foto"
+                      value={galleryCaption}
+                      onChange={setGalleryCaption}
+                      placeholder="Ex.: Interior da van"
+                    />
+                    <p className="text-sm leading-6 text-mute dark:text-white/55">
+                      Para varias fotos, o nome de cada arquivo vira a legenda inicial. Depois voce pode editar cada uma separadamente.
+                    </p>
+                    <Button type="submit" className="w-full" disabled={saving === "gallery-upload" || galleryFiles.length === 0}>
+                      {saving === "gallery-upload" ? <Loader2 size={16} className="animate-spin" /> : <ImagePlus size={16} />}
+                      {saving === "gallery-upload" ? "Enviando fotos" : "Enviar e publicar"}
+                    </Button>
+                  </div>
+                </form>
+              </Panel>
+
+              <Panel
+                title="Fotos publicadas"
+                subtitle={`${data.galleryPhotos.length} foto(s) cadastrada(s). A primeira foto tambem aparece em destaque na secao da van.`}
+              >
+                {data.galleryPhotos.length === 0 ? (
+                  <EmptyState text="Nenhuma foto enviada. O site continua usando os quadros padrao ate a primeira publicacao." />
+                ) : (
+                  <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+                    {data.galleryPhotos.map((photo, index) => (
+                      <article key={photo.id} className="overflow-hidden rounded-2xl border border-line dark:border-white/10">
+                        <div className="relative aspect-[16/10] bg-mist dark:bg-white/5">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={photo.url} alt={photo.alt} className="h-full w-full object-cover" />
+                          <span className={cn(
+                            "absolute left-3 top-3 rounded-full px-3 py-1 text-xs font-semibold shadow",
+                            photo.active ? "bg-ok text-white" : "bg-navy/85 text-white"
+                          )}>
+                            {photo.active ? "Visivel" : "Oculta"}
+                          </span>
+                          <span className="absolute right-3 top-3 rounded-full bg-black/70 px-3 py-1 text-xs font-semibold text-white">
+                            {index + 1}
+                          </span>
+                        </div>
+
+                        <div className="space-y-4 p-4 sm:p-5">
+                          <Field
+                            label="Legenda"
+                            value={photo.caption}
+                            onChange={(value) => updateGalleryDraft(photo.id, { caption: value })}
+                          />
+                          <Field
+                            label="Descricao da imagem"
+                            value={photo.alt}
+                            onChange={(value) => updateGalleryDraft(photo.id, { alt: value })}
+                            placeholder="Descreva o que aparece na foto"
+                          />
+                          <label className="flex items-center gap-3 text-sm font-semibold text-navy dark:text-white">
+                            <input
+                              type="checkbox"
+                              checked={photo.active}
+                              onChange={(event) => updateGalleryDraft(photo.id, { active: event.target.checked })}
+                              className="h-4 w-4 accent-sun"
+                            />
+                            Mostrar esta foto no site
+                          </label>
+
+                          <div className="flex flex-wrap items-center gap-2 border-t border-line pt-4 dark:border-white/10">
+                            <button
+                              type="button"
+                              onClick={() => moveGalleryPhoto(photo.id, "up")}
+                              disabled={index === 0 || saving === `gallery-move-${photo.id}`}
+                              className="flex h-10 w-10 items-center justify-center rounded-lg border border-line text-mute transition hover:border-sun hover:text-sun disabled:cursor-not-allowed disabled:opacity-30 dark:border-white/10 dark:text-white/60"
+                              aria-label="Mover foto para cima"
+                              title="Mover para cima"
+                            >
+                              <ArrowUp size={16} />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => moveGalleryPhoto(photo.id, "down")}
+                              disabled={index === data.galleryPhotos.length - 1 || saving === `gallery-move-${photo.id}`}
+                              className="flex h-10 w-10 items-center justify-center rounded-lg border border-line text-mute transition hover:border-sun hover:text-sun disabled:cursor-not-allowed disabled:opacity-30 dark:border-white/10 dark:text-white/60"
+                              aria-label="Mover foto para baixo"
+                              title="Mover para baixo"
+                            >
+                              <ArrowDown size={16} />
+                            </button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              className="ml-auto"
+                              onClick={() => saveGalleryPhoto(photo)}
+                              disabled={saving === `gallery-save-${photo.id}`}
+                            >
+                              <Save size={14} /> Salvar
+                            </Button>
+                            <button
+                              type="button"
+                              onClick={() => removeGalleryPhoto(photo)}
+                              disabled={saving === `gallery-delete-${photo.id}`}
+                              className="flex h-10 w-10 items-center justify-center rounded-lg text-red-500 transition hover:bg-red-500/10 disabled:opacity-40"
+                              aria-label={`Apagar ${photo.caption}`}
+                              title="Apagar foto"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                )}
               </Panel>
             </div>
           )}

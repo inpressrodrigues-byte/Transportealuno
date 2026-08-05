@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import type { ThemeSettings } from "@/lib/app-types";
+import { loadPublicSite } from "@/lib/use-public-site";
 
 const cssVarMap: Record<keyof ThemeSettings, string> = {
   navy: "--color-navy",
@@ -19,9 +20,8 @@ export function ThemeRuntime() {
   useEffect(() => {
     let alive = true;
 
-    fetch("/api/public/site", { cache: "no-store" })
-      .then((response) => response.json())
-      .then((payload: { theme?: ThemeSettings }) => {
+    loadPublicSite()
+      .then((payload) => {
         if (!alive || !payload.theme) return;
 
         Object.entries(cssVarMap).forEach(([key, variable]) => {

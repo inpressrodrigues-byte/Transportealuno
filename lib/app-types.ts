@@ -98,6 +98,20 @@ export type NeighborhoodRecord = {
   createdAt: string;
 };
 
+export type GalleryPhotoRecord = {
+  id: string;
+  companyId?: string;
+  url: string;
+  storagePath: string;
+  storageProvider: "supabase" | "vercel-blob";
+  caption: string;
+  alt: string;
+  order: number;
+  active: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type LiveTrackingState = {
   id: string;
   companyId?: string;
@@ -435,6 +449,7 @@ export type AppDatabase = {
   removedSchoolIds: string[];
   neighborhoods: NeighborhoodRecord[];
   removedNeighborhoodIds: string[];
+  galleryPhotos: GalleryPhotoRecord[];
   liveTracking: LiveTrackingState;
   liveTrackings: LiveTrackingState[];
   vanQrCode: VanQrCodeRecord;
@@ -513,6 +528,7 @@ export type AdminPayload = {
   theme: ThemeSettings;
   schools: SchoolRecord[];
   neighborhoods: NeighborhoodRecord[];
+  galleryPhotos: GalleryPhotoRecord[];
   liveTracking: LiveTrackingState;
   liveTrackings: LiveTrackingState[];
   vanQrCode: VanQrCodeRecord;

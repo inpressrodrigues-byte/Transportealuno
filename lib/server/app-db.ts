@@ -21,6 +21,7 @@ import type {
   DriverOccurrenceRecord,
   ExpenseRecord,
   FuelRecord,
+  GalleryPhotoRecord,
   LiveTrackingState,
   NeighborhoodRecord,
   NotificationRecord,
@@ -387,6 +388,7 @@ function createInitialDb(): AppDatabase {
     removedSchoolIds: [],
     neighborhoods: seedNeighborhoods(),
     removedNeighborhoodIds: [],
+    galleryPhotos: [],
     liveTracking: defaultLiveTracking(),
     liveTrackings: [defaultLiveTracking()],
     vanQrCode: defaultVanQrCode(),
@@ -556,6 +558,9 @@ function normalizeDb(input: Partial<AppDatabase>): AppDatabase {
   const neighborhoods = input.neighborhoods?.length
     ? mergeById(input.neighborhoods.map(normalizeNeighborhood), seed.neighborhoods)
     : seed.neighborhoods;
+  const galleryPhotos = Array.isArray(input.galleryPhotos)
+    ? input.galleryPhotos.map(normalizeGalleryPhoto)
+    : [];
 
   return {
     settings: { ...seed.settings, ...(companies.find((company) => company.id === currentCompanyId)?.settings || input.settings) },
@@ -566,6 +571,7 @@ function normalizeDb(input: Partial<AppDatabase>): AppDatabase {
     removedSchoolIds,
     neighborhoods: neighborhoods.filter((neighborhood) => !removedNeighborhoodIds.includes(neighborhood.id)),
     removedNeighborhoodIds,
+    galleryPhotos: galleryPhotos.map((photo) => ({ ...photo, companyId: photo.companyId || currentCompanyId })),
     liveTracking: visibleLive(ensureCompanyOnLive(liveTrackings[0] || seed.liveTracking, currentCompanyId)),
     liveTrackings: liveTrackings.map((live) => ensureCompanyOnLive(live, currentCompanyId)),
     vanQrCode: ensureCompanyOnQr(vanQrCodes[0] || seed.vanQrCode, currentCompanyId),
@@ -877,6 +883,23 @@ function normalizeNeighborhood(item: Partial<NeighborhoodRecord>): NeighborhoodR
     },
     notes: item.notes || "",
     createdAt: item.createdAt || todayIso(),
+  };
+}
+
+function normalizeGalleryPhoto(item: Partial<GalleryPhotoRecord>): GalleryPhotoRecord {
+  const now = todayIso();
+  return {
+    id: item.id || makeId("gallery"),
+    companyId: item.companyId || DEFAULT_COMPANY_ID,
+    url: String(item.url || "").trim(),
+    storagePath: String(item.storagePath || "").trim(),
+    storageProvider: item.storageProvider === "vercel-blob" ? "vercel-blob" : "supabase",
+    caption: String(item.caption || "Foto da van").trim(),
+    alt: String(item.alt || item.caption || "Van de transporte escolar").trim(),
+    order: Number.isFinite(Number(item.order)) ? Number(item.order) : 0,
+    active: item.active ?? true,
+    createdAt: item.createdAt || now,
+    updatedAt: item.updatedAt || item.createdAt || now,
   };
 }
 
@@ -1314,6 +1337,7 @@ export function mutateDb(mutator: (db: AppDatabase) => void) {
     "companies",
     "schools",
     "neighborhoods",
+    "galleryPhotos",
     "drivers",
     "vans",
     "parents",
@@ -1352,6 +1376,7 @@ export function mutateDb(mutator: (db: AppDatabase) => void) {
       companies: "empresa",
       schools: "escola",
       neighborhoods: "bairro",
+      galleryPhotos: "foto da van",
       drivers: "motorista",
       vans: "veiculo",
       parents: "responsavel",
@@ -1434,6 +1459,9 @@ export function getAdminPayload(companyId?: string): AdminPayload {
   const trackingPoints = db.trackingPoints.filter((item) => belongsToCompany(item, currentCompanyId));
   const notifications = db.notifications.filter((item) => belongsToCompany(item, currentCompanyId));
   const auditLogs = db.auditLogs.filter((item) => belongsToCompany(item, currentCompanyId));
+  const galleryPhotos = db.galleryPhotos
+    .filter((item) => belongsToCompany(item, currentCompanyId))
+    .sort((left, right) => left.order - right.order || left.createdAt.localeCompare(right.createdAt));
   const liveTrackings = db.liveTrackings
     .filter((item) => belongsToCompany(item, currentCompanyId))
     .map(visibleLive);
@@ -1454,6 +1482,7 @@ export function getAdminPayload(companyId?: string): AdminPayload {
     theme: companyTheme(db, currentCompanyId),
     schools: db.schools,
     neighborhoods: db.neighborhoods,
+    galleryPhotos,
     liveTracking: liveTrackings[0] || visibleLive(ensureCompanyOnLive(db.liveTracking, currentCompanyId)),
     liveTrackings,
     vanQrCode: vanQrCodes[0] || ensureCompanyOnQr(db.vanQrCode, currentCompanyId),
@@ -1486,6 +1515,9 @@ export function getPublicPayload() {
     theme: companyTheme(db, db.currentCompanyId),
     schools: db.schools.filter((schoolItem) => schoolItem.active),
     neighborhoods: db.neighborhoods.filter((neighborhood) => neighborhood.served),
+    galleryPhotos: db.galleryPhotos
+      .filter((photo) => photo.active && belongsToCompany(photo, db.currentCompanyId || DEFAULT_COMPANY_ID))
+      .sort((left, right) => left.order - right.order || left.createdAt.localeCompare(right.createdAt)),
   };
 }
 
@@ -2180,6 +2212,109 @@ export function deleteDriver(id: string, companyId?: string) {
   });
 
   return { db, error };
+}
+
+export function createGalleryPhoto(
+  input: Omit<GalleryPhotoRecord, "companyId" | "order" | "createdAt" | "updatedAt"> & {
+    companyId?: string;
+  }
+) {
+  let photo: GalleryPhotoRecord | undefined;
+  const db = mutateDb((draft) => {
+    const companyId = resolveCompany(draft, input.companyId).id;
+    const nextOrder = draft.galleryPhotos
+      .filter((item) => belongsToCompany(item, companyId))
+      .reduce((highest, item) => Math.max(highest, item.order), -1) + 1;
+    photo = normalizeGalleryPhoto({
+      ...input,
+      companyId,
+      order: nextOrder,
+      createdAt: todayIso(),
+      updatedAt: todayIso(),
+    });
+    draft.galleryPhotos.push(photo);
+  });
+
+  return { db, photo };
+}
+
+export function updateGalleryPhoto(
+  id: string,
+  companyId: string | undefined,
+  input: Pick<GalleryPhotoRecord, "caption" | "alt" | "active">
+) {
+  let error = "";
+  const db = mutateDb((draft) => {
+    const activeCompanyId = resolveCompany(draft, companyId).id;
+    const photo = draft.galleryPhotos.find(
+      (item) => item.id === id && belongsToCompany(item, activeCompanyId)
+    );
+    if (!photo) {
+      error = "Foto nao encontrada.";
+      return;
+    }
+
+    photo.caption = input.caption.trim() || "Foto da van";
+    photo.alt = input.alt.trim() || photo.caption;
+    photo.active = input.active;
+    photo.updatedAt = todayIso();
+  });
+
+  return { db, error };
+}
+
+export function moveGalleryPhoto(
+  id: string,
+  companyId: string | undefined,
+  direction: "up" | "down"
+) {
+  let error = "";
+  const db = mutateDb((draft) => {
+    const activeCompanyId = resolveCompany(draft, companyId).id;
+    const photos = draft.galleryPhotos
+      .filter((item) => belongsToCompany(item, activeCompanyId))
+      .sort((left, right) => left.order - right.order || left.createdAt.localeCompare(right.createdAt));
+    const currentIndex = photos.findIndex((item) => item.id === id);
+    const targetIndex = direction === "up" ? currentIndex - 1 : currentIndex + 1;
+    if (currentIndex < 0) {
+      error = "Foto nao encontrada.";
+      return;
+    }
+    if (targetIndex < 0 || targetIndex >= photos.length) return;
+
+    [photos[currentIndex], photos[targetIndex]] = [photos[targetIndex], photos[currentIndex]];
+    photos.forEach((photo, index) => {
+      photo.order = index;
+      photo.updatedAt = todayIso();
+    });
+  });
+
+  return { db, error };
+}
+
+export function deleteGalleryPhoto(id: string, companyId?: string) {
+  let error = "";
+  let deletedPhoto: GalleryPhotoRecord | undefined;
+  const db = mutateDb((draft) => {
+    const activeCompanyId = resolveCompany(draft, companyId).id;
+    deletedPhoto = draft.galleryPhotos.find(
+      (item) => item.id === id && belongsToCompany(item, activeCompanyId)
+    );
+    if (!deletedPhoto) {
+      error = "Foto nao encontrada.";
+      return;
+    }
+
+    draft.galleryPhotos = draft.galleryPhotos.filter((item) => item.id !== id);
+    draft.galleryPhotos
+      .filter((item) => belongsToCompany(item, activeCompanyId))
+      .sort((left, right) => left.order - right.order || left.createdAt.localeCompare(right.createdAt))
+      .forEach((photo, index) => {
+        photo.order = index;
+      });
+  });
+
+  return { db, error, deletedPhoto };
 }
 
 export function upsertVan(input: Partial<VanRecord> & { label: string; companyId?: string }) {
