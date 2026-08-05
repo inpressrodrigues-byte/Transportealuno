@@ -6,7 +6,6 @@ import { Escolas } from "@/components/sections/Escolas";
 import { Rotas } from "@/components/sections/Rotas";
 import { Seguranca } from "@/components/sections/Seguranca";
 import { Depoimentos } from "@/components/sections/Depoimentos";
-import { Galeria } from "@/components/sections/Galeria";
 import { Faq } from "@/components/sections/Faq";
 import { Contato } from "@/components/sections/Contato";
 import { Footer } from "@/components/sections/Footer";
@@ -24,7 +23,6 @@ export default function Home() {
         <Rotas />
         <Seguranca />
         <Depoimentos />
-        <Galeria />
         <Faq />
         <Contato />
       </main>

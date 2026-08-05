@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import {
   createGalleryPhoto,
   deleteGalleryPhoto,
+  getAdminPayload,
   moveGalleryPhoto,
   persistDb,
   prepareDb,
@@ -67,6 +68,9 @@ export async function POST(request: Request) {
   if (!companyId) {
     return NextResponse.json({ error: "Selecione a empresa que recebera as fotos." }, { status: 400 });
   }
+  if (getAdminPayload(companyId).galleryPhotos.length >= 4) {
+    return NextResponse.json({ error: "Os quatro espacos de fotos da van ja estao preenchidos." }, { status: 400 });
+  }
   if (file.size <= 0 || file.size > MAX_GALLERY_IMAGE_BYTES) {
     return NextResponse.json({ error: "Cada foto deve ter no maximo 4 MB." }, { status: 400 });
   }
@@ -91,7 +95,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: galleryStorageErrorMessage(error) }, { status: 503 });
   }
 
-  createGalleryPhoto({
+  const created = createGalleryPhoto({
     id: photoId,
     companyId,
     url: stored.url,
@@ -101,6 +105,10 @@ export async function POST(request: Request) {
     alt: caption || `Van de transporte escolar - ${file.name.replace(/\.[^.]+$/, "")}`,
     active: true,
   });
+  if (created.error || !created.photo) {
+    await deleteStoredGalleryImage(stored).catch(() => {});
+    return NextResponse.json({ error: created.error || "Nao foi possivel posicionar a foto." }, { status: 400 });
+  }
 
   try {
     await persistDb();

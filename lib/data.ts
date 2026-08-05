@@ -84,17 +84,6 @@ export const depoimentos = [
   },
 ];
 
-export const galeria = [
-  { titulo: "Embarque pela manhã", categoria: "Rotina" },
-  { titulo: "Interior climatizado", categoria: "Interior" },
-  { titulo: "Revisão mensal", categoria: "Manutenção" },
-  { titulo: "Chegada na escola", categoria: "Rotina" },
-  { titulo: "Bancos e cintos", categoria: "Interior" },
-  { titulo: "Caminho pelos bairros", categoria: "Paisagem" },
-  { titulo: "Checklist de saída", categoria: "Manutenção" },
-  { titulo: "Van em movimento", categoria: "Exterior" },
-];
-
 export const faq = [
   {
     pergunta: "Como funciona o transporte?",

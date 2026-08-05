@@ -13,7 +13,6 @@ const links = [
   { href: "#sobre", label: "Sobre" },
   { href: "#rotas", label: "Bairros" },
   { href: "#escolas", label: "Escolas" },
-  { href: "#galeria", label: "Galeria" },
   { href: "#seguranca", label: "Seguranca" },
   { href: "#contato", label: "Contato" },
 ];

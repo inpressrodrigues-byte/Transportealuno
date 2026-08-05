@@ -2220,11 +2220,19 @@ export function createGalleryPhoto(
   }
 ) {
   let photo: GalleryPhotoRecord | undefined;
+  let error = "";
   const db = mutateDb((draft) => {
     const companyId = resolveCompany(draft, input.companyId).id;
-    const nextOrder = draft.galleryPhotos
-      .filter((item) => belongsToCompany(item, companyId))
-      .reduce((highest, item) => Math.max(highest, item.order), -1) + 1;
+    const usedSlots = new Set(
+      draft.galleryPhotos
+        .filter((item) => belongsToCompany(item, companyId))
+        .map((item) => item.order)
+    );
+    const nextOrder = [0, 1, 2, 3].find((slot) => !usedSlots.has(slot));
+    if (nextOrder === undefined) {
+      error = "Os quatro espacos de fotos da van ja estao preenchidos.";
+      return;
+    }
     photo = normalizeGalleryPhoto({
       ...input,
       companyId,
@@ -2235,7 +2243,7 @@ export function createGalleryPhoto(
     draft.galleryPhotos.push(photo);
   });
 
-  return { db, photo };
+  return { db, photo, error };
 }
 
 export function updateGalleryPhoto(
@@ -2271,22 +2279,25 @@ export function moveGalleryPhoto(
   let error = "";
   const db = mutateDb((draft) => {
     const activeCompanyId = resolveCompany(draft, companyId).id;
-    const photos = draft.galleryPhotos
-      .filter((item) => belongsToCompany(item, activeCompanyId))
-      .sort((left, right) => left.order - right.order || left.createdAt.localeCompare(right.createdAt));
-    const currentIndex = photos.findIndex((item) => item.id === id);
-    const targetIndex = direction === "up" ? currentIndex - 1 : currentIndex + 1;
-    if (currentIndex < 0) {
+    const photo = draft.galleryPhotos.find(
+      (item) => item.id === id && belongsToCompany(item, activeCompanyId)
+    );
+    if (!photo) {
       error = "Foto nao encontrada.";
       return;
     }
-    if (targetIndex < 0 || targetIndex >= photos.length) return;
+    const targetOrder = direction === "up" ? photo.order - 1 : photo.order + 1;
+    if (targetOrder < 0 || targetOrder > 3) return;
 
-    [photos[currentIndex], photos[targetIndex]] = [photos[targetIndex], photos[currentIndex]];
-    photos.forEach((photo, index) => {
-      photo.order = index;
-      photo.updatedAt = todayIso();
-    });
+    const targetPhoto = draft.galleryPhotos.find(
+      (item) => item.order === targetOrder && belongsToCompany(item, activeCompanyId)
+    );
+    if (targetPhoto) {
+      targetPhoto.order = photo.order;
+      targetPhoto.updatedAt = todayIso();
+    }
+    photo.order = targetOrder;
+    photo.updatedAt = todayIso();
   });
 
   return { db, error };
@@ -2306,12 +2317,6 @@ export function deleteGalleryPhoto(id: string, companyId?: string) {
     }
 
     draft.galleryPhotos = draft.galleryPhotos.filter((item) => item.id !== id);
-    draft.galleryPhotos
-      .filter((item) => belongsToCompany(item, activeCompanyId))
-      .sort((left, right) => left.order - right.order || left.createdAt.localeCompare(right.createdAt))
-      .forEach((photo, index) => {
-        photo.order = index;
-      });
   });
 
   return { db, error, deletedPhoto };

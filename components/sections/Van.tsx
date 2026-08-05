@@ -14,8 +14,10 @@ const thumbs = ["Frontal", "Lateral", "Interior", "Bancos"];
 export function Van() {
   const [active, setActive] = useState(0);
   const site = usePublicSite();
-  const photos = (site?.galleryPhotos ?? []).slice(0, 4);
-  const activePhoto = photos[active] || photos[0];
+  const photoSlots = thumbs.map((_, index) =>
+    (site?.galleryPhotos ?? []).find((photo) => photo.order === index)
+  );
+  const activePhoto = photoSlots[active];
 
   return (
     <section id="van" className="bg-white py-24 sm:py-32 dark:bg-[#0b1220]">
@@ -34,7 +36,7 @@ export function Van() {
                   className="h-full w-full object-cover"
                 />
                 <figcaption className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/75 to-transparent px-5 pb-5 pt-14 text-sm font-semibold text-white">
-                  {activePhoto.caption}
+                  {thumbs[active]}
                 </figcaption>
               </figure>
             ) : (
@@ -46,12 +48,11 @@ export function Van() {
               />
             )}
             <div className="mt-4 grid grid-cols-4 gap-3">
-              {(photos.length ? photos : thumbs).map((item, i) => {
-                const photo = typeof item === "string" ? null : item;
-                const label = photo?.caption || String(item);
+              {thumbs.map((label, i) => {
+                const photo = photoSlots[i];
                 return (
                   <button
-                    key={photo?.id || label}
+                    key={label}
                     onClick={() => setActive(i)}
                     aria-label={`Mostrar ${label}`}
                     className={`rounded-xl border p-2 transition-colors ${

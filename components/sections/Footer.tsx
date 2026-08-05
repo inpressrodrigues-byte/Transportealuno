@@ -20,7 +20,6 @@ const cols = [
     links: [
       { label: "Escolas atendidas", href: "#escolas" },
       { label: "Seguranca", href: "#seguranca" },
-      { label: "Galeria", href: "#galeria" },
       { label: "Contato", href: "#contato" },
     ],
   },

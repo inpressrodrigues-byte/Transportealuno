@@ -103,7 +103,7 @@ const tabs = [
   { id: "company" as AdminTab, label: "Empresa e Pix", icon: Settings },
   { id: "drivers" as AdminTab, label: "Motoristas", icon: UsersRound },
   { id: "vans" as AdminTab, label: "Vans", icon: Bus },
-  { id: "gallery" as AdminTab, label: "Fotos da van", icon: Images },
+  { id: "gallery" as AdminTab, label: "Fotos de Nossa van", icon: Images },
   { id: "operations" as AdminTab, label: "Operacao e frota", icon: Wrench },
   { id: "schools" as AdminTab, label: "Escolas", icon: School },
   { id: "neighborhoods" as AdminTab, label: "Bairros", icon: MapPinned },
@@ -134,6 +134,8 @@ const emptyCompany: CompanySettings = {
   routeApiProvider: "local-ai",
   routeApiKey: "",
 };
+
+const vanPhotoSlots = ["Frontal", "Lateral", "Interior", "Bancos"];
 
 const emptyCompanyForm = {
   id: "",
@@ -340,7 +342,6 @@ export default function AdminPage() {
   const [contractForm, setContractForm] = useState({ parentId: "", childId: "", title: "" });
   const [resetForm, setResetForm] = useState({ confirmation: "", password: "" });
   const [galleryFiles, setGalleryFiles] = useState<File[]>([]);
-  const [galleryCaption, setGalleryCaption] = useState("");
   const [galleryInputKey, setGalleryInputKey] = useState(0);
 
   const [settingsForm, setSettingsForm] = useState<CompanySettings>(emptyCompany);
@@ -871,12 +872,21 @@ export default function AdminPage() {
   };
 
   const selectGalleryFiles = (files: FileList | null) => {
-    const selected = Array.from(files || []).slice(0, 12);
+    const availableSlots = Math.max(0, 4 - (data?.galleryPhotos.length || 0));
+    const requested = Array.from(files || []);
+    if (availableSlots === 0) {
+      setGalleryFiles([]);
+      setMessage("Os quatro espacos de Nossa van ja estao preenchidos. Apague uma foto para substitui-la.");
+      return;
+    }
+    const selected = requested.slice(0, availableSlots);
     const supported = selected.filter(
       (file) => ["image/jpeg", "image/png", "image/webp"].includes(file.type) && file.size <= 4 * 1024 * 1024
     );
     setGalleryFiles(supported);
-    if (supported.length !== selected.length) {
+    if (requested.length > availableSlots) {
+      setMessage(`Foram selecionadas somente ${availableSlots} foto(s), uma para cada espaco livre.`);
+    } else if (supported.length !== selected.length) {
       setMessage("Algumas fotos foram ignoradas. Use JPG, PNG ou WEBP com ate 4 MB cada.");
     } else {
       setMessage("");
@@ -898,7 +908,6 @@ export default function AdminPage() {
     for (const file of galleryFiles) {
       const form = new FormData();
       form.append("companyId", activeCompanyId);
-      form.append("caption", galleryFiles.length === 1 ? galleryCaption : "");
       form.append("file", file);
       const response = await fetch("/api/admin/gallery", { method: "POST", body: form });
       const result = (await response.json().catch(() => null)) as (AdminPayload & { error?: string }) | null;
@@ -912,13 +921,12 @@ export default function AdminPage() {
 
     if (uploaded > 0) {
       setGalleryFiles([]);
-      setGalleryCaption("");
       setGalleryInputKey((current) => current + 1);
     }
     setMessage(
       failure
         ? `${uploaded} foto(s) enviada(s). ${failure}`
-        : `${uploaded} foto(s) enviada(s) e publicadas no site.`
+        : `${uploaded} espaco(s) de Nossa van atualizado(s).`
     );
     setSaving("");
   };
@@ -2539,8 +2547,8 @@ export default function AdminPage() {
           {active === "gallery" && session.role === "admin" && (
             <div className="space-y-5">
               <Panel
-                title="Fotos da van"
-                subtitle="Envie as imagens que aparecem em Nossa van e na galeria do site."
+                title="Fotos de Nossa van"
+                subtitle="Estas imagens preenchem exatamente os quatro espacos que ja existem no frontend."
               >
                 <form onSubmit={uploadGalleryPhotos} className="grid grid-cols-1 gap-5 lg:grid-cols-[1fr_340px]">
                   <div>
@@ -2550,13 +2558,16 @@ export default function AdminPage() {
                         type="file"
                         accept="image/jpeg,image/png,image/webp"
                         multiple
+                        disabled={data.galleryPhotos.length >= 4}
                         onChange={(event) => selectGalleryFiles(event.target.files)}
                         className="sr-only"
                       />
                       <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-sun/15 text-sun">
                         <ImagePlus size={22} />
                       </span>
-                      <span className="mt-4 text-sm font-semibold text-white">Selecionar fotos</span>
+                      <span className="mt-4 text-sm font-semibold text-white">
+                        {data.galleryPhotos.length >= 4 ? "Quatro espacos preenchidos" : "Selecionar fotos para os espacos"}
+                      </span>
                       <span className="mt-1 text-xs leading-5 text-white/50">JPG, PNG ou WEBP, ate 4 MB por foto</span>
                     </label>
 
@@ -2573,16 +2584,25 @@ export default function AdminPage() {
                   </div>
 
                   <div className="space-y-4">
-                    <Field
-                      label="Legenda da foto"
-                      value={galleryCaption}
-                      onChange={setGalleryCaption}
-                      placeholder="Ex.: Interior da van"
-                    />
+                    <div className="grid grid-cols-2 gap-2">
+                      {vanPhotoSlots.map((slot, index) => {
+                        const filled = data.galleryPhotos.some((photo) => photo.order === index);
+                        return (
+                          <div key={slot} className={cn(
+                            "rounded-xl border px-3 py-3 text-sm font-semibold",
+                            filled
+                              ? "border-ok/30 bg-ok/10 text-ok"
+                              : "border-white/10 bg-white/[0.03] text-white/55"
+                          )}>
+                            {slot}: {filled ? "preenchida" : "livre"}
+                          </div>
+                        );
+                      })}
+                    </div>
                     <p className="text-sm leading-6 text-mute dark:text-white/55">
-                      Para varias fotos, o nome de cada arquivo vira a legenda inicial. Depois voce pode editar cada uma separadamente.
+                      A ordem e frontal, lateral, interior e bancos. Use as setas abaixo para trocar uma foto de posicao.
                     </p>
-                    <Button type="submit" className="w-full" disabled={saving === "gallery-upload" || galleryFiles.length === 0}>
+                    <Button type="submit" className="w-full" disabled={saving === "gallery-upload" || galleryFiles.length === 0 || data.galleryPhotos.length >= 4}>
                       {saving === "gallery-upload" ? <Loader2 size={16} className="animate-spin" /> : <ImagePlus size={16} />}
                       {saving === "gallery-upload" ? "Enviando fotos" : "Enviar e publicar"}
                     </Button>
@@ -2591,14 +2611,14 @@ export default function AdminPage() {
               </Panel>
 
               <Panel
-                title="Fotos publicadas"
-                subtitle={`${data.galleryPhotos.length} foto(s) cadastrada(s). A primeira foto tambem aparece em destaque na secao da van.`}
+                title="Espacos do frontend"
+                subtitle={`${data.galleryPhotos.length}/4 preenchidos em Nossa van. Nao existe uma segunda galeria para repetir essas imagens.`}
               >
                 {data.galleryPhotos.length === 0 ? (
-                  <EmptyState text="Nenhuma foto enviada. O site continua usando os quadros padrao ate a primeira publicacao." />
+                  <EmptyState text="Nenhuma foto enviada. Os quatro espacos continuam mostrando os quadros padrao." />
                 ) : (
                   <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-                    {data.galleryPhotos.map((photo, index) => (
+                    {data.galleryPhotos.map((photo) => (
                       <article key={photo.id} className="overflow-hidden rounded-2xl border border-line dark:border-white/10">
                         <div className="relative aspect-[16/10] bg-mist dark:bg-white/5">
                           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -2610,16 +2630,11 @@ export default function AdminPage() {
                             {photo.active ? "Visivel" : "Oculta"}
                           </span>
                           <span className="absolute right-3 top-3 rounded-full bg-black/70 px-3 py-1 text-xs font-semibold text-white">
-                            {index + 1}
+                            {vanPhotoSlots[photo.order] || `Espaco ${photo.order + 1}`}
                           </span>
                         </div>
 
                         <div className="space-y-4 p-4 sm:p-5">
-                          <Field
-                            label="Legenda"
-                            value={photo.caption}
-                            onChange={(value) => updateGalleryDraft(photo.id, { caption: value })}
-                          />
                           <Field
                             label="Descricao da imagem"
                             value={photo.alt}
@@ -2640,7 +2655,7 @@ export default function AdminPage() {
                             <button
                               type="button"
                               onClick={() => moveGalleryPhoto(photo.id, "up")}
-                              disabled={index === 0 || saving === `gallery-move-${photo.id}`}
+                              disabled={photo.order === 0 || saving === `gallery-move-${photo.id}`}
                               className="flex h-10 w-10 items-center justify-center rounded-lg border border-line text-mute transition hover:border-sun hover:text-sun disabled:cursor-not-allowed disabled:opacity-30 dark:border-white/10 dark:text-white/60"
                               aria-label="Mover foto para cima"
                               title="Mover para cima"
@@ -2650,7 +2665,7 @@ export default function AdminPage() {
                             <button
                               type="button"
                               onClick={() => moveGalleryPhoto(photo.id, "down")}
-                              disabled={index === data.galleryPhotos.length - 1 || saving === `gallery-move-${photo.id}`}
+                              disabled={photo.order === 3 || saving === `gallery-move-${photo.id}`}
                               className="flex h-10 w-10 items-center justify-center rounded-lg border border-line text-mute transition hover:border-sun hover:text-sun disabled:cursor-not-allowed disabled:opacity-30 dark:border-white/10 dark:text-white/60"
                               aria-label="Mover foto para baixo"
                               title="Mover para baixo"
