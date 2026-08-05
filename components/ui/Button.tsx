@@ -10,7 +10,7 @@ const buttonStyles = cva(
         primary: "bg-sun text-navy hover:bg-sun-2 active:scale-[0.98] shadow-[0_8px_24px_-8px_rgba(250,204,21,0.6)]",
         dark: "bg-navy text-white hover:bg-navy-2 active:scale-[0.98]",
         outline: "border border-white/30 text-white hover:bg-white/10 active:scale-[0.98]",
-        outlineDark: "border border-navy/20 text-navy hover:bg-navy/5 active:scale-[0.98]",
+        outlineDark: "border border-navy/20 text-navy hover:bg-navy/5 active:scale-[0.98] dark:border-white/20 dark:text-white dark:hover:bg-white/10",
         ghost: "text-ink hover:bg-mist",
         whatsapp: "bg-[#25D366] text-white hover:brightness-95 active:scale-[0.98]",
       },

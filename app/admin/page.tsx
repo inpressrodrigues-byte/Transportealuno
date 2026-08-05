@@ -2033,10 +2033,23 @@ export default function AdminPage() {
                           {driver.active ? "Ativo" : "Pausado"}
                         </span>
                       </div>
-                      <div className="mt-4 flex flex-wrap gap-2">
-                        <Button type="button" variant="outlineDark" size="sm" onClick={() => editDriver(driver)}>
-                          <Pencil size={14} /> Editar dados
+                      <div className="mt-4 grid grid-cols-2 gap-2">
+                        <Button type="button" size="sm" className="w-full" onClick={() => editDriver(driver)}>
+                          <Pencil size={14} /> Editar
                         </Button>
+                        <Button
+                          type="button"
+                          variant="outlineDark"
+                          size="sm"
+                          className="w-full border-red-500/40 text-red-600 hover:bg-red-500/10 dark:border-red-400/40 dark:text-red-300 dark:hover:bg-red-500/10"
+                          onClick={() => removeDriver(driver)}
+                          disabled={saving === `driver-delete-${driver.id}`}
+                          aria-label={`Apagar cadastro de ${driver.name}`}
+                        >
+                          <Trash2 size={14} /> Apagar
+                        </Button>
+                      </div>
+                      <div className="mt-2 flex flex-wrap gap-2">
                         <Button
                           type="button"
                           variant="outlineDark"
@@ -2045,15 +2058,6 @@ export default function AdminPage() {
                           disabled={saving === "driver"}
                         >
                           {driver.active ? "Pausar" : "Ativar"}
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="outlineDark"
-                          size="sm"
-                          onClick={() => removeDriver(driver)}
-                          disabled={saving === `driver-delete-${driver.id}`}
-                        >
-                          <Trash2 size={14} /> Excluir
                         </Button>
                         <Link href="/driver" target="_blank" className="inline-flex items-center justify-center gap-2 rounded-full border border-line px-4 py-2 text-sm font-semibold text-navy transition hover:border-sun dark:border-white/10 dark:text-white">
                           <Navigation size={14} /> Tela motorista
@@ -2167,10 +2171,23 @@ export default function AdminPage() {
                             <div className="break-all rounded-xl bg-mist px-3 py-2 text-xs text-mute dark:bg-white/5 dark:text-white/55">
                               {url || "Link indisponivel"}
                             </div>
-                            <div className="mt-3 flex flex-wrap gap-2">
-                              <Button type="button" variant="outlineDark" size="sm" onClick={() => editVan(van)}>
-                                <Pencil size={14} /> Editar dados
+                            <div className="mt-3 grid grid-cols-2 gap-2">
+                              <Button type="button" size="sm" className="w-full" onClick={() => editVan(van)}>
+                                <Pencil size={14} /> Editar
                               </Button>
+                              <Button
+                                type="button"
+                                variant="outlineDark"
+                                size="sm"
+                                className="w-full border-red-500/40 text-red-600 hover:bg-red-500/10 dark:border-red-400/40 dark:text-red-300 dark:hover:bg-red-500/10"
+                                onClick={() => removeVan(van)}
+                                disabled={saving === `van-delete-${van.id}`}
+                                aria-label={`Apagar cadastro de ${van.label}`}
+                              >
+                                <Trash2 size={14} /> Apagar
+                              </Button>
+                            </div>
+                            <div className="mt-2 flex flex-wrap gap-2">
                               <Button
                                 type="button"
                                 variant="outlineDark"
@@ -2182,15 +2199,6 @@ export default function AdminPage() {
                               </Button>
                               <Button type="button" variant="outlineDark" size="sm" onClick={() => regenerateQr(van.id)} disabled={saving === `qr-${van.id}`}>
                                 <QrCode size={14} /> Novo QR
-                              </Button>
-                              <Button
-                                type="button"
-                                variant="outlineDark"
-                                size="sm"
-                                onClick={() => removeVan(van)}
-                                disabled={saving === `van-delete-${van.id}`}
-                              >
-                                <Trash2 size={14} /> Excluir
                               </Button>
                             </div>
                           </div>
