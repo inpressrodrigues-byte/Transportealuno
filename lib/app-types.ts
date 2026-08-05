@@ -31,6 +31,161 @@ export type ThemeSettings = {
   ok: string;
 };
 
+export type SiteAssetSettings = {
+  url: string;
+  storagePath: string;
+  storageProvider: "supabase" | "vercel-blob" | "";
+  fileName: string;
+  contentType: string;
+  updatedAt: string;
+};
+
+export type SiteTextItem = {
+  id: string;
+  title: string;
+  detail: string;
+};
+
+export type SiteSpecItem = {
+  id: string;
+  label: string;
+  value: string;
+};
+
+export type SiteTestimonialItem = {
+  id: string;
+  name: string;
+  role: string;
+  quote: string;
+};
+
+export type SiteFaqItem = {
+  id: string;
+  question: string;
+  answer: string;
+};
+
+export type SiteContentSettings = {
+  navigation: {
+    home: string;
+    about: string;
+    neighborhoods: string;
+    schools: string;
+    safety: string;
+    contact: string;
+    clientArea: string;
+  };
+  hero: {
+    eyebrow: string;
+    title: string;
+    accent: string;
+    subtitle: string;
+    description: string;
+    primaryButton: string;
+    secondaryButton: string;
+  };
+  driver: {
+    eyebrow: string;
+    title: string;
+    description: string;
+    photoAlt: string;
+  };
+  driverHighlights: SiteTextItem[];
+  van: {
+    eyebrow: string;
+    title: string;
+  };
+  vanSpecs: SiteSpecItem[];
+  vanFeatures: SiteTextItem[];
+  schools: {
+    eyebrow: string;
+    title: string;
+    button: string;
+  };
+  neighborhoods: {
+    eyebrow: string;
+    title: string;
+    description: string;
+    listTitle: string;
+    emptyText: string;
+  };
+  safety: {
+    eyebrow: string;
+    title: string;
+    description: string;
+  };
+  safetyItems: SiteTextItem[];
+  testimonials: {
+    eyebrow: string;
+    title: string;
+  };
+  testimonialItems: SiteTestimonialItem[];
+  faq: {
+    eyebrow: string;
+    title: string;
+  };
+  faqItems: SiteFaqItem[];
+  contact: {
+    eyebrow: string;
+    title: string;
+    kicker: string;
+    headline: string;
+    description: string;
+    callButton: string;
+    city: string;
+    socialLabel: string;
+    instagramUrl: string;
+    facebookUrl: string;
+    phoneLabel: string;
+    whatsappLabel: string;
+    cityLabel: string;
+  };
+  footer: {
+    description: string;
+    navigationTitle: string;
+    institutionalTitle: string;
+    clientAreaTitle: string;
+    clientAreaDescription: string;
+    clientAreaButton: string;
+    rightsText: string;
+    documentPrefix: string;
+  };
+  businessCard: {
+    button: string;
+    eyebrow: string;
+    title: string;
+    description: string;
+    openButton: string;
+    shareButton: string;
+    backButton: string;
+    unavailableText: string;
+    copiedText: string;
+  };
+  assistant: {
+    subtitle: string;
+    greeting: string;
+    startButton: string;
+    initialHint: string;
+    shiftQuestion: string;
+    nameLabel: string;
+    phoneLabel: string;
+    schoolQuestion: string;
+    selectPlaceholder: string;
+    otherSchoolOption: string;
+    customSchoolLabel: string;
+    neighborhoodLabel: string;
+    customSchoolUnavailable: string;
+    schoolRequired: string;
+    schoolShiftUnavailable: string;
+    neighborhoodRequired: string;
+    neighborhoodUnavailable: string;
+    available: string;
+    sendButton: string;
+    sentButton: string;
+    messageIntro: string;
+  };
+};
+
 export type CompanySettings = {
   brandName: string;
   businessName: string;
@@ -47,6 +202,9 @@ export type CompanySettings = {
   automaticMonthlyBilling: boolean;
   routeApiProvider?: string;
   routeApiKey?: string;
+  siteContent: SiteContentSettings;
+  businessCard: SiteAssetSettings;
+  driverPhoto: SiteAssetSettings;
 };
 
 export type CompanyRecord = {

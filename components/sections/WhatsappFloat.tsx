@@ -6,10 +6,12 @@ import { Button } from "@/components/ui/Button";
 import { usePublicSite } from "@/lib/use-public-site";
 import type { Shift } from "@/lib/app-types";
 import { normalizeDigits, schoolCategoryLabel, shiftLabel, shifts } from "@/lib/app-utils";
+import { defaultSiteContent } from "@/lib/site-content";
 import { cn } from "@/lib/utils";
 
 export function WhatsappFloat() {
   const site = usePublicSite();
+  const assistant = (site?.settings.siteContent || defaultSiteContent()).assistant;
   const [open, setOpen] = useState(false);
   const [started, setStarted] = useState(false);
   const [sent, setSent] = useState(false);
@@ -33,54 +35,54 @@ export function WhatsappFloat() {
     if (!started) {
       return {
         ok: false,
-        text: "Clique na opcao abaixo e eu monto a consulta com voce.",
+        text: assistant.initialHint,
       };
     }
 
     if (hasCustomSchool) {
       return {
         ok: false,
-        text: "Infelizmente essa instituicao ainda nao esta cadastrada para atendimento.",
+        text: assistant.customSchoolUnavailable,
       };
     }
 
     if (!selectedSchool) {
       return {
         ok: false,
-        text: "Me diga a instituicao para eu conferir se esse turno esta disponivel.",
+        text: assistant.schoolRequired,
       };
     }
 
     if (!selectedSchool.served || !selectedSchool.servedShifts.includes(form.shift)) {
       return {
         ok: false,
-        text: "Infelizmente essa instituicao nesse turno nao realizamos atendimento.",
+        text: assistant.schoolShiftUnavailable,
       };
     }
 
     if (!selectedNeighborhood) {
       return {
         ok: false,
-        text: "Agora escolha o bairro onde reside para fechar a consulta.",
+        text: assistant.neighborhoodRequired,
       };
     }
 
     if (!selectedNeighborhood.served) {
       return {
         ok: false,
-        text: "Infelizmente ainda nao atendemos esse bairro.",
+        text: assistant.neighborhoodUnavailable,
       };
     }
 
     return {
       ok: true,
-      text: "Atendemos esse turno, escola e bairro. Posso encaminhar a mensagem completa no WhatsApp.",
+      text: assistant.available,
     };
-  }, [form.shift, hasCustomSchool, selectedNeighborhood, selectedSchool, started]);
+  }, [assistant, form.shift, hasCustomSchool, selectedNeighborhood, selectedSchool, started]);
 
   const waMessage = encodeURIComponent(
     [
-      "Ola! Gostaria de saber o valor para transporte escolar.",
+      assistant.messageIntro,
       `Nome: ${form.name || "Nao informado"}`,
       `WhatsApp: ${form.phone || "Nao informado"}`,
       `Turno: ${shiftLabel(form.shift)}`,
@@ -105,7 +107,7 @@ export function WhatsappFloat() {
                 </span>
                 <div>
                   <div className="text-sm font-bold">{site?.settings.brandName || "Oziel Turismo"}</div>
-                  <div className="text-xs text-mute">assistente de atendimento</div>
+                  <div className="text-xs text-mute">{assistant.subtitle}</div>
                 </div>
               </div>
               <button
@@ -119,7 +121,7 @@ export function WhatsappFloat() {
             </div>
 
             <div className="max-h-[70vh] space-y-3 overflow-y-auto pr-1">
-              <ChatBubble>Oi! Posso montar sua consulta de transporte em alguns passos.</ChatBubble>
+              <ChatBubble>{assistant.greeting}</ChatBubble>
 
               {!started ? (
                 <button
@@ -127,13 +129,13 @@ export function WhatsappFloat() {
                   onClick={() => setStarted(true)}
                   className="w-full rounded-2xl bg-white px-4 py-3 text-left text-sm font-bold text-navy shadow-sm transition hover:bg-sun/20"
                 >
-                  Gostaria de saber o valor para transporte
+                  {assistant.startButton}
                 </button>
               ) : (
                 <>
                   <div>
                     <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-mute">
-                      Pra qual turno voce necessita?
+                      {assistant.shiftQuestion}
                     </div>
                     <div className="grid grid-cols-3 gap-2">
                       {shifts.map((shift) => (
@@ -152,37 +154,37 @@ export function WhatsappFloat() {
                     </div>
                   </div>
 
-                  <Field label="Seu nome" value={form.name} onChange={(value) => setForm({ ...form, name: value })} />
-                  <Field label="Seu WhatsApp" value={form.phone} onChange={(value) => setForm({ ...form, phone: value })} />
+                  <Field label={assistant.nameLabel} value={form.name} onChange={(value) => setForm({ ...form, name: value })} />
+                  <Field label={assistant.phoneLabel} value={form.phone} onChange={(value) => setForm({ ...form, phone: value })} />
 
                   <SelectField
-                    label="Pra qual instituicao?"
+                    label={assistant.schoolQuestion}
                     value={form.schoolId}
                     onChange={(value) => setForm({ ...form, schoolId: value })}
                   >
-                    <option value="">Selecione</option>
+                    <option value="">{assistant.selectPlaceholder}</option>
                     {schools.map((school) => (
                       <option key={school.id} value={school.id}>
                         {school.name}
                       </option>
                     ))}
-                    <option value="outra">Outra instituicao</option>
+                    <option value="outra">{assistant.otherSchoolOption}</option>
                   </SelectField>
 
                   {hasCustomSchool && (
                     <Field
-                      label="Nome da instituicao"
+                      label={assistant.customSchoolLabel}
                       value={form.customSchool}
                       onChange={(value) => setForm({ ...form, customSchool: value })}
                     />
                   )}
 
                   <SelectField
-                    label="Bairro onde reside"
+                    label={assistant.neighborhoodLabel}
                     value={form.neighborhoodId}
                     onChange={(value) => setForm({ ...form, neighborhoodId: value })}
                   >
-                    <option value="">Selecione</option>
+                    <option value="">{assistant.selectPlaceholder}</option>
                     {neighborhoods.map((neighborhood) => (
                       <option key={neighborhood.id} value={neighborhood.id}>
                         {neighborhood.name}
@@ -213,11 +215,11 @@ export function WhatsappFloat() {
                 >
                   {sent ? (
                     <>
-                      <Check size={16} /> Mensagem preparada
+                      <Check size={16} /> {assistant.sentButton}
                     </>
                   ) : (
                     <>
-                      <Send size={16} /> Enviar no WhatsApp
+                      <Send size={16} /> {assistant.sendButton}
                     </>
                   )}
                 </Button>

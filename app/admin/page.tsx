@@ -53,6 +53,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { BrandLogo } from "@/components/ui/BrandLogo";
+import { SiteContentEditor, type SiteAssetKind } from "@/components/admin/SiteContentEditor";
 import { LiveRouteMap } from "@/components/ui/LiveRouteMap";
 import { cn } from "@/lib/utils";
 import type {
@@ -76,12 +77,14 @@ import {
   shifts,
   shiftsLabel,
 } from "@/lib/app-utils";
+import { defaultSiteContent, emptySiteAsset } from "@/lib/site-content";
 
 type AdminTab =
   | "overview"
   | "test-data"
   | "companies"
   | "company"
+  | "site-content"
   | "drivers"
   | "vans"
   | "gallery"
@@ -102,6 +105,7 @@ const tabs = [
   { id: "test-data" as AdminTab, label: "Dados de teste", icon: TestTube2 },
   { id: "companies" as AdminTab, label: "Empresas", icon: Building2 },
   { id: "company" as AdminTab, label: "Empresa e Pix", icon: Settings },
+  { id: "site-content" as AdminTab, label: "Conteudo do site", icon: Pencil },
   { id: "drivers" as AdminTab, label: "Motoristas", icon: UsersRound },
   { id: "vans" as AdminTab, label: "Vans", icon: Bus },
   { id: "gallery" as AdminTab, label: "Fotos de Nossa van", icon: Images },
@@ -134,6 +138,9 @@ const emptyCompany: CompanySettings = {
   automaticMonthlyBilling: true,
   routeApiProvider: "local-ai",
   routeApiKey: "",
+  siteContent: defaultSiteContent(),
+  businessCard: emptySiteAsset(),
+  driverPhoto: emptySiteAsset(),
 };
 
 const vanPhotoSlots = ["Frontal", "Lateral", "Interior", "Bancos"];
@@ -1000,6 +1007,56 @@ export default function AdminPage() {
       setMessage(result.warning || "Foto apagada do site.");
     } else {
       setMessage(result?.error || "Nao foi possivel apagar a foto.");
+    }
+    setSaving("");
+  };
+
+  const uploadSiteAsset = async (kind: SiteAssetKind, file: File) => {
+    setSaving(`site-asset-${kind}`);
+    setMessage("");
+    const form = new FormData();
+    form.append("companyId", activeCompanyId);
+    form.append("kind", kind);
+    form.append("file", file);
+
+    const response = await fetch("/api/admin/site-assets", { method: "POST", body: form });
+    const result = (await response.json().catch(() => null)) as (AdminPayload & { error?: string; warning?: string }) | null;
+    if (response.ok && result) {
+      setData(result);
+      setSettingsForm((current) => ({
+        ...current,
+        [kind === "business-card" ? "businessCard" : "driverPhoto"]:
+          kind === "business-card" ? result.settings.businessCard : result.settings.driverPhoto,
+      }));
+      setMessage(result.warning || (kind === "business-card" ? "Cartao de visitas publicado." : "Foto de quem dirige publicada."));
+    } else {
+      setMessage(result?.error || "Nao foi possivel publicar a imagem.");
+    }
+    setSaving("");
+  };
+
+  const removeSiteAsset = async (kind: SiteAssetKind) => {
+    const label = kind === "business-card" ? "o cartao de visitas" : "a foto de quem dirige";
+    if (!window.confirm(`Remover ${label} do site?`)) return;
+
+    setSaving(`site-asset-${kind}`);
+    setMessage("");
+    const response = await fetch("/api/admin/site-assets", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ companyId: activeCompanyId, kind }),
+    });
+    const result = (await response.json().catch(() => null)) as (AdminPayload & { error?: string; warning?: string }) | null;
+    if (response.ok && result) {
+      setData(result);
+      setSettingsForm((current) => ({
+        ...current,
+        [kind === "business-card" ? "businessCard" : "driverPhoto"]:
+          kind === "business-card" ? result.settings.businessCard : result.settings.driverPhoto,
+      }));
+      setMessage(result.warning || "Imagem removida do site.");
+    } else {
+      setMessage(result?.error || "Nao foi possivel remover a imagem.");
     }
     setSaving("");
   };
@@ -2541,6 +2598,22 @@ export default function AdminPage() {
                 </div>
               </Panel>
             </div>
+          )}
+
+          {active === "site-content" && session.role === "admin" && (
+            <Panel
+              title="Conteudo completo do site"
+              subtitle="Altere os textos, listas, foto de quem dirige e cartao de visitas da empresa selecionada."
+            >
+              <SiteContentEditor
+                value={settingsForm}
+                saving={saving}
+                onChange={setSettingsForm}
+                onSave={() => saveSettings("site-content")}
+                onAssetUpload={uploadSiteAsset}
+                onAssetRemove={removeSiteAsset}
+              />
+            </Panel>
           )}
 
           {active === "gallery" && session.role === "admin" && (

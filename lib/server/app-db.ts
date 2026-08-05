@@ -42,6 +42,7 @@ import type {
   VehicleMaintenanceRecord,
 } from "@/lib/app-types";
 import { makeId, normalizeContact, normalizeCpf, normalizeDigits, shifts, todayIso } from "@/lib/app-utils";
+import { emptySiteAsset, normalizeSiteAsset, normalizeSiteContent, defaultSiteContent } from "@/lib/site-content";
 
 const DATA_DIR = process.env.VERCEL ? path.join("/tmp", "rota-segura") : path.join(process.cwd(), "data");
 const DB_PATH = path.join(DATA_DIR, "app-db.json");
@@ -129,6 +130,9 @@ function defaultSettings(): CompanySettings {
     automaticMonthlyBilling: true,
     routeApiProvider: "local-ai",
     routeApiKey: "",
+    siteContent: defaultSiteContent(),
+    businessCard: emptySiteAsset(),
+    driverPhoto: emptySiteAsset(),
   };
 }
 
@@ -674,6 +678,9 @@ function normalizeCompany(item: Partial<CompanyRecord>): CompanyRecord {
     ...defaultSettings(),
     ...item.settings,
   };
+  settings.siteContent = normalizeSiteContent(item.settings?.siteContent);
+  settings.businessCard = normalizeSiteAsset(item.settings?.businessCard);
+  settings.driverPhoto = normalizeSiteAsset(item.settings?.driverPhoto);
   settings.brandName = normalizeBrandName(settings.brandName, "Oziel Turismo");
   settings.businessName = normalizeBrandName(settings.businessName, "Oziel Turismo");
   const document = normalizeDigits(String(item.document || settings.document || seed.document));
@@ -1807,6 +1814,15 @@ export function updateCompanyProfile(
         automaticMonthlyBilling: settings.automaticMonthlyBilling ?? company.settings.automaticMonthlyBilling ?? true,
         routeApiProvider: settings.routeApiProvider || company.settings.routeApiProvider || "local-ai",
         routeApiKey: settings.routeApiKey ?? company.settings.routeApiKey ?? "",
+        siteContent: settings.siteContent
+          ? normalizeSiteContent(settings.siteContent)
+          : company.settings.siteContent,
+        businessCard: settings.businessCard
+          ? normalizeSiteAsset(settings.businessCard)
+          : company.settings.businessCard,
+        driverPhoto: settings.driverPhoto
+          ? normalizeSiteAsset(settings.driverPhoto)
+          : company.settings.driverPhoto,
       };
       company.name = company.settings.businessName || company.settings.brandName || company.name;
       company.document = normalizeDigits(company.settings.document || company.document);

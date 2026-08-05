@@ -6,62 +6,63 @@ import { SectionHeading } from "@/components/ui/SectionHeading";
 import { FacebookGlyph, InstagramGlyph } from "@/components/ui/SocialIcons";
 import { usePublicSite } from "@/lib/use-public-site";
 import { normalizeDigits } from "@/lib/app-utils";
+import { defaultSiteContent } from "@/lib/site-content";
 
 export function Contato() {
   const site = usePublicSite();
+  const content = site?.settings.siteContent || defaultSiteContent();
   const phone = site?.settings.phone || "(45) 99999-9999";
   const whatsapp = whatsappNumber(site?.settings.whatsapp || "5545999999999");
-  const city = "Toledo, PR";
 
   return (
     <section id="contato" className="bg-navy py-24 text-white sm:py-32">
       <div className="mx-auto max-w-6xl px-4">
-        <SectionHeading eyebrow="Contato" title="Solicite uma vaga" dark />
+        <SectionHeading eyebrow={content.contact.eyebrow} title={content.contact.title} dark />
 
         <div className="mt-12 grid grid-cols-1 gap-6 lg:grid-cols-[1.1fr_0.9fr] lg:items-stretch">
           <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-6 sm:p-8">
-            <p className="text-sm font-semibold uppercase tracking-[0.18em] text-sun">Atendimento direto</p>
+            <p className="text-sm font-semibold uppercase tracking-[0.18em] text-sun">{content.contact.kicker}</p>
             <h3 className="mt-4 text-3xl font-semibold leading-tight sm:text-4xl">
-              Informe escola, turno e bairro para consultar disponibilidade.
+              {content.contact.headline}
             </h3>
             <p className="mt-4 max-w-2xl text-sm leading-7 text-white/62">
-              O atendimento e feito com base nas escolas e bairros cadastrados no painel administrativo, mantendo a consulta simples para a familia e organizada para a empresa.
+              {content.contact.description}
             </p>
 
             <div className="mt-8 flex flex-wrap gap-3">
               <a href={`tel:+${whatsappNumber(phone)}`}>
                 <Button variant="outline" size="lg">
-                  <Phone size={16} /> Ligar
+                  <Phone size={16} /> {content.contact.callButton}
                 </Button>
               </a>
             </div>
           </div>
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-1">
-            <ContactLine icon={Phone} label="Telefone" value={phone} />
-            <ContactLine icon={MessageCircle} label="WhatsApp" value={`+${whatsapp}`} />
-            <ContactLine icon={MapPin} label="Cidade" value={city} />
+            <ContactLine icon={Phone} label={content.contact.phoneLabel} value={phone} />
+            <ContactLine icon={MessageCircle} label={content.contact.whatsappLabel} value={`+${whatsapp}`} />
+            <ContactLine icon={MapPin} label={content.contact.cityLabel} value={content.contact.city} />
             <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-5">
-              <div className="text-xs font-semibold uppercase tracking-wide text-white/45">Redes sociais</div>
+              <div className="text-xs font-semibold uppercase tracking-wide text-white/45">{content.contact.socialLabel}</div>
               <div className="mt-4 flex gap-2">
-                <a
-                  href="https://instagram.com"
+                {content.contact.instagramUrl && <a
+                  href={content.contact.instagramUrl}
                   target="_blank"
                   rel="noreferrer"
                   aria-label="Instagram"
                   className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 text-white/65 transition hover:border-sun/40 hover:text-sun"
                 >
                   <InstagramGlyph size={17} />
-                </a>
-                <a
-                  href="https://facebook.com"
+                </a>}
+                {content.contact.facebookUrl && <a
+                  href={content.contact.facebookUrl}
                   target="_blank"
                   rel="noreferrer"
                   aria-label="Facebook"
                   className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 text-white/65 transition hover:border-sun/40 hover:text-sun"
                 >
                   <FacebookGlyph size={17} />
-                </a>
+                </a>}
               </div>
             </div>
           </div>

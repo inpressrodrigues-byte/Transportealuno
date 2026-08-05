@@ -5,8 +5,8 @@ import { motion } from "framer-motion";
 import { SectionHeading } from "@/components/ui/SectionHeading";
 import { Card } from "@/components/ui/Card";
 import { MediaFrame } from "@/components/ui/MediaFrame";
-import { vanFeatures, vanSpecs } from "@/lib/data";
 import { usePublicSite } from "@/lib/use-public-site";
+import { defaultSiteContent } from "@/lib/site-content";
 import { Bus } from "lucide-react";
 
 const thumbs = ["Frontal", "Lateral", "Interior", "Bancos"];
@@ -14,6 +14,7 @@ const thumbs = ["Frontal", "Lateral", "Interior", "Bancos"];
 export function Van() {
   const [active, setActive] = useState(0);
   const site = usePublicSite();
+  const content = site?.settings.siteContent || defaultSiteContent();
   const photoSlots = thumbs.map((_, index) =>
     (site?.galleryPhotos ?? []).find((photo) => photo.order === index)
   );
@@ -23,7 +24,7 @@ export function Van() {
   return (
     <section id="van" className="bg-white py-24 sm:py-32 dark:bg-[#0d0d0c]">
       <div className="mx-auto max-w-6xl px-4">
-        <SectionHeading eyebrow="Nossa van" title="Feita para o trajeto de todos os dias" />
+        <SectionHeading eyebrow={content.van.eyebrow} title={content.van.title} />
 
         <div className="mt-14 grid grid-cols-1 gap-10 lg:grid-cols-2">
           <div>
@@ -79,8 +80,8 @@ export function Van() {
             </div>
 
             <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
-              {vanSpecs.map((s) => (
-                <div key={s.label} className="rounded-xl bg-mist p-4 text-center">
+              {content.vanSpecs.map((s) => (
+                <div key={s.id} className="rounded-xl bg-mist p-4 text-center">
                   <div className="text-[11px] uppercase tracking-wide text-mute dark:text-white/60">{s.label}</div>
                   <div className="mt-1 text-sm font-semibold tabular text-navy dark:text-white">{s.value}</div>
                 </div>
@@ -89,9 +90,9 @@ export function Van() {
           </div>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            {vanFeatures.map((f, i) => (
+            {content.vanFeatures.map((f, i) => (
               <motion.div
-                key={f.title}
+                key={f.id}
                 initial={{ opacity: 0, y: 16 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true, margin: "-60px" }}

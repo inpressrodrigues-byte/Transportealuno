@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { CheckCircle2, MapPin } from "lucide-react";
 import { usePublicSite } from "@/lib/use-public-site";
 import type { NeighborhoodRecord } from "@/lib/app-types";
+import { defaultSiteContent } from "@/lib/site-content";
 
 const fallbackNeighborhoods: NeighborhoodRecord[] = [
   {
@@ -40,6 +41,7 @@ const fallbackNeighborhoods: NeighborhoodRecord[] = [
 
 export function Rotas() {
   const site = usePublicSite();
+  const content = site?.settings.siteContent || defaultSiteContent();
   const neighborhoods = site?.neighborhoods?.length ? site.neighborhoods : fallbackNeighborhoods;
   const served = neighborhoods.filter((neighborhood) => neighborhood.served);
 
@@ -49,13 +51,13 @@ export function Rotas() {
         <div className="mb-10 flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
           <div className="max-w-2xl">
             <div className="inline-flex items-center gap-2 border border-[#d6b36a]/35 px-4 py-2 text-xs font-semibold text-[#d6b36a]">
-              <MapPin size={14} /> Bairros de Toledo
+              <MapPin size={14} /> {content.neighborhoods.eyebrow}
             </div>
             <h2 className="mt-6 font-[var(--font-luxury)] text-5xl font-normal leading-[1.02] text-[#f8f0df] sm:text-6xl">
-              Bairros atendidos
+              {content.neighborhoods.title}
             </h2>
             <p className="mt-5 max-w-xl text-base leading-8 text-white/62">
-              Veja de forma direta os bairros onde o transporte esta atendendo hoje.
+              {content.neighborhoods.description}
             </p>
           </div>
 
@@ -67,9 +69,10 @@ export function Rotas() {
         <div className="mt-8">
           <NeighborhoodList
             icon={CheckCircle2}
-            title="Bairros atendidos"
+            title={content.neighborhoods.listTitle}
             neighborhoods={served}
             itemClassName="border-b-2 border-[#d6b36a] text-[#f8f0df]"
+            emptyText={content.neighborhoods.emptyText}
           />
         </div>
       </div>
@@ -91,11 +94,13 @@ function NeighborhoodList({
   title,
   neighborhoods,
   itemClassName,
+  emptyText,
 }: {
   icon: React.ElementType;
   title: string;
   neighborhoods: NeighborhoodRecord[];
   itemClassName: string;
+  emptyText: string;
 }) {
   return (
     <div className="border border-white/10 bg-black/20 p-6">
@@ -107,7 +112,7 @@ function NeighborhoodList({
       </div>
       <div className="mt-6 flex flex-wrap gap-x-5 gap-y-4">
         {neighborhoods.length === 0 ? (
-          <span className="text-sm text-white/45">Nenhum bairro cadastrado.</span>
+          <span className="text-sm text-white/45">{emptyText}</span>
         ) : (
           neighborhoods.map((neighborhood, index) => (
             <motion.span

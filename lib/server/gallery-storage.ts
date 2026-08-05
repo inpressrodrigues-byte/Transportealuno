@@ -2,7 +2,6 @@ import "server-only";
 
 import { del, put } from "@vercel/blob";
 import { createClient } from "@supabase/supabase-js";
-import type { GalleryPhotoRecord } from "@/lib/app-types";
 
 const GALLERY_BUCKET = "site-gallery";
 const MAX_GALLERY_IMAGE_BYTES = 4 * 1024 * 1024;
@@ -110,8 +109,13 @@ export async function uploadGalleryImage(input: {
 }
 
 export async function deleteStoredGalleryImage(
-  photo: Pick<GalleryPhotoRecord, "url" | "storagePath" | "storageProvider">
+  photo: {
+    url: string;
+    storagePath: string;
+    storageProvider: "supabase" | "vercel-blob" | "";
+  }
 ) {
+  if (!photo.storageProvider) return;
   if (photo.storageProvider === "supabase") {
     if (!hasSupabaseStorage()) throw new Error("gallery-storage-unavailable");
     const client = supabaseAdmin();

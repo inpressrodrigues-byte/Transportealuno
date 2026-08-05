@@ -7,19 +7,22 @@ import { Button } from "@/components/ui/Button";
 import { BrandLogo } from "@/components/ui/BrandLogo";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { cn } from "@/lib/utils";
-
-const links = [
-  { href: "#inicio", label: "Inicio" },
-  { href: "#sobre", label: "Sobre" },
-  { href: "#rotas", label: "Bairros" },
-  { href: "#escolas", label: "Escolas" },
-  { href: "#seguranca", label: "Seguranca" },
-  { href: "#contato", label: "Contato" },
-];
+import { usePublicSite } from "@/lib/use-public-site";
+import { defaultSiteContent } from "@/lib/site-content";
 
 export function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
+  const site = usePublicSite();
+  const navigation = site?.settings.siteContent?.navigation || defaultSiteContent().navigation;
+  const links = [
+    { href: "#inicio", label: navigation.home },
+    { href: "#sobre", label: navigation.about },
+    { href: "#rotas", label: navigation.neighborhoods },
+    { href: "#escolas", label: navigation.schools },
+    { href: "#seguranca", label: navigation.safety },
+    { href: "#contato", label: navigation.contact },
+  ];
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 24);
@@ -63,7 +66,7 @@ export function Navbar() {
           <ThemeToggle />
           <Link href="/login">
             <Button variant="outline" size="sm">
-              Area do Cliente
+              {navigation.clientArea}
             </Button>
           </Link>
         </div>
@@ -94,7 +97,7 @@ export function Navbar() {
               </a>
             ))}
             <Link href="/login" onClick={() => setOpen(false)} className="rounded-xl px-4 py-3 text-sm font-medium text-white/80 hover:bg-white/10 hover:text-white">
-              Area do Cliente
+              {navigation.clientArea}
             </Link>
           </nav>
         </div>

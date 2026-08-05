@@ -9,6 +9,7 @@ import { usePublicSite } from "@/lib/use-public-site";
 import type { SchoolCategory, SchoolRecord } from "@/lib/app-types";
 import { schoolCategories, schoolCategoryLabel, shiftsLabel } from "@/lib/app-utils";
 import { cn } from "@/lib/utils";
+import { defaultSiteContent } from "@/lib/site-content";
 
 const fallbackSchools: SchoolRecord[] = [
   {
@@ -54,6 +55,7 @@ const fallbackSchools: SchoolRecord[] = [
 
 export function Escolas() {
   const site = usePublicSite();
+  const content = site?.settings.siteContent || defaultSiteContent();
   const [filter, setFilter] = useState<SchoolCategory | "todas">("todas");
   const schools = site?.schools?.length ? site.schools : fallbackSchools;
   const servedSchools = schools.filter((schoolItem) => schoolItem.served && schoolItem.active);
@@ -66,7 +68,7 @@ export function Escolas() {
   return (
     <section id="escolas" className="bg-mist py-24 sm:py-32 dark:bg-[#0d1526]">
       <div className="mx-auto max-w-6xl px-4">
-        <SectionHeading eyebrow="Onde atendemos" title="Escolas atendidas em Toledo" />
+        <SectionHeading eyebrow={content.schools.eyebrow} title={content.schools.title} />
 
         <div className="mt-8 flex flex-wrap justify-center gap-2">
           {["todas", ...schoolCategories].map((category) => (
@@ -112,7 +114,7 @@ export function Escolas() {
                   href="#contato"
                   className="mt-4 inline-flex items-center gap-1 text-sm font-semibold text-navy hover:text-sun-2 dark:text-white"
                 >
-                  Consultar vaga <ArrowUpRight size={14} />
+                  {content.schools.button} <ArrowUpRight size={14} />
                 </a>
               </Card>
             </motion.div>

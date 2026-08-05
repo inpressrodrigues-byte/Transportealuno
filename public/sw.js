@@ -1,5 +1,5 @@
-const CACHE_NAME = "oziel-turismo-v2";
-const APP_SHELL = ["/", "/login", "/dashboard", "/student", "/driver", "/icon.png", "/brand/oziel-logo-v3.png"];
+const CACHE_NAME = "oziel-turismo-v3";
+const APP_SHELL = ["/", "/cartao", "/login", "/dashboard", "/student", "/driver", "/icon.png", "/brand/oziel-logo-v3.png"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_SHELL)));
